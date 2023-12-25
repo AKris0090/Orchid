@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 
     vkR.createDescriptorSets();
 
-    std::cout << "s\ncreated descriptor sets" << std::endl;
+    std::cout << "\ncreated descriptor sets" << std::endl;
 
     vkR.createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
 
