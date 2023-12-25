@@ -22,10 +22,10 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    VulkanRenderer::UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), /*time * */glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    UniformBufferObject ubo{};
+    ubo.model = glm::rotate(glm::mat4(1.0f), /*time **/ glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), this->SWChainExtent.width / (float)this->SWChainExtent.height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), this->SWChainExtent.width / (float)this->SWChainExtent.height, 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
 
     void* data;
@@ -304,7 +304,7 @@ SWAP CHAIN METHODS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // First aspect : image format
-VkSurfaceFormatKHR VulkanRenderer::SWChainSuppDetails::chooseSwSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+VkSurfaceFormatKHR SWChainSuppDetails::chooseSwSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     for (const auto& availableFormat : availableFormats) {
         // If it has the right color space and format, return it
         if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
@@ -317,7 +317,7 @@ VkSurfaceFormatKHR VulkanRenderer::SWChainSuppDetails::chooseSwSurfaceFormat(con
 }
 
 // Second aspect : present mode
-VkPresentModeKHR VulkanRenderer::SWChainSuppDetails::chooseSwPresMode(const std::vector<VkPresentModeKHR>& availablePresModes) {
+VkPresentModeKHR SWChainSuppDetails::chooseSwPresMode(const std::vector<VkPresentModeKHR>& availablePresModes) {
     // Using Mailbox present mode, if possible
     // Can also use: VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_FIF_RELAXED_KHR, or VK_PRESENT_MODE_MAILBOX_KHR
     for (const VkPresentModeKHR& availablePresMode : availablePresModes) {
@@ -331,7 +331,7 @@ VkPresentModeKHR VulkanRenderer::SWChainSuppDetails::chooseSwPresMode(const std:
 }
 
 // Third aspect : image extent
-VkExtent2D VulkanRenderer::SWChainSuppDetails::chooseSwExtent(const VkSurfaceCapabilitiesKHR& capabilities, SDL_Window* window) {
+VkExtent2D SWChainSuppDetails::chooseSwExtent(const VkSurfaceCapabilitiesKHR& capabilities, SDL_Window* window) {
     if (capabilities.currentExtent.width != UINT32_MAX) {
         return capabilities.currentExtent;
     }
@@ -352,7 +352,7 @@ VkExtent2D VulkanRenderer::SWChainSuppDetails::chooseSwExtent(const VkSurfaceCap
 }
 
 // Get details of the capabilities, formats, and presentation modes avialable from the physical device
-VulkanRenderer::SWChainSuppDetails VulkanRenderer::getDetails(VkPhysicalDevice physicalDevice) {
+SWChainSuppDetails VulkanRenderer::getDetails(VkPhysicalDevice physicalDevice) {
     SWChainSuppDetails details;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &details.capabilities);
 
@@ -375,7 +375,7 @@ VulkanRenderer::SWChainSuppDetails VulkanRenderer::getDetails(VkPhysicalDevice p
     return details;
 }
 
-VulkanRenderer::QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDevice) {
+QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDevice) {
     QueueFamilyIndices indices;
 
     // Get queue families and store in queueFamilies array
@@ -1011,21 +1011,19 @@ void VulkanRenderer::loadModel(glm::mat4 transform) {
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
 
-    OBJInstance instance;
-    instance.index = static_cast<uint32_t>(loadedModels.size());
-    instance.transform = transform;
-    instance.transformIT = glm::transpose(glm::inverse(transform));
-    instance.textureOffset = static_cast<uint32_t>(materials.size());
-
     loadedModels.resize(static_cast<uint32_t>(loadedModels.size()) + 1);
 
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
         throw std::runtime_error(warn + err);
     }
 
+    std::cout << shapes.size() << std::endl;
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
     for (const auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
-            VulkanRenderer::Vertex vertex{};
+            Vertex vertex{};
 
             vertex.pos = {
                 attrib.vertices[3 * index.vertex_index + 0],
@@ -1040,14 +1038,15 @@ void VulkanRenderer::loadModel(glm::mat4 transform) {
 
             vertex.color = { 1.0f, 1.0f, 1.0f };
 
-            loadedModels[0].vertices.push_back(vertex);
-            loadedModels[0].indices.push_back(static_cast<uint32_t>(loadedModels[0].indices.size()));
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(loadedModels[0].vertices.size());
+                loadedModels[0].vertices.push_back(vertex);
+            }
+
+            loadedModels[0].indices.push_back(uniqueVertices[vertex]);
         }
+        numModels++;
     }
-
-    instances.emplace_back(instance);
-
-    numModels += 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
