@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef VULKANRENDERER_H
+#define VULKANRENDERER_H
+
 #include <Vulkan/vulkan.h>
 #include <cstdio>
 #include <array>
@@ -18,68 +21,20 @@
 #include <unordered_map>
 #include <chrono>
 
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
-const std::string MODEL_PATH = "VikingRoom/OBJ.obj";
-const std::string TEXTURE_PATH = "VikingRoom/Material.png";
+// Forward declaration to model helper
+class ModelHelper;
+
+const std::string TEXTURE_PATH = "GSX/GSX.png";
 
 #ifdef NDEBUG
 const bool enableValLayers = false;
 #else
 const bool enableValLayers = true;
 #endif
-
-struct Vertex {
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		return bindingDescription;
-	}
-
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
-		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
-		attributeDescriptions[2].binding = 0;
-		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-		return attributeDescriptions;
-	}
-
-	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
-	}
-};
-
-namespace std {
-	template<> struct hash<Vertex> {
-		size_t operator()(Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
-}
-
-struct Model {
-	uint32_t totalIndices;
-	uint32_t totalVertices;
-
-	std::vector<uint16_t> indices = {};
-	std::vector<Vertex> vertices = {};
-};
 
 struct UniformBufferObject {
 	alignas(16) glm::mat4 model;
@@ -114,22 +69,13 @@ class VulkanRenderer {
 
 private:
 	uint32_t mipLevels;
-	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-	uint32_t numModels = 0;
-	size_t currentFrame = 0;
-
+	uint32_t imageIndex;
 
 	// SDL Surface handle
 	VkSurfaceKHR surface;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
-
-	// Device and queue handles
-	VkPhysicalDevice GPU = VK_NULL_HANDLE;
-	VkDevice device;
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
 
 	// Swap chain handles
 	VkSwapchainKHR swapChain;
@@ -138,16 +84,8 @@ private:
 	VkExtent2D SWChainExtent;
 	std::vector<VkImageView> SWChainImageViews;
 
-	// Render pass handles
-	VkRenderPass renderPass;
-
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout descriptorSetLayout;
-
-	// Pipeline Layout for "gloabls" to change shaders
-	VkPipelineLayout pipeLineLayout;
-	// The graphics pipeline handle
-	VkPipeline graphicsPipeline;
 
 	// Command Buffers - Command pool and command buffer handles
 	VkCommandPool commandPool;
@@ -168,28 +106,14 @@ private:
 	VkImageView textureImageView;
 	VkSampler textureSampler;
 
-	// Handle for the list of command buffers
-	std::vector<VkCommandBuffer> commandBuffers;
-
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers;
-
-	// Vertex Buffer Handle
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-
-	std::vector<Model> loadedModels;
-
-	// Index buffer handle
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
 
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
-	// Descriptor pool handles
-	VkDescriptorPool descriptorPool;
+	// Descriptor set handles
 	std::vector<VkDescriptorSet> descriptorSets;
 
 
@@ -203,13 +127,9 @@ private:
 
 	// Private helper methods ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	VkCommandBuffer beginSingleTimeCommands();
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -226,7 +146,7 @@ private:
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
-	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void recordCommandBuffer(std::vector<ModelHelper*> models, VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 	// Helper methods for the graphics pipeline
 	static std::vector<char> readFile(const std::string& fileName);
@@ -235,8 +155,6 @@ private:
 
 	// Additional swap chain methods
 	void cleanupSWChain();
-
-	void recreateSwapChain(SDL_Window* window);
 
 
 public:
@@ -248,9 +166,39 @@ public:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
-	// Handles for all variables, made public so they can be accessed by main
+	float camX = 2.0f;
+	float camY = 0.0f;
+	float camZ = 0.0f;
+
+	bool frBuffResized = false;
+
+	VkPhysicalDevice GPU = VK_NULL_HANDLE;
+	VkDevice device;
+
+	int numModels;
+	size_t currentFrame = 0;
+
+	// Handles for all variables, made public so they can be accessed by main and destroys
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
+	// Pipeline Layout for "gloabls" to change shaders
+	VkPipelineLayout pipeLineLayout;
+	// The graphics pipeline handle
+	VkPipeline graphicsPipeline;
+	// Render pass handles
+	VkRenderPass renderPass;
+	// Handle for the list of command buffers
+	std::vector<VkCommandBuffer> commandBuffers;
+	// Descriptor pool handles
+	VkDescriptorPool descriptorPool;
+	// Device and queue handles
+	VkQueue graphicsQueue;
+	VkQueue presentQueue;
+
+	QueueFamilyIndices QFIndices;
+
+	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+
 
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
@@ -289,11 +237,7 @@ public:
 	// Texture image's sampler
 	void createTextureImageSampler();
 	// Load all models
-	void loadModel(glm::mat4 transform);
-	// Creation of vertex buffer
-	void createVertexBuffer();
-	// Creation of index buffer
-	void createIndexBuffer();
+	
 	// Creation of uniform buffers
 	void createUniformBuffers();
 	// Descriptor Pool creation
@@ -305,7 +249,24 @@ public:
 	// Create the semaphores, signaling objects to allow asynchronous tasks to happen at the same time
 	void createSemaphores(const int maxFramesInFlight);
 
+
+	void recreateSwapChain(SDL_Window* window);
+
 	// Display methods - uniform buffer and fetching new frames
 	void updateUniformBuffer(uint32_t currentImage);
-	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
+	void drawNewFrame(SDL_Window* window, std::vector<ModelHelper*> models, int maxFramesInFlight);
+	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, std::vector<ModelHelper*> models, int maxFramesInFlight);
+
+	// For use from helper classes
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+	void freeEverything(int framesInFlight, std::vector<ModelHelper*> models);
+
+	// HELPER METHODS
+
+	VkCommandBuffer beginSingleTimeCommands();
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 };
+
+#endif
