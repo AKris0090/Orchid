@@ -1,4 +1,5 @@
 #include "ModelHelper.h"
+#include "TextureHelper.h"
 #include "VulkanRenderer.h"
 
 #include <imgui.h>
@@ -8,14 +9,24 @@
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::string model_paths[] = {
-    //"VikingRoom/OBJ.obj",
+    "VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"
 };
+
+const std::string texture_paths[] = {
+    "GSX/GSX.png",
+    "VikingRoom/Material.png"
+};
+
+float rotateX = 1.0;
+float rotateY = 0.0;
+float rotateZ = 0.0;
 
 // Create vulkan rendering pipeline
 VulkanRenderer vkR;
 
 std::vector<ModelHelper*> models;
+std::vector<TextureHelper*> textures;
 
 static void check_vk_result(VkResult err)
 {
@@ -71,7 +82,6 @@ int main(int argc, char* argv[]) {
     vkR.setupDebugMessenger(vkR.instance, vkR.debugMessenger);
 
     vkR.createSurface(window);
-
     std::cout << "created surface \n" << std::endl;
 
     vkR.pickPhysicalDevice();
@@ -83,36 +93,24 @@ int main(int argc, char* argv[]) {
     vkR.createImageViews();
 
     vkR.createRenderPass();
-
     std::cout << "created render pass" << std::endl;
 
     vkR.createDescriptorSetLayout();
-
     std::cout << "created desc set layout" << std::endl;
 
     vkR.createGraphicsPipeline();
-
     std::cout << "created graphics pipeline" << std::endl;
 
     vkR.createCommandPool();
 
     vkR.createColorResources();
-
     std::cout << "created color resources" << std::endl;
 
     vkR.createDepthResources();
-
     std::cout << "created depth resources \n" << std::endl;
 
     vkR.createFrameBuffer();
-
     std::cout << "created frame buffers \n" << std::endl;
-
-    vkR.createTextureImage();
-
-    vkR.createTextureImageView();
-
-    vkR.createTextureImageSampler();
 
     vkR.numModels = (sizeof(model_paths) / sizeof(*model_paths));
     std::cout << "loading: " << vkR.numModels << " models" <<std::endl << std::endl;
@@ -124,28 +122,50 @@ int main(int argc, char* argv[]) {
 
         std::cout << "\nloaded model: " << s << ": " << mod->model.totalVertices << " vertices, " << mod->model.totalIndices << " indices\n" << std::endl;
     }
+    //ADDITIONAL CHANGES /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    models[0]->textureIndex = 1;
+    models[1]->textureIndex = 0;
+    models[0]->model.transform = glm::rotate(glm::mat4(1.0), glm::radians(90.0f), glm::vec3(-1.0, 0.0, 0.0));
+    models[0]->model.transform = glm::rotate(models[0]->model.transform, glm::radians(45.0f), glm::vec3(0.0, 1.0, -1.0));
+    models[0]->model.transform = glm::translate(models[0]->model.transform, glm::vec3(0.0, 1.35, 0.75));
 
+    models[1]->model.transform = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, 1.35));
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     vkR.createUniformBuffers();
 
     vkR.createDescriptorPool();
 
     vkR.createDescriptorSets();
-
     std::cout << "\ncreated descriptor sets" << std::endl;
 
-    vkR.createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
+    vkR.numTextures = (sizeof(texture_paths) / sizeof(*texture_paths));
+    std::cout << "loading: " << vkR.numTextures << " textures" << std::endl << std::endl;
 
+    for (std::string s : texture_paths) {
+        TextureHelper* tex = new TextureHelper(s, &vkR);
+        textures.push_back(tex);
+        tex->load();
+
+        std::cout << "\nloaded texture: " << s << ": " << std::endl;
+    }
+
+    vkR.createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created commaned buffers" << std::endl;
 
     vkR.createSemaphores(MAX_FRAMES_IN_FLIGHT);
-
     std::cout << "created semaphores \n" << std::endl;
 
     setupImGUI(window);
+    bool showDemoWindow = true;
+
+    // setup code
+    Uint32 startclock = 0; Uint32 deltaclock = 0; Uint32 currentFPS = 0;
 
     bool running = true;
     const Uint8* keystates = SDL_GetKeyboardState(NULL);
     while (running) {
+        // at beginning of loop
+        startclock = SDL_GetTicks();
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             //if (keystates[SDL_SCANCODE_W]) {
@@ -177,7 +197,7 @@ int main(int argc, char* argv[]) {
                     break;
             }
         }
-        vkR.drawNewFrame(window, models, MAX_FRAMES_IN_FLIGHT);
+        vkR.drawNewFrame(window, models, textures, MAX_FRAMES_IN_FLIGHT);
 
         // (After event loop)
         // Start the Dear ImGui frame
@@ -185,7 +205,22 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::ShowDemoWindow(); // Show demo window! :)
+        if(showDemoWindow)
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin("Var Editor");                          // Create a window called "Hello, world!" and append into it.
+
+            ImGui::SliderFloat("camX", &vkR.camX, -5.0f, 5.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::SliderFloat("camY", &vkR.camY, -5.0f, 5.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::SliderFloat("camZ", &vkR.camZ, -5.0f, 5.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::ColorEdit3("clear color", (float*)&vkR.clearValue.color); // Edit 3 floats representing a color
+
+            ImGui::Checkbox("rotate", &vkR.rotate);
+
+            ImGui::End();
+        }
 
         // Rendering
 
@@ -193,6 +228,12 @@ int main(int argc, char* argv[]) {
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vkR.commandBuffers[vkR.currentFrame]);
 
         vkR.postDrawEndCommandBuffer(vkR.commandBuffers[vkR.currentFrame], window, models, MAX_FRAMES_IN_FLIGHT);
+
+        // actual fps calculation inside loop
+        deltaclock = SDL_GetTicks() - startclock; startclock = SDL_GetTicks();
+        if (deltaclock != 0) {
+            currentFPS = 1000 / deltaclock;
+        }
     }
     vkDeviceWaitIdle(vkR.device);
 

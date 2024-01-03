@@ -72,6 +72,7 @@ namespace std {
 struct Model {
 	uint32_t totalIndices;
 	uint32_t totalVertices;
+	glm::mat4 transform{ 1.0 };
 
 	std::vector<uint32_t> indices = {};
 	std::vector<Vertex> vertices = {};
@@ -81,7 +82,6 @@ class ModelHelper {
 private:
 	std::string modPath;
 	VulkanRenderer* vkR;
-
 	glm::mat4 transform;
 
 	// Vertex Buffer Handle
@@ -97,6 +97,7 @@ private:
 
 public:
 	Model model;
+	int textureIndex = 0;
 	ModelHelper(std::string path, VulkanRenderer* vkR);
 
 	void load();
