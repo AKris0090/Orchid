@@ -4,7 +4,6 @@
 #define VULKANRENDERER_H
 
 #include <Vulkan/vulkan.h>
-#include <cstdio>
 #include <array>
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
@@ -20,14 +19,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <unordered_map>
 #include <chrono>
+#include <glm/gtc/type_ptr.hpp>
+#include "ktx.h"
+#include <filesystem>
 
+#include "Camera.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
-
-// Forward declaration to model helper
-class ModelHelper;
-class TextureHelper;
 
 #ifdef NDEBUG
 const bool enableValLayers = false;
@@ -35,10 +34,158 @@ const bool enableValLayers = false;
 const bool enableValLayers = true;
 #endif
 
+class VulkanRenderer;
+class TextureHelper;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+MODEL HELPER CLASS
+*/
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct Vertex {
+	glm::vec3 pos;
+	glm::vec3 color;
+	glm::vec2 uv;
+	glm::vec3 normal;
+	glm::vec4 tangent;
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDescription;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{};
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, uv);
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, normal);
+		attributeDescriptions[4].binding = 0;
+		attributeDescriptions[4].location = 4;
+		attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[4].offset = offsetof(Vertex, tangent);
+		return attributeDescriptions;
+	}
+
+	bool operator==(const Vertex& other) const {
+		return pos == other.pos && color == other.color && uv == other.uv && normal == other.normal;
+	}
+};
+
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.uv) << 1);
+		}
+	};
+}
+
+// Structs from gltfloading example by Sascha Willems
+struct PrimitiveObjIndices {
+	uint32_t firstIndex;
+	uint32_t numIndices;
+	int32_t materialIndex;
+};
+
+struct MeshObj {
+	std::vector<PrimitiveObjIndices> primitives;
+};
+
+struct Scene {
+	uint32_t totalIndices;
+
+	uint32_t totalVertices;
+	std::vector<uint32_t> indices = {};
+	std::vector<Vertex> vertices = {};
+
+	struct SceneNode;
+
+	struct SceneNode {
+		SceneNode* parent;
+		std::vector<SceneNode*> children;
+		MeshObj mesh;
+		glm::mat4 transform;
+	};
+};
+
+struct TextureIndexHolder {
+	uint32_t textureIndex;
+};
+
+// A glTF material stores information in e.g. the texture that is attached to it and colors
+struct Material {
+	glm::vec4 baseColor = glm::vec4(1.0f);
+	uint32_t baseColorTexIndex;
+	uint32_t normalTexIndex;
+	std::string alphaMode = "OPAQUE";
+	float alphaCutOff;
+	bool doubleSides = false;
+	VkDescriptorSet descriptorSet;
+	VkPipeline pipeline;
+};
+
+class ModelHelper {
+private:
+	std::string modPath;
+
+	// Vertex Buffer Handle
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+
+	// Index buffer handle
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	void createVertexBuffer();
+	void createIndexBuffer();
+
+	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Scene::SceneNode* node);
+
+public:
+	std::vector<TextureHelper*> images;
+	std::vector<TextureIndexHolder> textures;
+	std::vector<Material> mats;
+	std::vector<Scene::SceneNode*> nodes;
+
+	VulkanRenderer* vkR;
+
+	Scene model;
+	ModelHelper();
+	ModelHelper(std::string path);
+
+	void loadGLTF();
+	void createDescriptors();
+	void destroy();
+	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+VULKAN RENDERER CLASS
+*/
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct UniformBufferObject {
-	alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::vec4 lightPos = glm::vec4(10.0f, 10.0f, -10.0f, 1.0f);
+	glm::vec4 viewPos;
 };
 
 // Queue family struct
@@ -115,8 +262,6 @@ private:
 	std::vector<VkFence> imagesInFlight;
 
 	// Private helper methods ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
 
@@ -126,7 +271,7 @@ private:
 	VkFormat findDepthFormat();
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	void recordCommandBuffer(std::vector<ModelHelper*> models, std::vector<TextureHelper*> textures, VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 	// Helper methods for the graphics pipeline
 	static std::vector<char> readFile(const std::string& fileName);
@@ -138,6 +283,8 @@ private:
 
 
 public:
+	VulkanRenderer(int numModels, int numTextures);
+
 	VkClearValue clearValue;
 	// Extension and validation arrays
 	const std::vector<const char*> validationLayers = {
@@ -147,9 +294,7 @@ public:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
-	float camX = 5.0f;
-	float camY = 0.0f;
-	float camZ = 0.0f;
+	FPSCam camera;
 
 	bool rotate = false;
 
@@ -161,6 +306,11 @@ public:
 	int numModels;
 	int numTextures;
 	size_t currentFrame = 0;
+
+	std::vector<ModelHelper*> models;
+
+	uint32_t numMats;
+	uint32_t numImages;
 
 	// Handles for all variables, made public so they can be accessed by main and destroys
 	VkInstance instance;
@@ -208,7 +358,7 @@ public:
 	// Create the descriptor set layout
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
-	void createGraphicsPipeline();
+	void createGraphicsPipeline(ModelHelper* m);
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function
@@ -236,19 +386,18 @@ public:
 	// Create the semaphores, signaling objects to allow asynchronous tasks to happen at the same time
 	void createSemaphores(const int maxFramesInFlight);
 
-
 	void recreateSwapChain(SDL_Window* window);
 
 	// Display methods - uniform buffer and fetching new frames
 	void updateUniformBuffer(uint32_t currentImage);
-	void drawNewFrame(SDL_Window* window, std::vector<ModelHelper*> models, std::vector<TextureHelper*> textures, int maxFramesInFlight);
-	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, std::vector<ModelHelper*> models, int maxFramesInFlight);
+	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
+	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 
 	// For use from helper classes
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
-	void freeEverything(int framesInFlight, std::vector<ModelHelper*> models);
+	void freeEverything(int framesInFlight);
 
 	// HELPER METHODS
 
@@ -259,5 +408,6 @@ public:
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 };
+
 
 #endif
