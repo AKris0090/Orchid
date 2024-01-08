@@ -3,8 +3,10 @@
 std::string model_paths[] = {
     /*"VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"*/
-    //"Helmet/DamagedHelmet.glb"
-    "Helmet/FlightHelmet.gltf"
+    "Helmet/DamagedHelmet.glb"
+    //"Helmet/FlightHelmet.gltf"
+    //"sp/NewSponza_Main_glTF_002.gltf",
+    //"curt/NewSponza_Curtains_glTF.gltf"
 };
 
 std::string texture_paths[] = {
@@ -12,8 +14,8 @@ std::string texture_paths[] = {
     "VikingRoom/Material.png"
 };
 
-#define NUM_MODELS 1;
-#define NUM_TEXTURES 0;
+//#define NUM_MODELS 2;
+//#define NUM_TEXTURES 0;
 
 int main(int argc, char* argv[]) {
 

@@ -1789,6 +1789,7 @@ void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNod
             uint32_t firstIndex = static_cast<uint32_t>(model.indices.size());
             uint32_t vertexStart = static_cast<uint32_t>(model.vertices.size());
             uint32_t indexCount = 0;
+            uint32_t numVertices = 0;
 
             // FOR VERTICES
             const float* positionBuff = nullptr;
@@ -1799,7 +1800,7 @@ void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNod
                 const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("POSITION")->second];
                 const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
                 positionBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-                model.totalVertices = accessor.count;
+                numVertices = accessor.count;
             }
             if (gltfPrims.attributes.find("NORMAL") != gltfPrims.attributes.end()) {
                 const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("NORMAL")->second];
@@ -1817,7 +1818,7 @@ void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNod
                 tangentsBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
 
-            for (size_t vert = 0; vert < model.totalVertices; vert++) {
+            for (size_t vert = 0; vert < numVertices; vert++) {
                 Vertex v;
                 v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
                 v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
@@ -1825,6 +1826,7 @@ void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNod
                 v.color = glm::vec3(1.0f);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
                 model.vertices.push_back(v);
+                model.totalVertices++;
             }
 
             // FOR INDEX
