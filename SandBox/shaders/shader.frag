@@ -4,6 +4,7 @@ layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
+layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
@@ -11,6 +12,7 @@ layout(location = 2) in vec3 fragViewVec;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
+layout(location = 6) in vec3 fragPosition;
 
 layout(location = 0) out vec4 outColor;
 
@@ -62,15 +64,9 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 vec3 getNormalFromMap()
 {
     vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
-
-    vec3 Q1  = dFdx(fragTangent.xyz); // world position placeholder
-    vec3 Q2  = dFdy(fragTangent.xyz); // world position placeholder
-    vec2 st1 = dFdx(fragTexCoord);
-    vec2 st2 = dFdy(fragTexCoord);
-
-    vec3 N   = normalize(fragNormal);
-    vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
-    vec3 B  = -normalize(cross(N, T));
+    vec3 N = normalize(fragNormal);
+    vec3 T = normalize(fragTangent.xyz);
+    vec3 B = normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
 
     return normalize(TBN * tangentNormal);
@@ -137,8 +133,8 @@ void main() {
     // HDR tonemapping
     col = col / (col + vec3(1.0));
     
-    float exposure = 1.5;
+    float exposure = 0.5;
     col = pow(col, vec3(1.0 / exposure));
 
-    outColor = vec4(col, alpha);
+    outColor = vec4(col, alpha) + texture(emissionSampler, fragTexCoord);
 }

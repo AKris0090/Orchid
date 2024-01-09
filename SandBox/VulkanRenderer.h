@@ -135,6 +135,7 @@ struct Material {
 	uint32_t normalTexIndex;
 	uint32_t metallicRoughnessIndex;
 	uint32_t aoIndex;
+	uint32_t emissionIndex;
 	std::string alphaMode = "OPAQUE";
 	float alphaCutOff;
 	bool doubleSides = false;

@@ -30,8 +30,6 @@ private:
 
     void createTextureImages();
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-    void createTextureImageView();
-    void createTextureImageSampler();
 
     void createTextureDescriptorSet();
 
@@ -48,6 +46,9 @@ public:
     int i;
     TextureHelper();
     TextureHelper(tinygltf::Model& in, int i);
+
+    void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_UNORM);
+    void createTextureImageSampler();
 
     void load();
     void free();
@@ -770,7 +771,14 @@ void VulkanRenderer::createDescriptorSetLayout() {
     samplerLayoutBindingAO.pImmutableSamplers = nullptr;
     samplerLayoutBindingAO.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO };
+    VkDescriptorSetLayoutBinding samplerLayoutBindingEmission{};
+    samplerLayoutBindingEmission.binding = 4;
+    samplerLayoutBindingEmission.descriptorCount = 1;
+    samplerLayoutBindingEmission.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingEmission.pImmutableSamplers = nullptr;
+    samplerLayoutBindingEmission.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO, samplerLayoutBindingEmission };
 
     VkDescriptorSetLayoutCreateInfo layoutCInfo{};
     layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -781,7 +789,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
     }
 
-    layoutCInfo.bindingCount = 4;
+    layoutCInfo.bindingCount = 5;
     layoutCInfo.pBindings = samplerBindings.data();
 
     if (vkCreateDescriptorSetLayout(device, &layoutCInfo, nullptr, &textureDescriptorSetLayout) != VK_SUCCESS) {
@@ -1257,7 +1265,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space
-    poolSizes[1].descriptorCount = this->numMats * 4 * static_cast<uint32_t>(SWChainImages.size());
+    poolSizes[1].descriptorCount = this->numMats * 5 * static_cast<uint32_t>(SWChainImages.size());
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1741,11 +1749,29 @@ void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images, Vulkan
         tex->load();
         images.push_back(tex);
     }
+    TextureHelper* dummyAO = new TextureHelper(in, -1);
+    dummyAO->vkR = vkR;
+    TextureHelper* dummyMetallic = new TextureHelper(in, -2);
+    dummyMetallic->vkR = vkR;
+    TextureHelper* dummyNormal = new TextureHelper(in, -3);
+    dummyNormal->vkR = vkR;
+    dummyAO->load();
+    dummyMetallic->load();
+    dummyNormal->load();
+    images.push_back(dummyNormal);
+    images.push_back(dummyMetallic);
+    images.push_back(dummyAO);
 }
 
 void loadMaterials(tinygltf::Model& in, std::vector<Material>& mats) {
+    uint32_t numImages = in.images.size();
+    std::cout << numImages << std::endl;
+    uint32_t dummyNormalIndex = numImages;
+    uint32_t dummyMetallicRoughnessIndex = numImages + 1;
+    uint32_t dummyAOIndex = numImages + 2;
     mats.resize(in.materials.size());
     int count = 0;
+    std::cout << mats.size() << std::endl;
     for (Material& m : mats) {
         tinygltf::Material gltfMat = in.materials[count];
         if (gltfMat.values.find("baseColorFactor") != gltfMat.values.end()) {
@@ -1757,11 +1783,26 @@ void loadMaterials(tinygltf::Model& in, std::vector<Material>& mats) {
         if (gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end()) {
             m.normalTexIndex = gltfMat.additionalValues["normalTexture"].TextureIndex();
         }
-        if (gltfMat.additionalValues.find("metallicRoughnessTexture") != gltfMat.additionalValues.end()) {
-            m.metallicRoughnessIndex = gltfMat.additionalValues["metallicRoughnessTexture"].TextureIndex();
+        else {
+            m.normalTexIndex = dummyNormalIndex;
+        }
+        if (gltfMat.values.find("metallicRoughnessTexture") != gltfMat.values.end()) {
+            m.metallicRoughnessIndex = gltfMat.values["metallicRoughnessTexture"].TextureIndex();
+        }
+        else {
+            m.metallicRoughnessIndex = dummyMetallicRoughnessIndex;
         }
         if (gltfMat.additionalValues.find("occlusionTexture") != gltfMat.additionalValues.end()) {
             m.aoIndex = gltfMat.additionalValues["occlusionTexture"].TextureIndex();
+        }
+        else {
+            m.aoIndex = dummyAOIndex;
+        }
+        if (gltfMat.additionalValues.find("emissiveTexture") != gltfMat.additionalValues.end()) {
+            m.emissionIndex = gltfMat.additionalValues["emissiveTexture"].TextureIndex();
+        }
+        else {
+            m.emissionIndex = dummyMetallicRoughnessIndex;
         }
         m.alphaMode = gltfMat.alphaMode;
         m.alphaCutOff = (float)gltfMat.alphaCutoff;
@@ -1772,9 +1813,13 @@ void loadMaterials(tinygltf::Model& in, std::vector<Material>& mats) {
 
 void loadTextures(tinygltf::Model& in, std::vector<TextureIndexHolder>& textures) {
     textures.resize(in.textures.size());
+    uint32_t size = textures.size();
     for (size_t i = 0; i < in.textures.size(); i++) {
         textures[i].textureIndex = in.textures[i].source;
     }
+    textures.push_back(TextureIndexHolder{ size });
+    textures.push_back(TextureIndexHolder{ size + 1 });
+    textures.push_back(TextureIndexHolder{ size + 2 });
 }
 
 void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNode* parent, Scene& model, std::vector<Scene::SceneNode*>& nodes) {
@@ -2029,29 +2074,35 @@ void ModelHelper::createDescriptors() {
             std::_Xruntime_error("Failed to allocate descriptor sets!");
         }
 
-        TextureHelper* t = this->images[m.baseColorTexIndex];
+        TextureHelper* t = this->images[this->textures[m.baseColorTexIndex].textureIndex];
         VkDescriptorImageInfo colorImageInfo{};
         colorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         colorImageInfo.imageView = t->textureImageView;
         colorImageInfo.sampler = t->textureSampler;
 
-        TextureHelper* n = this->images[m.normalTexIndex];
+        TextureHelper* n = this->images[this->textures[m.normalTexIndex].textureIndex];
         VkDescriptorImageInfo normalImageInfo{};
         normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         normalImageInfo.imageView = n->textureImageView;
         normalImageInfo.sampler = n->textureSampler;
 
-        TextureHelper* mR = this->images[m.metallicRoughnessIndex];
+        TextureHelper* mR = this->images[this->textures[m.metallicRoughnessIndex].textureIndex];
         VkDescriptorImageInfo mrImageInfo{};
         mrImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         mrImageInfo.imageView = mR->textureImageView;
         mrImageInfo.sampler = mR->textureSampler;
 
-        TextureHelper* ao = this->images[m.aoIndex];
+        TextureHelper* ao = this->images[this->textures[m.aoIndex].textureIndex];
         VkDescriptorImageInfo aoImageInfo{};
         aoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         aoImageInfo.imageView = ao->textureImageView;
         aoImageInfo.sampler = ao->textureSampler;
+
+        TextureHelper* em = this->images[this->textures[m.emissionIndex].textureIndex];
+        VkDescriptorImageInfo emissionImageInfo{};
+        emissionImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        emissionImageInfo.imageView = em->textureImageView;
+        emissionImageInfo.sampler = em->textureSampler;
 
         VkWriteDescriptorSet colorDescriptorWriteSet{};
         colorDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2085,7 +2136,15 @@ void ModelHelper::createDescriptors() {
         aoDescriptorWriteSet.descriptorCount = 1;
         aoDescriptorWriteSet.pImageInfo = &aoImageInfo;
 
-        std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet };
+        VkWriteDescriptorSet emDescriptorWriteSet{};
+        emDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        emDescriptorWriteSet.dstSet = m.descriptorSet;
+        emDescriptorWriteSet.dstBinding = 4;
+        emDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        emDescriptorWriteSet.descriptorCount = 1;
+        emDescriptorWriteSet.pImageInfo = &emissionImageInfo;
+
+        std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
         vkUpdateDescriptorSets(this->vkR->device, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }
@@ -2193,55 +2252,115 @@ void TextureHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w
 }
 
 void TextureHelper::createTextureImages() {
-    tinygltf::Image& curImage = in->images[i];
-
-    // load images
     unsigned char* buff = nullptr;
     VkDeviceSize buffSize = 0;
     bool deleteBuff = false;
-    if (curImage.component == 3) {
-        buffSize = curImage.width * curImage.height * 4;
-        buff = new unsigned char[buffSize];
-        unsigned char* rgba = buff;
-        unsigned char* rgb = &curImage.image[0];
-        for (size_t j = 0; j < curImage.width * curImage.height; j++) {
-            memcpy(rgba, rgb, sizeof(unsigned char) * 3);
-            rgba += 4;
-            rgb += 3;
+    int texWidth, texHeight, texChannels;
+    tinygltf::Image& curImage = in->images[0];
+    VkDeviceSize imageSize;
+    bool dummy = false;
+    stbi_uc* pixels = nullptr;
+    switch (this->i) {
+    case -1:
+        pixels = stbi_load("shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        imageSize = texWidth * texHeight * 4;
+
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
         }
-        deleteBuff = true;
+
+        dummy = true;
+        break;
+    case -2:
+        pixels = stbi_load("shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        imageSize = texWidth * texHeight * 4;
+
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+        }
+
+        dummy = true;
+        break;
+    case -3:
+        pixels = stbi_load("shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        imageSize = texWidth * texHeight * 4;
+
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+        }
+
+        dummy = true;
+        break;
+    default:
+        curImage = in->images[i];
+
+        // load images
+        if (curImage.component == 3) {
+            buffSize = curImage.width * curImage.height * 4;
+            buff = new unsigned char[buffSize];
+            unsigned char* rgba = buff;
+            unsigned char* rgb = &curImage.image[0];
+            for (size_t j = 0; j < curImage.width * curImage.height; j++) {
+                memcpy(rgba, rgb, sizeof(unsigned char) * 3);
+                rgba += 4;
+                rgb += 3;
+            }
+            deleteBuff = true;
+        }
+        else {
+            buff = &curImage.image[0];
+            buffSize = curImage.image.size();
+        }
+    }
+
+    if (dummy) {
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        this->vkR->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void* data;
+        vkMapMemory(this->vkR->device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(this->vkR->device, stagingBufferMemory);
+
+        stbi_image_free(pixels);
+
+        this->vkR->createImage(texWidth, texHeight, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
+        copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+        vkDestroyBuffer(this->vkR->device, stagingBuffer, nullptr);
+        vkFreeMemory(this->vkR->device, stagingBufferMemory, nullptr);
+
+        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_UNORM, curImage.width, curImage.height, this->mipLevels);
     }
     else {
-        buff = &curImage.image[0];
-        buffSize = curImage.image.size();
-    }
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        this->vkR->createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
+        // could mess up since buffer no longer requires same memory // DELETE IF WORKING
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(this->vkR->device, stagingBuffer, &memRequirements);
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    this->vkR->createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+        void* data;
+        vkMapMemory(this->vkR->device, stagingBufferMemory, 0, memRequirements.size, 0, &data);
+        memcpy(data, buff, buffSize);
+        vkUnmapMemory(this->vkR->device, stagingBufferMemory);
 
-    // could mess up since buffer no longer requires same memory // DELETE IF WORKING
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(this->vkR->device, stagingBuffer, &memRequirements);
+        this->vkR->createImage(curImage.width, curImage.height, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
 
-    void* data;
-    vkMapMemory(this->vkR->device, stagingBufferMemory, 0, memRequirements.size, 0, &data);
-    memcpy(data, buff, buffSize);
-    vkUnmapMemory(this->vkR->device, stagingBufferMemory);
+        copyBufferToImage(stagingBuffer, textureImage, curImage.width, curImage.height);
 
-    this->vkR->createImage(curImage.width, curImage.height, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
+        vkDestroyBuffer(this->vkR->device, stagingBuffer, nullptr);
+        vkFreeMemory(this->vkR->device, stagingBufferMemory, nullptr);
 
-    copyBufferToImage(stagingBuffer, textureImage, curImage.width, curImage.height);
+        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_UNORM, curImage.width, curImage.height, this->mipLevels);
 
-    vkDestroyBuffer(this->vkR->device, stagingBuffer, nullptr);
-    vkFreeMemory(this->vkR->device, stagingBufferMemory, nullptr);
-
-    generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, curImage.width, curImage.height, this->mipLevels);
-
-    if (deleteBuff) {
-        delete[] buff;
+        if (deleteBuff) {
+            delete[] buff;
+        }
     }
 }
 
@@ -2335,8 +2454,8 @@ void TextureHelper::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t
     std::cout << "pipeline barrier for mipmaps" << std::endl << std::endl;
 }
 
-void TextureHelper::createTextureImageView() {
-    textureImageView = this->vkR->createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+void TextureHelper::createTextureImageView(VkFormat f) {
+    textureImageView = this->vkR->createImageView(textureImage, f, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 }
 
 void TextureHelper::createTextureImageSampler() {

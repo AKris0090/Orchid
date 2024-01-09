@@ -3,6 +3,7 @@
 std::string model_paths[] = {
     /*"VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"*/
+    //"dmgHel/DamagedHelmet.gltf"
     //"Helmet/DamagedHelmet.glb"
     //"Helmet/FlightHelmet.gltf"
     //"sp/NewSponza_Main_glTF_002.gltf",

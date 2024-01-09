@@ -23,16 +23,18 @@ layout(location = 2) out vec3 fragViewVec;
 layout(location = 3) out vec3 fragLightVec;
 layout(location = 4) out vec3 fragNormal;
 layout(location = 5) out vec4 fragTangent;
+layout(location = 6) out vec3 fragPosition;
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition.xyz, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
-    fragNormal = inNormal;
-    fragTangent = vec4(inPosition, 1.0);
 
     vec4 pos = pc.model * vec4(inPosition, 1.0);
-    fragNormal = mat3(pc.model) * inNormal;
+    fragNormal = inNormal;
+    fragTangent = inTangent;
     fragLightVec = ubo.lightPos.xyz - pos.xyz;
     fragViewVec = ubo.viewPos.xyz - pos.xyz;
+    fragPosition = inPosition;
+
+    gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition.xyz, 1.0);
 }
