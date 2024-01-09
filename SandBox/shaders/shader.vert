@@ -29,7 +29,7 @@ void main() {
     fragColor = inColor;
     fragTexCoord = inTexCoord;
     fragNormal = inNormal;
-    fragTangent = inTangent;
+    fragTangent = vec4(inPosition, 1.0);
 
     vec4 pos = pc.model * vec4(inPosition, 1.0);
     fragNormal = mat3(pc.model) * inNormal;

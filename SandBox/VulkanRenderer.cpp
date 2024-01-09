@@ -756,7 +756,21 @@ void VulkanRenderer::createDescriptorSetLayout() {
     samplerLayoutBindingNormal.pImmutableSamplers = nullptr;
     samplerLayoutBindingNormal.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal };
+    VkDescriptorSetLayoutBinding samplerLayoutBindingMetallicRoughness{};
+    samplerLayoutBindingMetallicRoughness.binding = 2;
+    samplerLayoutBindingMetallicRoughness.descriptorCount = 1;
+    samplerLayoutBindingMetallicRoughness.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingMetallicRoughness.pImmutableSamplers = nullptr;
+    samplerLayoutBindingMetallicRoughness.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding samplerLayoutBindingAO{};
+    samplerLayoutBindingAO.binding = 3;
+    samplerLayoutBindingAO.descriptorCount = 1;
+    samplerLayoutBindingAO.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingAO.pImmutableSamplers = nullptr;
+    samplerLayoutBindingAO.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO };
 
     VkDescriptorSetLayoutCreateInfo layoutCInfo{};
     layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -767,7 +781,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
     }
 
-    layoutCInfo.bindingCount = 2;
+    layoutCInfo.bindingCount = 4;
     layoutCInfo.pBindings = samplerBindings.data();
 
     if (vkCreateDescriptorSetLayout(device, &layoutCInfo, nullptr, &textureDescriptorSetLayout) != VK_SUCCESS) {
@@ -1243,7 +1257,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space
-    poolSizes[1].descriptorCount = this->numMats * 2 * static_cast<uint32_t>(SWChainImages.size());
+    poolSizes[1].descriptorCount = this->numMats * 4 * static_cast<uint32_t>(SWChainImages.size());
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1743,6 +1757,12 @@ void loadMaterials(tinygltf::Model& in, std::vector<Material>& mats) {
         if (gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end()) {
             m.normalTexIndex = gltfMat.additionalValues["normalTexture"].TextureIndex();
         }
+        if (gltfMat.additionalValues.find("metallicRoughnessTexture") != gltfMat.additionalValues.end()) {
+            m.metallicRoughnessIndex = gltfMat.additionalValues["metallicRoughnessTexture"].TextureIndex();
+        }
+        if (gltfMat.additionalValues.find("occlusionTexture") != gltfMat.additionalValues.end()) {
+            m.aoIndex = gltfMat.additionalValues["occlusionTexture"].TextureIndex();
+        }
         m.alphaMode = gltfMat.alphaMode;
         m.alphaCutOff = (float)gltfMat.alphaCutoff;
         m.doubleSides = gltfMat.doubleSided;
@@ -2021,6 +2041,18 @@ void ModelHelper::createDescriptors() {
         normalImageInfo.imageView = n->textureImageView;
         normalImageInfo.sampler = n->textureSampler;
 
+        TextureHelper* mR = this->images[m.metallicRoughnessIndex];
+        VkDescriptorImageInfo mrImageInfo{};
+        mrImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        mrImageInfo.imageView = mR->textureImageView;
+        mrImageInfo.sampler = mR->textureSampler;
+
+        TextureHelper* ao = this->images[m.aoIndex];
+        VkDescriptorImageInfo aoImageInfo{};
+        aoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        aoImageInfo.imageView = ao->textureImageView;
+        aoImageInfo.sampler = ao->textureSampler;
+
         VkWriteDescriptorSet colorDescriptorWriteSet{};
         colorDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         colorDescriptorWriteSet.dstSet = m.descriptorSet;
@@ -2037,7 +2069,23 @@ void ModelHelper::createDescriptors() {
         normalDescriptorWriteSet.descriptorCount = 1;
         normalDescriptorWriteSet.pImageInfo = &normalImageInfo;
 
-        std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet };
+        VkWriteDescriptorSet metallicRoughnessDescriptorWriteSet{};
+        metallicRoughnessDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        metallicRoughnessDescriptorWriteSet.dstSet = m.descriptorSet;
+        metallicRoughnessDescriptorWriteSet.dstBinding = 2;
+        metallicRoughnessDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        metallicRoughnessDescriptorWriteSet.descriptorCount = 1;
+        metallicRoughnessDescriptorWriteSet.pImageInfo = &mrImageInfo;
+
+        VkWriteDescriptorSet aoDescriptorWriteSet{};
+        aoDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        aoDescriptorWriteSet.dstSet = m.descriptorSet;
+        aoDescriptorWriteSet.dstBinding = 3;
+        aoDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        aoDescriptorWriteSet.descriptorCount = 1;
+        aoDescriptorWriteSet.pImageInfo = &aoImageInfo;
+
+        std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet };
 
         vkUpdateDescriptorSets(this->vkR->device, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }

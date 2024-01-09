@@ -13,7 +13,7 @@ private:
 	std::string* model_paths;
     std::string* texture_paths;
 
-	const int MAX_FRAMES_IN_FLIGHT = 2;
+	const int MAX_FRAMES_IN_FLIGHT = 1;
 
 	static void check_vk_result(VkResult err);
 

@@ -133,6 +133,8 @@ struct Material {
 	glm::vec4 baseColor = glm::vec4(1.0f);
 	uint32_t baseColorTexIndex;
 	uint32_t normalTexIndex;
+	uint32_t metallicRoughnessIndex;
+	uint32_t aoIndex;
 	std::string alphaMode = "OPAQUE";
 	float alphaCutOff;
 	bool doubleSides = false;
@@ -184,7 +186,7 @@ VULKAN RENDERER CLASS
 struct UniformBufferObject {
 	glm::mat4 view;
 	glm::mat4 proj;
-	glm::vec4 lightPos = glm::vec4(10.0f, 10.0f, -10.0f, 1.0f);
+    glm::vec4 lightPos = glm::vec4(0.0f, 2.5f, 0.0f, 1.0f);
 	glm::vec4 viewPos;
 };
 
