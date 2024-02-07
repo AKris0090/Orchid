@@ -3,26 +3,18 @@
 std::string model_paths[] = {
     /*"VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"*/
-    //"dmgHel/DamagedHelmet.gltf"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf"
     //"Helmet/DamagedHelmet.glb"
-    //"Helmet/FlightHelmet.gltf"
-    //"sp/NewSponza_Main_glTF_002.gltf",
-    "sponza/Sponza.gltf"
-    //"curt/NewSponza_Curtains_glTF.gltf"
-};
-
-std::string texture_paths[] = {
-    "GSX/GSX.png",
-    "VikingRoom/Material.png"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
 };
 
 //#define NUM_MODELS 2;
 //#define NUM_TEXTURES 0;
 
 int main(int argc, char* argv[]) {
-
     // CHANGE LAST 2 ARGUMENTS FOR DIFFERENT NUMBER OF MODELS/TEXTURES
-    GraphicsManager graphicsManager = GraphicsManager(model_paths, texture_paths, 1, 0);
+    GraphicsManager graphicsManager = GraphicsManager(model_paths, 1, 0);
 
     graphicsManager.setup();
 

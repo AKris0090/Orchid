@@ -7,7 +7,6 @@
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
 	glm::vec3 velocity = { 0.0f, 0.0f, 0.0f };
-	glm::vec3 position = { 0.0f, 0.0f, 0.0f };
 
 	// up-down
 	float pitch = 0.0f;
@@ -17,6 +16,7 @@ private:
 
 	glm::mat4 getRotationMatrix();
 public:
+	glm::vec3 position = { 0.0f, 0.0f, 0.0f };
 	glm::vec4 viewPos = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	void update();

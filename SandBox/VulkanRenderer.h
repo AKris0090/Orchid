@@ -286,6 +286,7 @@ private:
 
 
 public:
+	glm::vec4* lightPos = new glm::vec4(0.0f, 4.5f, 0.0f, 1.0f);
 	VulkanRenderer(int numModels, int numTextures);
 
 	VkClearValue clearValue;

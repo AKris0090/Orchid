@@ -21,7 +21,6 @@ private:
 	void startVulkan();
 	void startSDL();
 public:
-	FPSCam camera;
 	// Create vulkan rendering pipeline
 	VulkanRenderer* vkR;
 	SDL_Window* window;
@@ -29,7 +28,7 @@ public:
 
 	bool mousemode = true;
 
-	GraphicsManager(std::string modelStr[], std::string textureStr[], int numModels, int numTextures);
+	GraphicsManager(std::string modelStr[], int numModels, int numTextures);
 	void setup();
 	void loopUpdate();
 	void shutDown();

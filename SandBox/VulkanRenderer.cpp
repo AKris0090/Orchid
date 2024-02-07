@@ -20,6 +20,7 @@ TEXTURE HELPER CLASS
 
 class TextureHelper {
 private:
+    VkFormat imageFormat;
     uint32_t mipLevels = VK_SAMPLE_COUNT_1_BIT;
 
     // Helpers
@@ -47,7 +48,7 @@ public:
     TextureHelper();
     TextureHelper(tinygltf::Model& in, int i);
 
-    void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_UNORM);
+    void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_SRGB);
     void createTextureImageSampler();
 
     void load();
@@ -80,6 +81,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     ubo.view = this->camera.getViewMatrix();
     ubo.proj = glm::perspective(glm::radians(70.0f), this->SWChainExtent.width / (float)this->SWChainExtent.height, 0.0001f, 10000.0f);
     ubo.viewPos = this->camera.viewPos;
+    ubo.lightPos = *(this->lightPos);
 
     ubo.proj[1][1] *= -1;
 
@@ -310,7 +312,7 @@ SWAP CHAIN METHODS
 VkSurfaceFormatKHR SWChainSuppDetails::chooseSwSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     for (const auto& availableFormat : availableFormats) {
         // If it has the right color space and format, return it. UNORM for color mode of imgui
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
         }
     }
@@ -805,8 +807,8 @@ GRAPHICS PIPELINE
 
 void VulkanRenderer::createGraphicsPipeline(ModelHelper* m) {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("shaders/vert.spv");
-    std::vector<char> fragmentShader = readFile("shaders/frag.spv");
+    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/vert.spv");
+    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/frag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -2262,7 +2264,7 @@ void TextureHelper::createTextureImages() {
     stbi_uc* pixels = nullptr;
     switch (this->i) {
     case -1:
-        pixels = stbi_load("shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
 
         if (!pixels) {
@@ -2272,7 +2274,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     case -2:
-        pixels = stbi_load("shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
 
         if (!pixels) {
@@ -2282,7 +2284,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     case -3:
-        pixels = stbi_load("shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
 
         if (!pixels) {
@@ -2325,14 +2327,14 @@ void TextureHelper::createTextureImages() {
 
         stbi_image_free(pixels);
 
-        this->vkR->createImage(texWidth, texHeight, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
+        this->vkR->createImage(texWidth, texHeight, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
         copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
         vkDestroyBuffer(this->vkR->device, stagingBuffer, nullptr);
         vkFreeMemory(this->vkR->device, stagingBufferMemory, nullptr);
 
-        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_UNORM, curImage.width, curImage.height, this->mipLevels);
+        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, curImage.width, curImage.height, this->mipLevels);
     }
     else {
         VkBuffer stagingBuffer;
@@ -2348,15 +2350,15 @@ void TextureHelper::createTextureImages() {
         memcpy(data, buff, buffSize);
         vkUnmapMemory(this->vkR->device, stagingBufferMemory);
 
-        this->vkR->createImage(curImage.width, curImage.height, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
+        this->vkR->createImage(curImage.width, curImage.height, this->mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->mipLevels);
 
         copyBufferToImage(stagingBuffer, textureImage, curImage.width, curImage.height);
 
         vkDestroyBuffer(this->vkR->device, stagingBuffer, nullptr);
         vkFreeMemory(this->vkR->device, stagingBufferMemory, nullptr);
 
-        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_UNORM, curImage.width, curImage.height, this->mipLevels);
+        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, curImage.width, curImage.height, this->mipLevels);
 
         if (deleteBuff) {
             delete[] buff;
@@ -2494,6 +2496,7 @@ TEXTURE HELPER PUBLIC METHODS
 TextureHelper::TextureHelper(tinygltf::Model& in, int i) {
     this->in = &in;
     this->i = i;
+    this->vkR = nullptr;
 
     this->descriptorSet = VK_NULL_HANDLE;
     this->textureImage = VK_NULL_HANDLE;

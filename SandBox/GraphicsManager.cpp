@@ -1,8 +1,7 @@
 #include "GraphicsManager.h"
 
-GraphicsManager::GraphicsManager(std::string modelStr[], std::string textureStr[], int numModels, int numTextures) {
+GraphicsManager::GraphicsManager(std::string modelStr[], int numModels, int numTextures) {
     this->model_paths = modelStr;
-    this->texture_paths = textureStr;
     this->numModels = numModels;
     this->numTextures = numTextures;
     this->renderer = nullptr;
@@ -163,6 +162,12 @@ void GraphicsManager::loopUpdate() {
     ImGui::NewFrame();
 
     ImGui::Begin("Var Editor");
+    ImGui::SliderFloat("camX", &this->vkR->lightPos->x, -15.0f, 15.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::SliderFloat("camY", &this->vkR->lightPos->y, -15.0f, 15.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::SliderFloat("camZ", &this->vkR->lightPos->z, -15.0f, 15.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::SliderFloat("X", &this->vkR->camera.position.x, -100.0f, 100.0f);           // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::SliderFloat("Y", &this->vkR->camera.position.y, -100.0f, 100.0f);           // Edit 1 float using a slider from 0.0f to 1.0f
+    ImGui::SliderFloat("Z", &this->vkR->camera.position.z, -100.0f, 100.0f);           // Edit 1 float using a slider from 0.0f to 1.0f
     ImGui::ColorEdit3("clear color", (float*)&this->vkR->clearValue.color);
 
     ImGui::Checkbox("rotate", &this->vkR->rotate);

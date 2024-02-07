@@ -19,20 +19,29 @@ layout(location = 0) out vec4 outColor;
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 
-const float PI = 3.14159265359;
+const float PI = 3.1415926535897932384626433832795f;
 
-float DistributionGGX(vec3 N, vec3 H, float roughness)
+vec3 Uncharted2Tonemap(vec3 color)
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.02;
+	float F = 0.30;
+	float W = 11.2;
+	return ((color*(A*color+C*B)+D*E)/(color*(A*color+B)+D*F))-E/F;
+}
+
+float DistributionGGX(float NdotH, float roughness)
 {
     float a = roughness*roughness;
     float a2 = a*a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
 
-    float nom   = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
     denom = PI * denom * denom;
 
-    return nom / denom;
+    return a2 / max(denom, 0.0000001);
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness)
@@ -46,42 +55,68 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     return nom / denom;
 }
 
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+float GeometrySmith(float NdotV, float NdotL, float roughness)
 {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
 
     return ggx1 * ggx2;
 }
 
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+vec3 fresnelSchlickRoughness(float HdotV, vec3 F0, float roughness) {
+	return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - HdotV, 5.0f);
 }
 
 vec3 getNormalFromMap()
 {
-    vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
+    vec3 tangentNormal = pow(texture(normalSampler, fragTexCoord).xyz, vec3(1.0/2.2)) * 2.0 - 1.0;
+    //vec3 N = normalize(fragNormal);
+    //vec3 T = normalize(fragTangent.xyz);
+    //vec3 B = normalize(cross(N, T));
+    //mat3 TBN = mat3(T, B, N);
+
+    //return normalize(TBN * tangentNormal);
+    vec3 Q1 = dFdx(fragPosition);
+    vec3 Q2 = dFdy(fragPosition);
+    vec2 st1 = dFdx(fragTexCoord);
+    vec2 st2 = dFdy(fragTexCoord);
+
     vec3 N = normalize(fragNormal);
-    vec3 T = normalize(fragTangent.xyz);
-    vec3 B = normalize(cross(N, T));
+    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
+    vec3 B = -normalize(cross(N, T));
+
     mat3 TBN = mat3(T, B, N);
 
     return normalize(TBN * tangentNormal);
 }
 
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+	vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
+	vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
+	return vec4(linOut,srgbIn.w);
+	return srgbIn;
+}
+
+vec4 tonemap(vec4 color)
+{
+	vec3 outcol = Uncharted2Tonemap(color.rgb * 0.5f); // 0.0 is exposure
+	outcol = outcol * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
+	return vec4(pow(outcol, vec3(1.0f / 2.2)), color.a);
+}
+
 void main() {
-    float alpha = texture(colorSampler, fragTexCoord).a;
+    vec3 lightColor = vec3(23.47f, 21.31f, 20.79f);
+
+    vec4 colorval = SRGBtoLINEAR(texture(colorSampler, fragTexCoord));
+    vec3 albedo = colorval.rgb;
+    float alpha = colorval.a;
 
     if (ALPHA_MASK) {
         if (alpha < ALPHA_MASK_CUTOFF) {
             discard;
         }
     }
-
-    vec3 albedo = pow(texture(colorSampler, fragTexCoord).rgb, vec3(2.2));
 
     float metallic = texture(metallicRoughnessSampler, fragTexCoord).b;
     float roughness = texture(metallicRoughnessSampler, fragTexCoord).g;
@@ -90,51 +125,54 @@ void main() {
     vec3 N = getNormalFromMap();
     vec3 V = normalize(fragViewVec);
     
-    //reflectance at normal incidence
+    //reflectance at normal incidence (base reflectivity)
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 
-    // calculate per-light radiance
-    vec3 L = normalize(fragLightVec);
-    vec3 H = normalize(V + L);
-    float distance = length(fragLightVec);
-    float attenuation = 1.0 / (distance * distance);
-    vec3 radiance = vec3(255.0, 255.0, 255.0) * attenuation;
+    vec3 Lo = vec3(0.0);
 
-    // Cook-Torrance BRDF
-    float NDF = DistributionGGX(N, H, roughness);
-    float G   = GeometrySmith(N, V, L, roughness);
-    vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    vec3 ambient = vec3(0.03f) * ao * albedo;
+    for(int i = 0; i < 1; i++) {
 
-    vec3 nominator    = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001; // 0.001 to prevent divide by zero.
-    vec3 specular = nominator / denominator;
+        // calculate per-light radiance
+        vec3 L = normalize(fragLightVec);
+        vec3 H = normalize(V + L);
+        float distance = length(fragLightVec);
+        float attenuation = 1.0 / (distance * distance);
+        vec3 radiance = vec3(255.0f, 255.0f, 255.0f) * attenuation * lightColor;
 
-    // kS is equal to Fresnel
-    vec3 kS = F;
-    // for energy conservation, the diffuse and specular light can't
-    // be above 1.0 (unless the surface emits light); to preserve this
-    // relationship the diffuse component (kD) should equal 1.0 - kS.
-    vec3 kD = vec3(1.0) - kS;
-    // multiply kD by the inverse metalness such that only non-metals
-    // have diffuse lighting, or a linear blend if partly metal (pure metals
-    // have no diffuse light).
-    kD *= 1.0 - metallic;
+        // Cook-Torrance BRDF
+        float NdotV = max(dot(N, V), 0.0000001f);
+        float NdotL = max(dot(N, L), 0.0000001f);
+        float HdotV = max(dot(H, V), 0.0f);
+        float NdotH = max(dot(N, H), 0.0f);
 
-    // scale light by NdotL
-    float NdotL = max(dot(N, L), 0.0);
+        float D = DistributionGGX(NdotH, roughness);
+        float G = GeometrySmith(NdotV, NdotL, roughness);
+        vec3 F = fresnelSchlickRoughness(HdotV, F0, roughness);
 
-    // add to outgoing radiance Lo
-    vec3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+        vec3 specular = D * G * F;
+        specular /= 4.0 * NdotV * NdotL;
 
-    vec3 ambient = 0.03 * albedo * ao;
-    vec3 col = ambient + Lo;
+	vec3 kS = F;
+        vec3 kD = vec3(1.0) - kS;
+        kD *= 1.0f - metallic;
 
-    // HDR tonemapping
-    col = col / (col + vec3(1.0));
-    
-    float exposure = 0.5;
-    col = pow(col, vec3(1.0 / exposure));
+        NdotL = max(dot(N, L), 0.0f);
+        // add to outgoing radiance Lo
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    }
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	
+    vec3 ks = F;
+    vec3 kd = vec3(1.0f) - ks;
+    kd *= 1.0f - metallic;
 
-    outColor = vec4(col, alpha) + texture(emissionSampler, fragTexCoord);
+    vec3 diffuse = 0.03f * albedo; // 0.03 is camera ambient brightness
+
+    ambient = (kd * diffuse) * ao;
+
+    vec3 col = ambient + Lo + texture(emissionSampler, fragTexCoord).xyz;
+
+    outColor = SRGBtoLINEAR(tonemap(vec4(col, alpha)));
 }
