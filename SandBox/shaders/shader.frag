@@ -69,7 +69,7 @@ vec3 fresnelSchlickRoughness(float HdotV, vec3 F0, float roughness) {
 
 vec3 getNormalFromMap()
 {
-    vec3 tangentNormal = pow(texture(normalSampler, fragTexCoord).xyz, vec3(1.0/2.2)) * 2.0 - 1.0;
+    vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
     //vec3 N = normalize(fragNormal);
     //vec3 T = normalize(fragTangent.xyz);
     //vec3 B = normalize(cross(N, T));
@@ -90,25 +90,8 @@ vec3 getNormalFromMap()
     return normalize(TBN * tangentNormal);
 }
 
-vec4 SRGBtoLINEAR(vec4 srgbIn)
-{
-	vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
-	vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
-	return vec4(linOut,srgbIn.w);
-	return srgbIn;
-}
-
-vec4 tonemap(vec4 color)
-{
-	vec3 outcol = Uncharted2Tonemap(color.rgb * 0.5f); // 0.0 is exposure
-	outcol = outcol * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
-	return vec4(pow(outcol, vec3(1.0f / 2.2)), color.a);
-}
-
 void main() {
-    vec3 lightColor = vec3(23.47f, 21.31f, 20.79f);
-
-    vec4 colorval = SRGBtoLINEAR(texture(colorSampler, fragTexCoord));
+    vec4 colorval = texture(colorSampler, fragTexCoord);
     vec3 albedo = colorval.rgb;
     float alpha = colorval.a;
 
@@ -139,7 +122,7 @@ void main() {
         vec3 H = normalize(V + L);
         float distance = length(fragLightVec);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = vec3(255.0f, 255.0f, 255.0f) * attenuation * lightColor;
+        vec3 radiance = vec3(100.0f, 100.0f, 100.0f) * attenuation;
 
         // Cook-Torrance BRDF
         float NdotV = max(dot(N, V), 0.0000001f);
@@ -174,5 +157,5 @@ void main() {
 
     vec3 col = ambient + Lo + texture(emissionSampler, fragTexCoord).xyz;
 
-    outColor = SRGBtoLINEAR(tonemap(vec4(col, alpha)));
+    outColor = vec4(col, alpha);
 }

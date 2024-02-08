@@ -312,6 +312,8 @@ public:
 	size_t currentFrame = 0;
 
 	std::vector<ModelHelper*> models;
+	ModelHelper* skybox;
+	TextureHelper* cubeMap;
 
 	uint32_t numMats;
 	uint32_t numImages;
@@ -335,11 +337,15 @@ public:
 
 	QueueFamilyIndices QFIndices;
 
-	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_16_BIT;
 
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout;
 	VkDescriptorSetLayout textureDescriptorSetLayout;
+
+	VkPipeline skyboxPipeline;
+	VkRenderPass skyboxRenderPass;
+	
 
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);

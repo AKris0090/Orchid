@@ -16,6 +16,7 @@ private:
 
 	glm::mat4 getRotationMatrix();
 public:
+	float moveSpeed = 0.005f; // slow is 0.0015;
 	glm::vec3 position = { 0.0f, 0.0f, 0.0f };
 	glm::vec4 viewPos = { 0.0f, 0.0f, 0.0f, 0.0f };
 

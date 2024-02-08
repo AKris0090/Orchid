@@ -7,12 +7,12 @@ void FPSCam::update() {
 
 void FPSCam::processSDL(SDL_Event& event) {
     if (event.type == SDL_KEYDOWN) {
-        if (event.key.keysym.sym == SDLK_w) { this->velocity.z = -0.0015f; }
-        if (event.key.keysym.sym == SDLK_s) { this->velocity.z = 0.0015f; }
-        if (event.key.keysym.sym == SDLK_a) { this->velocity.x = -0.0015f; }
-        if (event.key.keysym.sym == SDLK_d) { this->velocity.x = 0.0015f; }
-        if (event.key.keysym.sym == SDLK_e) { this->velocity.y = 0.0015f; }
-        if (event.key.keysym.sym == SDLK_q) { this->velocity.y = -0.0015f; }
+        if (event.key.keysym.sym == SDLK_w) { this->velocity.z = -moveSpeed; }
+        if (event.key.keysym.sym == SDLK_s) { this->velocity.z = moveSpeed; }
+        if (event.key.keysym.sym == SDLK_a) { this->velocity.x = -moveSpeed; }
+        if (event.key.keysym.sym == SDLK_d) { this->velocity.x = moveSpeed; }
+        if (event.key.keysym.sym == SDLK_e) { this->velocity.y = moveSpeed; }
+        if (event.key.keysym.sym == SDLK_q) { this->velocity.y = -moveSpeed; }
     }
 
     if (event.type == SDL_KEYUP) {
