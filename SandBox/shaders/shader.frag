@@ -21,6 +21,23 @@ layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 
 const float PI = 3.1415926535897932384626433832795f;
 
+float Reinhard2(float x) {
+    const float L_white = 4.0;
+    return (x * (1.0 + x / (L_white * L_white))) / (1.0 + x);
+}
+
+// ACES is troubling, I think gamma correction is built in, so resulting image is too bright
+
+// Narkowicz 2015, "ACES Filmic Tone Mapping Curve"
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 vec3 Uncharted2Tonemap(vec3 color)
 {
 	float A = 0.15;
@@ -122,7 +139,7 @@ void main() {
         vec3 H = normalize(V + L);
         float distance = length(fragLightVec);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = vec3(100.0f, 100.0f, 100.0f) * attenuation;
+        vec3 radiance = vec3(255.0f, 255.0f, 255.0f) * attenuation;
 
         // Cook-Torrance BRDF
         float NdotV = max(dot(N, V), 0.0000001f);
@@ -145,6 +162,7 @@ void main() {
         // add to outgoing radiance Lo
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
+
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
 	
     vec3 ks = F;
@@ -157,5 +175,5 @@ void main() {
 
     vec3 col = ambient + Lo + texture(emissionSampler, fragTexCoord).xyz;
 
-    outColor = vec4(col, alpha);
+    outColor = vec4(pow(Uncharted2Tonemap(col), vec3(2.2)), alpha);
 }

@@ -337,7 +337,7 @@ public:
 
 	QueueFamilyIndices QFIndices;
 
-	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_16_BIT;
+	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout;

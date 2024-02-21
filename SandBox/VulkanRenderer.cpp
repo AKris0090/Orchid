@@ -1129,6 +1129,7 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLe
     allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocateInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        std::cout << "couldn't allocate lol" << std::endl;
         std::_Xruntime_error("Failed to allocate the image memory!");
     }
 
