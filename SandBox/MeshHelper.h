@@ -3,10 +3,8 @@
 #include <string>
 #include <glm/glm.hpp>
 #include <unordered_map>
-#include "TextureHelper.h"
-
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include "TextureHelper.h"
 
 class MeshHelper {
 public:
@@ -85,23 +83,21 @@ public:
 	std::vector<TextureHelper::TextureIndexHolder> textures;
 	std::vector<Material> mats;
 
-	MeshHelper();
-	MeshHelper(VkDevice dev, VkPhysicalDevice GPU, VkQueue graphicsQueue, VkCommandPool commandPool, std::string path);
+	MeshHelper(DeviceHelper* deviceHelper);
 
-	void loadGLTF();
-	void createDescriptors();
-	void destroy();
-	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-
-private:
-	VkDevice _device;
-	VkPhysicalDevice _gpu;
-	VkQueue _graphicsQueue;
-	VkCommandPool _commandPool;
 	std::vector<uint32_t> indices = {};
 	std::vector<MeshHelper::Vertex> vertices = {};
 
-	std::string modelPath;
+	void createVertexBuffer();
+	void createIndexBuffer();
+	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+
+	VkBuffer getVertexBuffer() { return vertexBuffer; };
+	VkBuffer getIndexBuffer() { return indexBuffer; };
+
+private:
+	VkDevice _device;
+	DeviceHelper* _devHelper;
 
 	// Vertex Buffer Handle
 	VkBuffer vertexBuffer;
@@ -110,9 +106,6 @@ private:
 	// Index buffer handle
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
-
-	void createVertexBuffer();
-	void createIndexBuffer();
 };
 
 namespace std {

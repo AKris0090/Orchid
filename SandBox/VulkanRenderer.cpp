@@ -1,15 +1,6 @@
 #include "VulkanRenderer.h"
 
-#define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
-#define TINYGLTF_IMPLEMENTATION
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_MSC_SECURE_CRT
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -592,7 +583,7 @@ void VulkanRenderer::createImageViews() {
     SWChainImageViews.resize(SWChainImages.size());
 
     for (uint32_t i = 0; i < SWChainImages.size(); i++) {
-        SWChainImageViews[i] = createImageView(SWChainImages[i], SWChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        SWChainImageViews[i] = _devHelper->createImageView(SWChainImages[i], SWChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 }
 
@@ -1019,82 +1010,6 @@ VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& binar
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
-PRIVATE HELPERS
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(GPU, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    std::_Xruntime_error("Failed to find a suitable memory type!");
-}
-
-VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels){
-    VkImageViewCreateInfo imageViewCInfo{};
-    imageViewCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    imageViewCInfo.image = image;
-    imageViewCInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    imageViewCInfo.format = format;
-    imageViewCInfo.subresourceRange.aspectMask = aspectFlags;
-    imageViewCInfo.subresourceRange.baseMipLevel = 0;
-    imageViewCInfo.subresourceRange.levelCount = mipLevels;
-    imageViewCInfo.subresourceRange.baseArrayLayer = 0;
-    imageViewCInfo.subresourceRange.layerCount = 1;
-
-    VkImageView tempImageView;
-    if (vkCreateImageView(device, &imageViewCInfo, nullptr, &tempImageView) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to create a texture image view!");
-    }
-
-    return tempImageView;
-}
-
-void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-    VkImageCreateInfo imageCInfo{};
-    imageCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCInfo.extent.width = width;
-    imageCInfo.extent.height = height;
-    imageCInfo.extent.depth = 1;
-    imageCInfo.mipLevels = mipLevel;
-    imageCInfo.arrayLayers = 1;
-
-    imageCInfo.format = format;
-    imageCInfo.tiling = tiling;
-    imageCInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageCInfo.usage = usage;
-    imageCInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCInfo.samples = numSamples;
-
-    if (vkCreateImage(device, &imageCInfo, nullptr, &image) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to create an image!");
-    }
-
-    VkMemoryRequirements memoryRequirements;
-    vkGetImageMemoryRequirements(device, image, &memoryRequirements);
-
-    VkMemoryAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocateInfo.allocationSize = memoryRequirements.size;
-    allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocateInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-        std::cout << "couldn't allocate lol" << std::endl;
-        std::_Xruntime_error("Failed to allocate the image memory!");
-    }
-
-    vkBindImageMemory(device, image, imageMemory, 0);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
 CREATING THE FRAME BUFFER
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1127,84 +1042,6 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-VkCommandBuffer VulkanRenderer::beginSingleTimeCommands() {
-    VkCommandBufferAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocateInfo.commandPool = commandPool;
-    allocateInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    return commandBuffer;
-}
-
-void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    std::cout << "submitted command buffer" << std::endl;
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-
-    std::cout << ("freed command buffer: ");
-}
-
-void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
-    VkBufferCreateInfo bufferCInfo{};
-    bufferCInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferCInfo.size = size;
-    bufferCInfo.usage = usage;
-    bufferCInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(device, &bufferCInfo, nullptr, &buffer) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to create the vertex buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-    VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
-    memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-    memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-
-    VkMemoryAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocateInfo.pNext = &memoryAllocateFlagsInfo;
-    allocateInfo.allocationSize = memRequirements.size;
-    allocateInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocateInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to allocate buffer memory!");
-    }
-
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
-}
-
-void VulkanRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-    VkBufferCopy copyRegion{};
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    endSingleTimeCommands(commandBuffer);
-}
-
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -1212,11 +1049,11 @@ void VulkanRenderer::createUniformBuffers() {
     uniformBuffersMemory.resize(SWChainImages.size());
 
     for (size_t i = 0; i < SWChainImages.size(); i++) {
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+        _devHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
     }
 }
 
-void VulkanRenderer::createDescriptorPool() {
+void VulkanRenderer::createDescriptorPool() { // POOL OUT OF MEMORY
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages.size());
@@ -1246,7 +1083,9 @@ void VulkanRenderer::createDescriptorSets() {
     allocateInfo.pSetLayouts = layouts.data();
 
     descriptorSets.resize(SWChainImages.size());
-    if (vkAllocateDescriptorSets(device, &allocateInfo, descriptorSets.data()) != VK_SUCCESS) {
+    VkResult res = vkAllocateDescriptorSets(device, &allocateInfo, descriptorSets.data());
+    if (res != VK_SUCCESS) {
+        std::cout << res << std::endl;
         std::_Xruntime_error("Failed to allocate descriptor sets!");
     }
 
@@ -1301,15 +1140,15 @@ VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& potent
 
 void VulkanRenderer::createColorResources() {
     VkFormat colorFormat = SWChainImageFormat;
-
-    createImage(SWChainExtent.width, SWChainExtent.height, 1, this->msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
-    colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    
+    _devHelper->createImage(SWChainExtent.width, SWChainExtent.height, 1, this->msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
+    colorImageView = _devHelper->createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void VulkanRenderer::createDepthResources() {
     VkFormat depthFormat = findDepthFormat();
-    createImage(SWChainExtent.width, SWChainExtent.height, 1, this->msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+    _devHelper->createImage(SWChainExtent.width, SWChainExtent.height, 1, this->msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
+    depthImageView = _devHelper->createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1560,7 +1399,7 @@ void VulkanRenderer::freeEverything(int framesInFlight) {
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
     for (int i = 0; i < numModels; i++) {
-        models[i]->destroy();
+        // TODO: models[i]->destroy();
         delete models[i];
     }
 
@@ -1590,304 +1429,11 @@ void VulkanRenderer::freeEverything(int framesInFlight) {
     vkDestroyInstance(instance, nullptr);
 }
 
-// LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
-void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images, VulkanRenderer* vkR) {
-    for (size_t i = 0; i < in.images.size(); i++) {
-        TextureHelper* tex = new TextureHelper(in, (int)i);
-        tex->vkR = vkR;
-        tex->load();
-        images.push_back(tex);
-    }
-    TextureHelper* dummyAO = new TextureHelper(in, -1);
-    dummyAO->vkR = vkR;
-    TextureHelper* dummyMetallic = new TextureHelper(in, -2);
-    dummyMetallic->vkR = vkR;
-    TextureHelper* dummyNormal = new TextureHelper(in, -3);
-    dummyNormal->vkR = vkR;
-    dummyAO->load();
-    dummyMetallic->load();
-    dummyNormal->load();
-    images.push_back(dummyNormal);
-    images.push_back(dummyMetallic);
-    images.push_back(dummyAO);
-}
-
-void loadMaterials(tinygltf::Model& in, std::vector<Material>& mats, ModelHelper* mod) {
-    uint32_t numImages = in.images.size();
-    std::cout << numImages << std::endl;
-    uint32_t dummyNormalIndex = numImages;
-    uint32_t dummyMetallicRoughnessIndex = numImages + 1;
-    uint32_t dummyAOIndex = numImages + 2;
-    mats.resize(in.materials.size());
-    int count = 0;
-    std::cout << mats.size() << std::endl;
-    for (Material& m : mats) {
-        tinygltf::Material gltfMat = in.materials[count];
-        if (gltfMat.values.find("baseColorFactor") != gltfMat.values.end()) {
-            m.baseColor = glm::make_vec4(gltfMat.values["baseColorFactor"].ColorFactor().data());
-        }
-        if (gltfMat.values.find("baseColorTexture") != gltfMat.values.end()) {
-            m.baseColorTexIndex = gltfMat.values["baseColorTexture"].TextureIndex();
-            mod->images[mod->textures[m.baseColorTexIndex].textureIndex]->imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
-        }
-        if (gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end()) {
-            m.normalTexIndex = gltfMat.additionalValues["normalTexture"].TextureIndex();
-        }
-        else {
-            m.normalTexIndex = dummyNormalIndex;
-        }
-        if (gltfMat.values.find("metallicRoughnessTexture") != gltfMat.values.end()) {
-            m.metallicRoughnessIndex = gltfMat.values["metallicRoughnessTexture"].TextureIndex();
-        }
-        else {
-            m.metallicRoughnessIndex = dummyMetallicRoughnessIndex;
-        }
-        if (gltfMat.additionalValues.find("occlusionTexture") != gltfMat.additionalValues.end()) {
-            m.aoIndex = gltfMat.additionalValues["occlusionTexture"].TextureIndex();
-        }
-        else {
-            m.aoIndex = dummyAOIndex;
-        }
-        if (gltfMat.additionalValues.find("emissiveTexture") != gltfMat.additionalValues.end()) {
-            m.emissionIndex = gltfMat.additionalValues["emissiveTexture"].TextureIndex();
-            mod->images[mod->textures[m.emissionIndex].textureIndex]->imageFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
-        }
-        else {
-            m.emissionIndex = dummyMetallicRoughnessIndex;
-        }
-        mod->images[mod->textures[m.normalTexIndex].textureIndex]->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-        mod->images[mod->textures[m.metallicRoughnessIndex].textureIndex]->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-        mod->images[mod->textures[m.aoIndex].textureIndex]->imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-
-        m.alphaMode = gltfMat.alphaMode;
-        m.alphaCutOff = (float)gltfMat.alphaCutoff;
-        m.doubleSides = gltfMat.doubleSided;
-        count++;
-    }
-}
-
-void loadTextures(tinygltf::Model& in, std::vector<TextureIndexHolder>& textures) {
-    textures.resize(in.textures.size());
-    uint32_t size = textures.size();
-    for (size_t i = 0; i < in.textures.size(); i++) {
-        textures[i].textureIndex = in.textures[i].source;
-    }
-    textures.push_back(TextureIndexHolder{ size });
-    textures.push_back(TextureIndexHolder{ size + 1 });
-    textures.push_back(TextureIndexHolder{ size + 2 });
-}
-
-void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, Scene::SceneNode* parent, Scene& model, std::vector<Scene::SceneNode*>& nodes) {
-    Scene::SceneNode* scNode = new Scene::SceneNode{};
-    scNode->transform = glm::mat4(1.0f);
-    scNode->parent = parent;
-
-    if (nodeIn.translation.size() == 3) {
-        scNode->transform = glm::translate(scNode->transform, glm::vec3(glm::make_vec3(nodeIn.translation.data())));
-    }
-    if (nodeIn.rotation.size() == 4) {
-        glm::quat q = glm::make_quat(nodeIn.rotation.data());
-        scNode->transform *= glm::mat4(q);
-    }
-    if (nodeIn.scale.size() == 3) {
-        scNode->transform = glm::scale(scNode->transform, glm::vec3(glm::make_vec3(nodeIn.scale.data())));
-    }
-    if (nodeIn.matrix.size() == 16) {
-        scNode->transform = glm::make_mat4x4(nodeIn.matrix.data());
-    }
-
-    if (nodeIn.children.size() > 0) {
-        for (size_t i = 0; i < nodeIn.children.size(); i++) {
-            loadNode(in, in.nodes[nodeIn.children[i]], scNode, model, nodes);
-        }
-    }
-
-    if (nodeIn.mesh > -1) {
-        const tinygltf::Mesh mesh = in.meshes[nodeIn.mesh];
-        for (size_t i = 0; i < mesh.primitives.size(); i++) {
-            const tinygltf::Primitive& gltfPrims = mesh.primitives[i];
-            uint32_t firstIndex = static_cast<uint32_t>(model.indices.size());
-            uint32_t vertexStart = static_cast<uint32_t>(model.vertices.size());
-            uint32_t indexCount = 0;
-            uint32_t numVertices = 0;
-
-            // FOR VERTICES
-            const float* positionBuff = nullptr;
-            const float* normalsBuff = nullptr;
-            const float* uvBuff = nullptr;
-            const float* tangentsBuff = nullptr;
-            if (gltfPrims.attributes.find("POSITION") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("POSITION")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                positionBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-                numVertices = accessor.count;
-            }
-            if (gltfPrims.attributes.find("NORMAL") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("NORMAL")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                normalsBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-            }
-            if (gltfPrims.attributes.find("TEXCOORD_0") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("TEXCOORD_0")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                uvBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-            }
-            if (gltfPrims.attributes.find("TANGENT") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("TANGENT")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                tangentsBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-            }
-
-            for (size_t vert = 0; vert < numVertices; vert++) {
-                Vertex v;
-                v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
-                v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
-                v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
-                v.color = glm::vec3(1.0f);
-                v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
-                model.vertices.push_back(v);
-                model.totalVertices++;
-            }
-
-            // FOR INDEX
-            const tinygltf::Accessor& accessor = in.accessors[gltfPrims.indices];
-            const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-            const tinygltf::Buffer& buffer = in.buffers[view.buffer];
-
-            indexCount += static_cast<uint32_t>(accessor.count);
-
-            switch (accessor.componentType) {
-            case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-                const uint32_t* buf = reinterpret_cast<const uint32_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
-                for (size_t index = 0; index < accessor.count; index++) {
-                    model.indices.push_back(buf[index] + vertexStart);
-                }
-                break;
-            }
-            case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-                const uint16_t* buf = reinterpret_cast<const uint16_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
-                for (size_t index = 0; index < accessor.count; index++) {
-                    model.indices.push_back(buf[index] + vertexStart);
-                }
-                break;
-            }
-            case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-                const uint8_t* buf = reinterpret_cast<const uint8_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
-                for (size_t index = 0; index < accessor.count; index++) {
-                    model.indices.push_back(buf[index] + vertexStart);
-                }
-                break;
-            }
-            default:
-                std::cout << "index component type not supported" << std::endl;
-                std::_Xruntime_error("index component type not supported");
-            }
-            PrimitiveObjIndices p;
-            p.firstIndex = firstIndex;
-            p.numIndices = indexCount;
-            model.totalIndices += indexCount;
-            p.materialIndex = gltfPrims.material;
-            scNode->mesh.primitives.push_back(p);
-        }
-    }
-
-    if (parent) {
-        parent->children.push_back(scNode);
-    }
-    else {
-        nodes.push_back(scNode);
-    }
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 MODEL HELPER PUBLIC METHODS
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-ModelHelper::ModelHelper(std::string path) {
-    this->modPath = path;
-}
-
-void ModelHelper::loadGLTF() {
-    tinygltf::Model in;
-    tinygltf::TinyGLTF gltfContext;
-    std::string error, warning;
-
-    bool loadedFile = false;
-    std::filesystem::path fPath = this->modPath;
-    if (fPath.extension() == ".glb") {
-        loadedFile = gltfContext.LoadBinaryFromFile(&(in), &error, &warning, this->modPath);
-    }
-    else if (fPath.extension() == ".gltf") {
-        loadedFile = gltfContext.LoadASCIIFromFile(&(in), &error, &warning, this->modPath);
-    }
-
-    if (loadedFile) {
-        loadImages(in, this->images, this->vkR);
-        this->textures.resize(in.textures.size() + 3);
-        loadMaterials(in, this->mats, this);
-        loadTextures(in, this->textures);
-
-        const tinygltf::Scene& scene = in.scenes[0];
-        for (size_t i = 0; i < scene.nodes.size(); i++) {
-            const tinygltf::Node node = in.nodes[scene.nodes[i]];
-            loadNode(in, node, nullptr, this->model, this->nodes);
-        }
-    }
-    else {
-        std::cout << "couldnt open gltf file" << std::endl;
-        std::_Xruntime_error("Failed to create the vertex buffer!");
-    }
-
-    createVertexBuffer();
-
-    createIndexBuffer();
-}
-
-void ModelHelper::destroy() {
-    vkDestroyBuffer(this->vkR->device, vertexBuffer, nullptr);
-    vkDestroyBuffer(this->vkR->device, indexBuffer, nullptr);
-
-    vkFreeMemory(this->vkR->device, vertexBufferMemory, nullptr);
-    vkFreeMemory(this->vkR->device, indexBufferMemory, nullptr);
-}
-
-void ModelHelper::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Scene::SceneNode* node) {
-    if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = node->transform;
-        Scene::SceneNode* curParent = node->parent;
-        while (curParent) {
-            nodeTransform = curParent->transform * nodeTransform;
-            curParent = curParent->parent;
-        }
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
-        for (PrimitiveObjIndices p : node->mesh.primitives) {
-            if (p.numIndices > 0) {
-                Material mat = this->mats[p.materialIndex];
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline);
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.descriptorSet), 0, nullptr);
-                vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
-            }
-        }
-    }
-    for (auto& child : node->children) {
-        drawIndexed(commandBuffer, pipelineLayout, child);
-    }
-}
-
-void ModelHelper::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    VkBuffer vertexBuffers[] = { this->vertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    for (auto& node : this->nodes) {
-        this->drawIndexed(commandBuffer, pipelineLayout, node);
-    }
-}
 
 void createTextureDescriptorSet(VulkanRenderer* vkR, TextureHelper* t) {
     VkDescriptorSetAllocateInfo allocateInfo{};
@@ -1917,93 +1463,4 @@ void createTextureDescriptorSet(VulkanRenderer* vkR, TextureHelper* t) {
     descriptorWriteSet.pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(vkR->device, 1, &descriptorWriteSet, 0, nullptr);
-}
-
-void ModelHelper::createDescriptors() {
-    for (Material& m : this->mats) {
-        VkDescriptorSetAllocateInfo allocateInfo{};
-        allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = this->vkR->descriptorPool;
-        allocateInfo.descriptorSetCount = 1;
-        allocateInfo.pSetLayouts = &(this->vkR->textureDescriptorSetLayout);
-
-        VkResult res = vkAllocateDescriptorSets(vkR->device, &allocateInfo, &(m.descriptorSet));
-        if (res != VK_SUCCESS) {
-            std::_Xruntime_error("Failed to allocate descriptor sets!");
-        }
-
-        TextureHelper* t = this->images[this->textures[m.baseColorTexIndex].textureIndex];
-        VkDescriptorImageInfo colorImageInfo{};
-        colorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        colorImageInfo.imageView = t->textureImageView;
-        colorImageInfo.sampler = t->textureSampler;
-
-        TextureHelper* n = this->images[this->textures[m.normalTexIndex].textureIndex];
-        VkDescriptorImageInfo normalImageInfo{};
-        normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        normalImageInfo.imageView = n->textureImageView;
-        normalImageInfo.sampler = n->textureSampler;
-
-        TextureHelper* mR = this->images[this->textures[m.metallicRoughnessIndex].textureIndex];
-        VkDescriptorImageInfo mrImageInfo{};
-        mrImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        mrImageInfo.imageView = mR->textureImageView;
-        mrImageInfo.sampler = mR->textureSampler;
-
-        TextureHelper* ao = this->images[this->textures[m.aoIndex].textureIndex];
-        VkDescriptorImageInfo aoImageInfo{};
-        aoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        aoImageInfo.imageView = ao->textureImageView;
-        aoImageInfo.sampler = ao->textureSampler;
-
-        TextureHelper* em = this->images[this->textures[m.emissionIndex].textureIndex];
-        VkDescriptorImageInfo emissionImageInfo{};
-        emissionImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        emissionImageInfo.imageView = em->textureImageView;
-        emissionImageInfo.sampler = em->textureSampler;
-
-        VkWriteDescriptorSet colorDescriptorWriteSet{};
-        colorDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        colorDescriptorWriteSet.dstSet = m.descriptorSet;
-        colorDescriptorWriteSet.dstBinding = 0;
-        colorDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        colorDescriptorWriteSet.descriptorCount = 1;
-        colorDescriptorWriteSet.pImageInfo = &colorImageInfo;
-
-        VkWriteDescriptorSet normalDescriptorWriteSet{};
-        normalDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        normalDescriptorWriteSet.dstSet = m.descriptorSet;
-        normalDescriptorWriteSet.dstBinding = 1;
-        normalDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        normalDescriptorWriteSet.descriptorCount = 1;
-        normalDescriptorWriteSet.pImageInfo = &normalImageInfo;
-
-        VkWriteDescriptorSet metallicRoughnessDescriptorWriteSet{};
-        metallicRoughnessDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        metallicRoughnessDescriptorWriteSet.dstSet = m.descriptorSet;
-        metallicRoughnessDescriptorWriteSet.dstBinding = 2;
-        metallicRoughnessDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        metallicRoughnessDescriptorWriteSet.descriptorCount = 1;
-        metallicRoughnessDescriptorWriteSet.pImageInfo = &mrImageInfo;
-
-        VkWriteDescriptorSet aoDescriptorWriteSet{};
-        aoDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        aoDescriptorWriteSet.dstSet = m.descriptorSet;
-        aoDescriptorWriteSet.dstBinding = 3;
-        aoDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        aoDescriptorWriteSet.descriptorCount = 1;
-        aoDescriptorWriteSet.pImageInfo = &aoImageInfo;
-
-        VkWriteDescriptorSet emDescriptorWriteSet{};
-        emDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        emDescriptorWriteSet.dstSet = m.descriptorSet;
-        emDescriptorWriteSet.dstBinding = 4;
-        emDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        emDescriptorWriteSet.descriptorCount = 1;
-        emDescriptorWriteSet.pImageInfo = &emissionImageInfo;
-
-        std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
-
-        vkUpdateDescriptorSets(this->vkR->device, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
-    }
 }

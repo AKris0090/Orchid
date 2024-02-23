@@ -44,6 +44,7 @@ void GraphicsManager::check_vk_result(VkResult err) {
 
 void GraphicsManager::startVulkan() {
     this->vkR = new VulkanRenderer(this->numModels, this->numTextures);
+    vkR->_devHelper = new DeviceHelper();
 
     this->vkR->instance = this->vkR->createVulkanInstance(this->window, "Vulkan Game Engine");
 
@@ -54,8 +55,11 @@ void GraphicsManager::startVulkan() {
     std::cout << "created surface \n" << std::endl;
 
     this->vkR->pickPhysicalDevice();
+    vkR->_devHelper->setPhysicalDevice(this->vkR->GPU);
 
     this->vkR->createLogicalDevice();
+    vkR->_devHelper->setDevice(this->vkR->device);
+    vkR->_devHelper->setGraphicsQueue(this->vkR->graphicsQueue);
 
     this->vkR->createSWChain(this->window);
 
@@ -65,6 +69,7 @@ void GraphicsManager::startVulkan() {
     std::cout << "created render pass" << std::endl;
 
     this->vkR->createCommandPool();
+    vkR->_devHelper->setCommandPool(this->vkR->commandPool);
 
     this->vkR->createColorResources();
     std::cout << "created color resources" << std::endl;
@@ -79,21 +84,24 @@ void GraphicsManager::startVulkan() {
 
     for (int i = 0; i < this->numModels; i++) {
         std::string s = *(this->model_paths + i);
-        ModelHelper* mod = new ModelHelper(s);
-        mod->vkR = this->vkR;
+        GLTFObj* mod = new GLTFObj(s, vkR->_devHelper);
         this->vkR->models.push_back(mod);
         mod->loadGLTF();
 
-        std::cout << "\nloaded model: " << s << ": " << mod->model.totalVertices << " vertices, " << mod->model.totalIndices << " indices\n" << std::endl;
+        this->vkR->numMats += static_cast<uint32_t>(mod->getMeshHelper()->mats.size());
+        this->vkR->numImages = static_cast<uint32_t>(mod->getMeshHelper()->images.size());
+
+        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
+
+    this->vkR->createDescriptorPool();
+    vkR->_devHelper->setDescriptorPool(this->vkR->descriptorPool);
 
     this->vkR->camera.setVelocity(glm::vec3(0.0f));
     this->vkR->camera.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
     this->vkR->camera.setPitchYaw(0.0f, 0.0f);
 
     //ADDITIONAL CHANGES /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    this->vkR->numMats = static_cast<uint32_t>(this->vkR->models[0]->mats.size());
-    this->vkR->numImages = static_cast<uint32_t>(this->vkR->models[0]->images.size());
     //models[0]->textureIndex = 1;
     //models[1]->textureIndex = 0;
     //models[0]->model.transform = glm::rotate(glm::mat4(1.0), glm::radians(90.0f), glm::vec3(-1.0, 0.0, 0.0));
@@ -105,17 +113,16 @@ void GraphicsManager::startVulkan() {
 
     this->vkR->createUniformBuffers();
 
-    this->vkR->createDescriptorPool();
-
     this->vkR->createDescriptorSetLayout();
     std::cout << "created desc set layout" << std::endl;
+    vkR->_devHelper->setTextureDescSetLayout(this->vkR->textureDescriptorSetLayout);
 
     this->vkR->createDescriptorSets();
 
     for (int i = 0; i < this->numModels; i++) {
-        ModelHelper* m = this->vkR->models[i];
-        m->createDescriptors();
-        this->vkR->createGraphicsPipeline(m);
+        GLTFObj* gltfO = this->vkR->models[i];
+        gltfO->createDescriptors();
+        this->vkR->createGraphicsPipeline(gltfO->getMeshHelper());
         std::cout << "created graphics pipeline" << std::endl;
     }
     std::cout << "\ncreated descriptor sets" << std::endl;

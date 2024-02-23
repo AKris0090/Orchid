@@ -14,10 +14,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
-#include <glm/gtc/type_ptr.hpp>
-#include <filesystem>
 
-#include "SceneManager.h"
+#include "GLTFManager.h"
 
 #include "Camera.h"
 
@@ -72,8 +70,6 @@ struct SWChainSuppDetails {
 class VulkanRenderer {
 
 private:
-	std::vector<Scene::SceneNode*> nodes;
-
 	uint32_t imageIndex;
 
 	// SDL Surface handle
@@ -88,9 +84,6 @@ private:
 	VkFormat SWChainImageFormat;
 	VkExtent2D SWChainExtent;
 	std::vector<VkImageView> SWChainImageViews;
-
-	// Command Buffers - Command pool and command buffer handles
-	VkCommandPool commandPool;
 
 	// Color image and mem handles
 	VkImage colorImage;
@@ -143,6 +136,11 @@ private:
 
 
 public:
+	DeviceHelper* _devHelper;
+
+	// Command Buffers - Command pool and command buffer handles
+	VkCommandPool commandPool;
+
 	glm::vec4* lightPos = new glm::vec4(0.0f, 4.5f, 0.0f, 1.0f);
 	VulkanRenderer(int numModels, int numTextures);
 
@@ -168,12 +166,12 @@ public:
 	int numTextures;
 	size_t currentFrame = 0;
 
-	std::vector<ModelHelper*> models;
-	ModelHelper* skybox;
+	std::vector<GLTFObj*> models;
+	GLTFObj* skybox;
 	TextureHelper* cubeMap;
 
 	uint32_t numMats;
-	uint32_t numImages;
+	uint32_t numImages; //MAKE COMMAND POOL PUBLIC
 
 	// Handles for all variables, made public so they can be accessed by main and destroys
 	VkInstance instance;
@@ -268,15 +266,5 @@ public:
 
 	// HELPER METHODS
 
-	VkCommandBuffer beginSingleTimeCommands();
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-
-	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Scene::SceneNode* node);
+	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, GLTFObj::SceneNode* node);
 };
-
-
-#endif
