@@ -8,14 +8,15 @@
 
 class TextureHelper {
 private:
-    tinygltf::Model* inputModel;
-
-    uint32_t mipLevels = VK_SAMPLE_COUNT_1_BIT;
-
-    // Helpers
-    std::string texPath;
-
-    void createImage();
+    tinygltf::Model* pInputModel_;
+    uint32_t mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
+    std::string texPath_; 
+    VkDevice device_;
+    DeviceHelper* pDevHelper_;
+    int index_;
+    VkImage textureImage_;
+    VkDeviceMemory textureImageMemory_;
+    VkDescriptorSet descriptorSet_;
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -28,24 +29,20 @@ public:
         uint32_t textureIndex;
     };
 
-    VkDevice _device;
-    DeviceHelper* _devHelper;
+    VkFormat imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
+    VkImageView textureImageView_;
+    VkSampler textureSampler_;
 
-    // Texture image and mem handles
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-
-    VkSampler textureSampler;
-    VkDescriptorSet descriptorSet;
-    VkFormat imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-    int i;
+    TextureHelper() {};
     TextureHelper(tinygltf::Model& in, int i, DeviceHelper* deviceHelper);
+
+    TextureHelper(std::string texPath, DeviceHelper* deviceHelper);
 
     void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_SRGB);
     void createTextureImageSampler();
 
+    VkDescriptorSet getDescriptorSet() { return this->descriptorSet_; };
+
     void load();
-    void free();
-    void destroy();
+    void loadSkyBoxTex();
 };

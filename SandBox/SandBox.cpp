@@ -3,10 +3,10 @@
 std::string model_paths[] = {
     /*"VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"*/
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf"
     //"Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
 };
 
 //#define NUM_MODELS 2;

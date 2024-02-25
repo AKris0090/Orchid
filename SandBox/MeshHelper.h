@@ -8,7 +8,6 @@
 
 class MeshHelper {
 public:
-	// A glTF material stores information in e.g. the texture that is attached to it and colors
 	struct Material {
 		glm::vec4 baseColor = glm::vec4(1.0f);
 		uint32_t baseColorTexIndex;
@@ -79,33 +78,30 @@ public:
 		}
 	};
 
-	std::vector<TextureHelper*> images;
-	std::vector<TextureHelper::TextureIndexHolder> textures;
-	std::vector<Material> mats;
+	std::vector<TextureHelper*> images_;
+	std::vector<TextureHelper::TextureIndexHolder> textures_;
+	std::vector<Material> mats_;
+
+	std::vector<uint32_t> indices_ = {};
+	std::vector<MeshHelper::Vertex> vertices_ = {};
 
 	MeshHelper(DeviceHelper* deviceHelper);
 
-	std::vector<uint32_t> indices = {};
-	std::vector<MeshHelper::Vertex> vertices = {};
-
 	void createVertexBuffer();
 	void createIndexBuffer();
-	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
-	VkBuffer getVertexBuffer() { return vertexBuffer; };
-	VkBuffer getIndexBuffer() { return indexBuffer; };
+	VkBuffer getVertexBuffer() { return vertexBuffer_; };
+	VkBuffer getIndexBuffer() { return indexBuffer_; };
 
 private:
-	VkDevice _device;
-	DeviceHelper* _devHelper;
+	VkDevice device_;
+	DeviceHelper* pDevHelper;
 
-	// Vertex Buffer Handle
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
+	VkBuffer vertexBuffer_;
+	VkDeviceMemory vertexBufferMemory_;
 
-	// Index buffer handle
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
+	VkBuffer indexBuffer_;
+	VkDeviceMemory indexBufferMemory_;
 };
 
 namespace std {

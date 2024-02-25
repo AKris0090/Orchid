@@ -84,6 +84,9 @@
     <ClCompile Include="GLTFManager.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
+    <ClCompile Include="Skybox.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -129,6 +132,9 @@
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
     <ClInclude Include="GLTFManager.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Skybox.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
   </ItemGroup>

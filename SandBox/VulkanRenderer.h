@@ -1,9 +1,7 @@
 #pragma once
 
-#include <array>
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
-#include <vector>
 #include <cstring>
 #include <optional>
 #include <set>
@@ -11,12 +9,10 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "GLTFManager.h"
-
+#include "Skybox.h"
 #include "Camera.h"
 
 #ifdef NDEBUG
@@ -24,18 +20,6 @@ const bool enableValLayers = false;
 #else
 const bool enableValLayers = true;
 #endif
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-MODEL HELPER CLASS
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-VULKAN RENDERER CLASS
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct UniformBufferObject {
 	glm::mat4 view;
@@ -97,6 +81,7 @@ private:
 
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers;
+	std::vector<VkFramebuffer> skyBoxFrameBuffers;
 
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers;
@@ -138,6 +123,8 @@ private:
 public:
 	DeviceHelper* _devHelper;
 
+	Skybox* pSkyBox_;
+
 	// Command Buffers - Command pool and command buffer handles
 	VkCommandPool commandPool;
 
@@ -167,8 +154,6 @@ public:
 	size_t currentFrame = 0;
 
 	std::vector<GLTFObj*> models;
-	GLTFObj* skybox;
-	TextureHelper* cubeMap;
 
 	uint32_t numMats;
 	uint32_t numImages; //MAKE COMMAND POOL PUBLIC
@@ -182,6 +167,7 @@ public:
 	VkPipeline graphicsPipeline;
 	// Render pass handles
 	VkRenderPass renderPass;
+	VkRenderPass skyboxRenderPass;
 	// Handle for the list of command buffers
 	std::vector<VkCommandBuffer> commandBuffers;
 	// Descriptor pool handles
@@ -192,15 +178,13 @@ public:
 
 	QueueFamilyIndices QFIndices;
 
-	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_8_BIT;
 
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout;
 	VkDescriptorSetLayout textureDescriptorSetLayout;
 
-	VkPipeline skyboxPipeline;
-	VkRenderPass skyboxRenderPass;
-	
+	void recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
@@ -224,6 +208,8 @@ public:
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
 	void createGraphicsPipeline(MeshHelper* m);
+
+	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function

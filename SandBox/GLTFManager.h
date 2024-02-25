@@ -13,29 +13,32 @@ public:
 		MeshHelper::MeshObj mesh;
 		glm::mat4 transform;
 	};
+	bool isSkyBox = false;
 
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF();
 
 	void createDescriptors();
-	void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images);
-	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);
-	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
-	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
 
-	uint32_t getTotalVertices() { return _totalVertices; };
-	uint32_t getTotalIndices() { return _totalIndices; };
+	uint32_t getTotalVertices() { return totalVertices_; };
+	uint32_t getTotalIndices() { return totalIndices_; };
 	MeshHelper* getMeshHelper() { return pSceneMesh; };
 private:
-	std::string _gltfPath;
+	std::string gltfPath_;
 	DeviceHelper* pDevHelper;
-	uint32_t _totalIndices;
-	uint32_t _totalVertices;
+	uint32_t totalIndices_;
+	uint32_t totalVertices_;
 	MeshHelper* pSceneMesh;
 	tinygltf::Model* pInputModel;
 	std::vector<SceneNode*> pNodes;
 
+	void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images);
+	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);
+	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
+	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* pNode);
+	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
 };

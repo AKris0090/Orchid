@@ -88,8 +88,8 @@ void GraphicsManager::startVulkan() {
         this->vkR->models.push_back(mod);
         mod->loadGLTF();
 
-        this->vkR->numMats += static_cast<uint32_t>(mod->getMeshHelper()->mats.size());
-        this->vkR->numImages = static_cast<uint32_t>(mod->getMeshHelper()->images.size());
+        this->vkR->numMats += static_cast<uint32_t>(mod->getMeshHelper()->mats_.size());
+        this->vkR->numImages = static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
@@ -101,16 +101,6 @@ void GraphicsManager::startVulkan() {
     this->vkR->camera.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
     this->vkR->camera.setPitchYaw(0.0f, 0.0f);
 
-    //ADDITIONAL CHANGES /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //models[0]->textureIndex = 1;
-    //models[1]->textureIndex = 0;
-    //models[0]->model.transform = glm::rotate(glm::mat4(1.0), glm::radians(90.0f), glm::vec3(-1.0, 0.0, 0.0));
-    //models[0]->model.transform = glm::rotate(models[0]->model.transform, glm::radians(45.0f), glm::vec3(0.0, 1.0, -1.0));
-    //models[0]->model.transform = glm::translate(models[0]->model.transform, glm::vec3(0.0, 1.35, 0.75));
-
-    //models[1]->model.transform = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, 1.35));
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     this->vkR->createUniformBuffers();
 
     this->vkR->createDescriptorSetLayout();
@@ -118,6 +108,19 @@ void GraphicsManager::startVulkan() {
     vkR->_devHelper->setTextureDescSetLayout(this->vkR->textureDescriptorSetLayout);
 
     this->vkR->createDescriptorSets();
+
+    std::cout << "loading skybox\n" << std::endl;
+    std::vector<std::string> skyBoxTexturePaths = {
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posx.jpg",
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negx.jpg",
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posy.jpg",
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negy.jpg",
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
+        "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
+    };
+
+    this->vkR->pSkyBox_ = new Skybox("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf", skyBoxTexturePaths, this->vkR->_devHelper);
+    this->vkR->pSkyBox_->loadSkyBox();
 
     for (int i = 0; i < this->numModels; i++) {
         GLTFObj* gltfO = this->vkR->models[i];
@@ -127,16 +130,7 @@ void GraphicsManager::startVulkan() {
     }
     std::cout << "\ncreated descriptor sets" << std::endl;
 
-    /*std::cout << "loading: " << this->numTextures << " textures" << std::endl << std::endl;*/
-
-    //for (int i = 0; i < this->numTextures; i++) {
-    //    std::string s = *(this->texture_paths + i);
-    //    TextureHelper* tex = new TextureHelper(s, &this->vkR);
-    //    textures.push_back(tex);
-    //    tex->load();
-
-    //    std::cout << "\nloaded texture: " << s << ": " << std::endl;
-    //}
+    this->vkR->createSkyBoxPipeline();
 
     this->vkR->createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created commaned buffers" << std::endl;
@@ -156,10 +150,6 @@ void GraphicsManager::startSDL() {
     this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRelativeMouseMode(SDL_TRUE);
 }
-
-
-
-
 
 void GraphicsManager::loopUpdate() {
     // (After event loop)
@@ -191,6 +181,8 @@ void GraphicsManager::loopUpdate() {
     this->vkR->postDrawEndCommandBuffer(this->vkR->commandBuffers[this->vkR->currentFrame], window, MAX_FRAMES_IN_FLIGHT);
 
     vkDeviceWaitIdle(this->vkR->device);
+
+    return;
 }
 
 void GraphicsManager::setup() {

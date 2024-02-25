@@ -2,12 +2,6 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-PUBLIC ADT METHODS
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 VulkanRenderer::VulkanRenderer(int numModels, int numTextures) {
     this->numModels = numModels;
     this->numTextures = numTextures;
@@ -218,7 +212,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
         throw std::runtime_error("failed to create instance!");
     }
 
-    clearValue.color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+    clearValue.color = { {1.0f, 1.0f, 1.0f, 1.0f} };
 
     return instance;
 }
@@ -599,7 +593,7 @@ void VulkanRenderer::createRenderPass() {
     colorAttachmentDescription.samples = this->msaaSamples;
 
     // Determine what to do with the data in the attachment before and after the rendering
-    colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
     // Apply to stencil data
@@ -672,6 +666,42 @@ void VulkanRenderer::createRenderPass() {
     renderPassCInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(device, &renderPassCInfo, nullptr, &renderPass) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create render pass!");
+    }
+
+    colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    std::array<VkAttachmentDescription, 2> skyAttachments = { colorAttachmentDescription, colorAttachmentResolve };
+
+    colorAttachmentResolveRef.attachment = 1;
+
+    VkSubpassDescription subpass2{};
+    subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass2.colorAttachmentCount = 1;
+    subpass2.pColorAttachments = &colorAttachmentReference;
+    subpass2.pResolveAttachments = &colorAttachmentResolveRef;
+
+    VkSubpassDependency dependency2{};
+    dependency2.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency2.dstSubpass = 0;
+    dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency2.srcAccessMask = 0;
+    dependency2.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency2.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo skyRenderPassCInfo{};
+    skyRenderPassCInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    skyRenderPassCInfo.attachmentCount = static_cast<uint32_t>(skyAttachments.size());
+    skyRenderPassCInfo.pAttachments = skyAttachments.data();
+    skyRenderPassCInfo.subpassCount = 1;
+    skyRenderPassCInfo.pSubpasses = &subpass2;
+    skyRenderPassCInfo.dependencyCount = 1;
+    skyRenderPassCInfo.pDependencies = &dependency2;
+
+    VkResult res = vkCreateRenderPass(device, &skyRenderPassCInfo, nullptr, &skyboxRenderPass);
+    std::cout << res << std::endl;
+    if (res != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create render pass!");
     }
 }
@@ -762,11 +792,11 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     VkShaderModule fragmentShaderModule = createShaderModule(fragmentShader);
 
     //Create the shader information struct to begin actuall using the shader
-    VkPipelineShaderStageCreateInfo vertextStageCInfo{};
-    vertextStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertextStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertextStageCInfo.module = vertexShaderModule;
-    vertextStageCInfo.pName = "main";
+    VkPipelineShaderStageCreateInfo vertexStageCInfo{};
+    vertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertexStageCInfo.module = vertexShaderModule;
+    vertexStageCInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragmentStageCInfo{};
     fragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -775,7 +805,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     fragmentStageCInfo.pName = "main";
 
     // Define array to contain the shader create information structs
-    VkPipelineShaderStageCreateInfo stages[] = { vertextStageCInfo, fragmentStageCInfo };
+    VkPipelineShaderStageCreateInfo stages[] = { vertexStageCInfo, fragmentStageCInfo };
 
     // Describing the format of the vertex data to be passed to the vertex shader
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
@@ -916,7 +946,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
     // POI: Instead if using a few fixed pipelines, we create one pipeline for each material using the properties of that material
-    for (auto& material : m->mats) {
+    for (auto& material : m->mats_) {
 
         struct MaterialSpecializationData {
             VkBool32 alphaMask;
@@ -953,18 +983,169 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
         // Create the object
         VkResult res3 = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(material.pipeline));
         if (res3 != VK_SUCCESS) {
-            std::cout << "failed to create graphicspipeline" << std::endl;
+            std::cout << "failed to create graphics pipeline" << std::endl;
             std::_Xruntime_error("Failed to create the graphics pipeline!");
         }
     }
+}
+
+void VulkanRenderer::createSkyBoxPipeline() {
+    std::vector<char> skyBoxVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/skyboxVert.spv");
+    std::vector<char> skyBoxFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/skyboxFrag.spv");
+
+    std::cout << "read files" << std::endl;
+
+    VkShaderModule skyBoxVertexShaderModule = createShaderModule(skyBoxVertShader);
+    VkShaderModule skyBoxFragmentShaderModule = createShaderModule(skyBoxFragShader);
+
+    // Describing the format of the vertex data to be passed to the vertex shader
+    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
+    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
+    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
+
+    vertexInputCInfo.vertexBindingDescriptionCount = 1;
+    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
+    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    // Next struct describes what kind of geometry will be drawn from the verts and if primitive restart should be enabled
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
+    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
+
+    // Initialize the viewport information struct, a lot of the size information will come from the swap chain extent factor
+    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
+    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportStateCInfo.viewportCount = 1;
+    viewportStateCInfo.scissorCount = 1;
+
+    // Initialize rasterizer, which takes information from the geometry formed by the vertex shader into fragments to be colored by the fragment shader
+    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+    rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    // Fragments beyond the near and far planes are clamped to those planes, instead of discarding them
+    rasterizerCInfo.depthClampEnable = VK_FALSE;
+    // If set to true, geometry never passes through the rasterization phase, and disables output to framebuffer
+    rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
+    // Determines how fragments are generated for geometry, using other modes requires enabling a GPU feature
+    rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    // Linewidth describes thickness of lines in terms of number of fragments 
+    rasterizerCInfo.lineWidth = 1.0f;
+    // Specify type of culling and and the vertex order for the faces to be considered
+    rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
+    rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    // Alter depth values by adding constant or biasing them based on a fragment's slope
+    rasterizerCInfo.depthBiasEnable = VK_FALSE;
+
+    // Multisampling information struct
+    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
+    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multiSamplingCInfo.sampleShadingEnable = VK_FALSE;
+    multiSamplingCInfo.rasterizationSamples = msaaSamples;
+
+    // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
+    // If <blendEnable> is set to false, then the color from the fragment shader is passed through to the framebuffer
+    // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    // Array of structures for all of the framebuffers to set blend constants as blend factors
+    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
+    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendingCInfo.logicOpEnable = VK_FALSE;
+    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
+    colorBlendingCInfo.attachmentCount = 1;
+    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+    colorBlendingCInfo.blendConstants[0] = 0.0f;
+    colorBlendingCInfo.blendConstants[1] = 0.0f;
+    colorBlendingCInfo.blendConstants[2] = 0.0f;
+    colorBlendingCInfo.blendConstants[3] = 0.0f;
+
+    // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
+    std::vector<VkDynamicState> dynaStates = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
+    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
+    dynamicStateCInfo.pDynamicStates = dynaStates.data();
+
+    VkDescriptorSetLayout descSetLayouts[] = { uniformDescriptorSetLayout, pSkyBox_->skyBoxDescriptorSetLayout_ };
+
+    VkPushConstantRange pcRange{};
+    pcRange.offset = 0;
+    pcRange.size = sizeof(glm::mat4);
+    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
+    // Initialize the pipeline layout with another create info struct
+    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 2;
+    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
+    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+
+    if (vkCreatePipelineLayout(device, &pipeLineLayoutCInfo, nullptr, &(pSkyBox_->skyBoxPipelineLayout_)) != VK_SUCCESS) {
+        std::cout << "nah you buggin" << std::endl;
+        std::_Xruntime_error("Failed to create skybox pipeline layout!");
+    }
+
+    std::cout << "pipeline layout created" << std::endl;
+
+    VkPipelineShaderStageCreateInfo skyBoxVertexStageCInfo{};
+    skyBoxVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    skyBoxVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    skyBoxVertexStageCInfo.module = skyBoxVertexShaderModule;
+    skyBoxVertexStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo skyBoxFragmentStageCInfo{};
+    skyBoxFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    skyBoxFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    skyBoxFragmentStageCInfo.module = skyBoxFragmentShaderModule;
+    skyBoxFragmentStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo stages[] = { skyBoxVertexStageCInfo, skyBoxFragmentStageCInfo };
+
+    // Combine the shader stages, fixed-function state, pipeline layout, and render pass to create the graphics pipeline
+    // First - populate struct with the information
+    VkGraphicsPipelineCreateInfo skyBoxGraphicsPipelineCInfo{};
+    skyBoxGraphicsPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    skyBoxGraphicsPipelineCInfo.stageCount = 2;
+    skyBoxGraphicsPipelineCInfo.pStages = stages;
+
+    skyBoxGraphicsPipelineCInfo.pVertexInputState = &vertexInputCInfo;
+    skyBoxGraphicsPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
+    skyBoxGraphicsPipelineCInfo.pViewportState = &viewportStateCInfo;
+    skyBoxGraphicsPipelineCInfo.pRasterizationState = &rasterizerCInfo;
+    skyBoxGraphicsPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
+    skyBoxGraphicsPipelineCInfo.pDepthStencilState = nullptr;
+    skyBoxGraphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
+    skyBoxGraphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
+
+    skyBoxGraphicsPipelineCInfo.layout = pSkyBox_->skyBoxPipelineLayout_;
+
+    skyBoxGraphicsPipelineCInfo.renderPass = skyboxRenderPass;
+    skyBoxGraphicsPipelineCInfo.subpass = 0;
+
+    skyBoxGraphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+    VkPipelineShaderStageCreateInfo skyBoxStages[] = { skyBoxVertexStageCInfo, skyBoxFragmentStageCInfo };
+
+    vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &skyBoxGraphicsPipelineCInfo, nullptr, &pSkyBox_->skyboxPipeline_);
 
     std::cout << "pipeline created" << std::endl;
-
-    // After all the processing with the modules is over, destroy them
-    vkDestroyShaderModule(device, vertexShaderModule, nullptr);
-    vkDestroyShaderModule(device, fragmentShaderModule, nullptr);
-    
-    std::cout << "destroyed modules" << std::endl;
 }
 
 
@@ -1017,20 +1198,37 @@ CREATING THE FRAME BUFFER
 void VulkanRenderer::createFrameBuffer() {
     SWChainFrameBuffers.resize(SWChainImageViews.size());
 
+    skyBoxFrameBuffers.resize(3);
+
     // Iterate through the image views and create framebuffers from them
     for (size_t i = 0; i < SWChainImageViews.size(); i++) {
-        std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, SWChainImageViews[i]};
+        std::array<VkImageView, 3> attachmentsStandard = { colorImageView, depthImageView, SWChainImageViews[i] };
 
         VkFramebufferCreateInfo frameBufferCInfo{};
         frameBufferCInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         frameBufferCInfo.renderPass = renderPass;
-        frameBufferCInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        frameBufferCInfo.pAttachments = attachments.data();
+        frameBufferCInfo.attachmentCount = static_cast<uint32_t>(attachmentsStandard.size());
+        frameBufferCInfo.pAttachments = attachmentsStandard.data();
         frameBufferCInfo.width = SWChainExtent.width;
         frameBufferCInfo.height = SWChainExtent.height;
         frameBufferCInfo.layers = 1;
 
         if (vkCreateFramebuffer(device, &frameBufferCInfo, nullptr, &SWChainFrameBuffers[i]) != VK_SUCCESS) {
+            std::_Xruntime_error("Failed to create a framebuffer for an image view!");
+        }
+
+        std::array<VkImageView, 2> attachmentSky = { colorImageView, SWChainImageViews[i] };
+
+        VkFramebufferCreateInfo frameBufferSkyCInfo{};
+        frameBufferSkyCInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        frameBufferSkyCInfo.renderPass = skyboxRenderPass;
+        frameBufferSkyCInfo.attachmentCount = static_cast<uint32_t>(attachmentSky.size());
+        frameBufferSkyCInfo.pAttachments = attachmentSky.data();
+        frameBufferSkyCInfo.width = SWChainExtent.width;
+        frameBufferSkyCInfo.height = SWChainExtent.height;
+        frameBufferSkyCInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &frameBufferSkyCInfo, nullptr, &skyBoxFrameBuffers[i]) != VK_SUCCESS) {
             std::_Xruntime_error("Failed to create a framebuffer for an image view!");
         }
     }
@@ -1053,13 +1251,13 @@ void VulkanRenderer::createUniformBuffers() {
     }
 }
 
-void VulkanRenderer::createDescriptorPool() { // POOL OUT OF MEMORY
+void VulkanRenderer::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space
-    poolSizes[1].descriptorCount = this->numMats * 5 * static_cast<uint32_t>(SWChainImages.size());
+    poolSizes[1].descriptorCount = this->numMats * 5 * static_cast<uint32_t>(SWChainImages.size()) + 1; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1187,6 +1385,47 @@ void VulkanRenderer::createCommandBuffers(int numFramesInFlight) {
     }
 }
 
+void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+
+    VkRenderPassBeginInfo sbRPBeginInfo{};
+    // Create the render pass
+    sbRPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    sbRPBeginInfo.renderPass = skyboxRenderPass;
+    sbRPBeginInfo.framebuffer = skyBoxFrameBuffers[imageIndex];
+    // Define the size of the render area
+    sbRPBeginInfo.renderArea.offset = { 0, 0 };
+    sbRPBeginInfo.renderArea.extent = SWChainExtent;
+
+    std::array<VkClearValue, 1> clearValues{};
+    clearValues[0].color = clearValue.color;
+
+    // Define the clear values to use
+    sbRPBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
+    sbRPBeginInfo.pClearValues = clearValues.data();
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)SWChainExtent.width;
+    viewport.height = (float)SWChainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = SWChainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Finally, begin the render pass
+    vkCmdBeginRenderPass(commandBuffer, &sbRPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Draw skybox
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 0, 1, &descriptorSets[this->currentFrame], 0, nullptr);
+    pSkyBox_->pSkyBoxModel_->renderSkyBox(commandBuffer, pSkyBox_->skyboxPipeline_, pSkyBox_->skyBoxDescriptorSet_, pSkyBox_->skyBoxPipelineLayout_);
+    vkCmdEndRenderPass(commandBuffer);
+}
+
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     // Start command buffer recording
     VkCommandBufferBeginInfo CBBeginInfo{};
@@ -1197,7 +1436,9 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
-    // Start the render pass
+    recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
+
+    // Start the scene render pass
     VkRenderPassBeginInfo RPBeginInfo{};
     // Create the render pass
     RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1215,9 +1456,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     RPBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
     RPBeginInfo.pClearValues = clearValues.data();
 
-    // Finally, begin the render pass
-    vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -1232,8 +1470,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     scissor.extent = SWChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout, 0, 1, &descriptorSets[this->currentFrame], 0, nullptr);
+    // Finally, begin the render pass
+    vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout, 0, 1, &descriptorSets[this->currentFrame], 0, nullptr);
     for (int i = 0; i < this->numModels; i++) {
         models[i]->render(commandBuffer, pipeLineLayout);
     }
@@ -1427,40 +1667,4 @@ void VulkanRenderer::freeEverything(int framesInFlight) {
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-MODEL HELPER PUBLIC METHODS
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void createTextureDescriptorSet(VulkanRenderer* vkR, TextureHelper* t) {
-    VkDescriptorSetAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocateInfo.descriptorPool = vkR->descriptorPool;
-    allocateInfo.descriptorSetCount = 1;
-    allocateInfo.pSetLayouts = &vkR->textureDescriptorSetLayout;
-
-    VkResult res = vkAllocateDescriptorSets(vkR->device, &allocateInfo, &(t->descriptorSet));
-    if (res != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to allocate descriptor sets!");
-    }
-
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = t->textureImageView;
-    imageInfo.sampler = t->textureSampler;
-
-    VkWriteDescriptorSet descriptorWriteSet{};
-
-    descriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWriteSet.dstSet = t->descriptorSet;
-    descriptorWriteSet.dstBinding = 0;
-    descriptorWriteSet.dstArrayElement = 0;
-    descriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWriteSet.descriptorCount = 1;
-    descriptorWriteSet.pImageInfo = &imageInfo;
-
-    vkUpdateDescriptorSets(vkR->device, 1, &descriptorWriteSet, 0, nullptr);
 }

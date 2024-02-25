@@ -152,6 +152,7 @@
     <ClCompile Include="MeshHelper.cpp" />
     <ClCompile Include="SandBox.cpp" />
     <ClCompile Include="GLTFManager.cpp" />
+    <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="TextureHelper.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
   </ItemGroup>
@@ -169,6 +170,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="MeshHelper.h" />
     <ClInclude Include="GLTFManager.h" />
+    <ClInclude Include="Skybox.h" />
     <ClInclude Include="TextureHelper.h" />
     <ClInclude Include="VulkanRenderer.h" />
   </ItemGroup>
