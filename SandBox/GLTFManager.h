@@ -13,7 +13,7 @@ public:
 		MeshHelper::MeshObj mesh;
 		glm::mat4 transform;
 	};
-	bool isSkyBox = false;
+	bool isSkyBox_ = false;
 
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF();
@@ -25,15 +25,15 @@ public:
 
 	uint32_t getTotalVertices() { return totalVertices_; };
 	uint32_t getTotalIndices() { return totalIndices_; };
-	MeshHelper* getMeshHelper() { return pSceneMesh; };
+	MeshHelper* getMeshHelper() { return pSceneMesh_; };
 private:
 	std::string gltfPath_;
-	DeviceHelper* pDevHelper;
+	DeviceHelper* pDevHelper_;
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
-	MeshHelper* pSceneMesh;
-	tinygltf::Model* pInputModel;
-	std::vector<SceneNode*> pNodes;
+	MeshHelper* pSceneMesh_;
+	tinygltf::Model* pInputModel_;
+	std::vector<SceneNode*> pNodes_;
 
 	void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images);
 	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);

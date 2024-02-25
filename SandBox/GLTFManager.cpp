@@ -13,7 +13,7 @@ void GLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
-                MeshHelper::Material mat = pSceneMesh->mats_[p.materialIndex];
+                MeshHelper::Material mat = pSceneMesh_->mats_[p.materialIndex];
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.pipeline);
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.descriptorSet), 0, nullptr);
                 vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
@@ -26,12 +26,12 @@ void GLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 }
 
 void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    VkBuffer vertexBuffers[] = { pSceneMesh->getVertexBuffer() };
+    VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    for (auto& node : pNodes) {
+    for (auto& node : pNodes_) {
         drawIndexed(commandBuffer, pipelineLayout, node);
     }
 }
@@ -59,12 +59,12 @@ void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeli
 }
 
 void GLTFObj::renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout) {
-    VkBuffer vertexBuffers[] = { pSceneMesh->getVertexBuffer() };
+    VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    for (auto& node : pNodes) {
+    for (auto& node : pNodes_) {
         drawSkyBoxIndexed(commandBuffer, pipeline, descSet, pipelineLayout, node);
     }
 }
@@ -72,30 +72,30 @@ void GLTFObj::renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, V
 // LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
 void GLTFObj::loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images) {
     for (size_t i = 0; i < in.images.size(); i++) {
-        TextureHelper* tex = new TextureHelper(in, int(i), pDevHelper);
+        TextureHelper* tex = new TextureHelper(in, int(i), pDevHelper_);
         tex->load();
-        pSceneMesh->images_.push_back(tex);
+        pSceneMesh_->images_.push_back(tex);
     }
-    TextureHelper* dummyAO = new TextureHelper(in, -1, pDevHelper);
-    TextureHelper* dummyMetallic = new TextureHelper(in, -2, pDevHelper);
-    TextureHelper* dummyNormal = new TextureHelper(in, -3, pDevHelper);
+    TextureHelper* dummyAO = new TextureHelper(in, -1, pDevHelper_);
+    TextureHelper* dummyMetallic = new TextureHelper(in, -2, pDevHelper_);
+    TextureHelper* dummyNormal = new TextureHelper(in, -3, pDevHelper_);
     dummyAO->load();
     dummyMetallic->load();
     dummyNormal->load();
-    pSceneMesh->images_.push_back(dummyNormal);
-    pSceneMesh->images_.push_back(dummyMetallic);
-    pSceneMesh->images_.push_back(dummyAO);
+    pSceneMesh_->images_.push_back(dummyNormal);
+    pSceneMesh_->images_.push_back(dummyMetallic);
+    pSceneMesh_->images_.push_back(dummyAO);
 }
 
 void GLTFObj::loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures) {
-    pSceneMesh->textures_.resize(in.textures.size());
+    pSceneMesh_->textures_.resize(in.textures.size());
     uint32_t size = static_cast<uint32_t>(textures.size());
     for (size_t i = 0; i < in.textures.size(); i++) {
-        pSceneMesh->textures_[i].textureIndex = in.textures[i].source;
+        pSceneMesh_->textures_[i].textureIndex = in.textures[i].source;
     }
-    pSceneMesh->textures_.push_back(TextureHelper::TextureIndexHolder{ size });
-    pSceneMesh->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 1 });
-    pSceneMesh->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 2 });
+    pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size });
+    pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 1 });
+    pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 2 });
 }
 
 void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes) {
@@ -127,8 +127,8 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
         const tinygltf::Mesh mesh = in.meshes[nodeIn.mesh];
         for (size_t i = 0; i < mesh.primitives.size(); i++) {
             const tinygltf::Primitive& gltfPrims = mesh.primitives[i];
-            uint32_t firstIndex = static_cast<uint32_t>(pSceneMesh->indices_.size());
-            uint32_t vertexStart = static_cast<uint32_t>(pSceneMesh->vertices_.size());
+            uint32_t firstIndex = static_cast<uint32_t>(pSceneMesh_->indices_.size());
+            uint32_t vertexStart = static_cast<uint32_t>(pSceneMesh_->vertices_.size());
             uint32_t indexCount = 0;
             uint32_t numVertices = 0;
 
@@ -166,7 +166,7 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
                 v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
                 v.color = glm::vec3(1.0f);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
-                pSceneMesh->vertices_.push_back(v);
+                pSceneMesh_->vertices_.push_back(v);
                 totalVertices_++;
             }
 
@@ -181,21 +181,21 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
                 const uint32_t* buf = reinterpret_cast<const uint32_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    pSceneMesh->indices_.push_back(buf[index] + vertexStart);
+                    pSceneMesh_->indices_.push_back(buf[index] + vertexStart);
                 }
                 break;
             }
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
                 const uint16_t* buf = reinterpret_cast<const uint16_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    pSceneMesh->indices_.push_back(buf[index] + vertexStart);
+                    pSceneMesh_->indices_.push_back(buf[index] + vertexStart);
                 }
                 break;
             }
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
                 const uint8_t* buf = reinterpret_cast<const uint8_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    pSceneMesh->indices_.push_back(buf[index] + vertexStart);
+                    pSceneMesh_->indices_.push_back(buf[index] + vertexStart);
                 }
                 break;
             }
@@ -236,25 +236,25 @@ void GLTFObj::loadGLTF() {
 
     if (loadedFile) {
         if (in.images.size() != 0) {
-            loadImages(in, pSceneMesh->images_);
-            pSceneMesh->textures_.resize(in.textures.size() + 3);
-            loadMaterials(in, pSceneMesh->mats_);
-            loadTextures(in, pSceneMesh->textures_);
+            loadImages(in, pSceneMesh_->images_);
+            pSceneMesh_->textures_.resize(in.textures.size() + 3);
+            loadMaterials(in, pSceneMesh_->mats_);
+            loadTextures(in, pSceneMesh_->textures_);
         }
 
         const tinygltf::Scene& scene = in.scenes[0];
         for (size_t i = 0; i < scene.nodes.size(); i++) {
             const tinygltf::Node node = in.nodes[scene.nodes[i]];
-            loadNode(in, node, nullptr, pNodes);
+            loadNode(in, node, nullptr, pNodes_);
         }
     }
     else {
         std::cout << "couldnt open gltf file" << std::endl;
     }
 
-    pSceneMesh->createVertexBuffer();
+    pSceneMesh_->createVertexBuffer();
 
-    pSceneMesh->createIndexBuffer();
+    pSceneMesh_->createIndexBuffer();
 }
 
 void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats) {
@@ -273,7 +273,7 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
         }
         if (gltfMat.values.find("baseColorTexture") != gltfMat.values.end()) {
             m.baseColorTexIndex = gltfMat.values["baseColorTexture"].TextureIndex();
-            pSceneMesh->images_[pSceneMesh->textures_[m.baseColorTexIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
+            pSceneMesh_->images_[pSceneMesh_->textures_[m.baseColorTexIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
 
         }
         if (gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end()) {
@@ -296,15 +296,15 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
         }
         if (gltfMat.additionalValues.find("emissiveTexture") != gltfMat.additionalValues.end()) {
             m.emissionIndex = gltfMat.additionalValues["emissiveTexture"].TextureIndex();
-            pSceneMesh->images_[pSceneMesh->textures_[m.emissionIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
+            pSceneMesh_->images_[pSceneMesh_->textures_[m.emissionIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
 
         }
         else {
             m.emissionIndex = dummyMetallicRoughnessIndex;
         }
-        pSceneMesh->images_[pSceneMesh->textures_[m.normalTexIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
-        pSceneMesh->images_[pSceneMesh->textures_[m.metallicRoughnessIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
-        pSceneMesh->images_[pSceneMesh->textures_[m.aoIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
+        pSceneMesh_->images_[pSceneMesh_->textures_[m.normalTexIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
+        pSceneMesh_->images_[pSceneMesh_->textures_[m.metallicRoughnessIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
+        pSceneMesh_->images_[pSceneMesh_->textures_[m.aoIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
 
         m.alphaMode = gltfMat.alphaMode;
         m.alphaCutOff = (float)gltfMat.alphaCutoff;
@@ -314,44 +314,44 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
 }
 
 void GLTFObj::createDescriptors() {
-    for (MeshHelper::Material& m : pSceneMesh->mats_) {
+    for (MeshHelper::Material& m : pSceneMesh_->mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = pDevHelper->getDescriptorPool();
+        allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
         allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout texSet = pDevHelper->getTextureDescSetLayout();
+        const VkDescriptorSetLayout texSet = pDevHelper_->getTextureDescSetLayout();
         allocateInfo.pSetLayouts = &(texSet);
 
-        VkResult res = vkAllocateDescriptorSets(pDevHelper->getDevice(), &allocateInfo, &(m.descriptorSet));
+        VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(m.descriptorSet));
         if (res != VK_SUCCESS) {
             std::_Xruntime_error("Failed to allocate descriptor sets!");
         }
 
-        TextureHelper* t = pSceneMesh->images_[pSceneMesh->textures_[m.baseColorTexIndex].textureIndex];
+        TextureHelper* t = pSceneMesh_->images_[pSceneMesh_->textures_[m.baseColorTexIndex].textureIndex];
         VkDescriptorImageInfo colorImageInfo{};
         colorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         colorImageInfo.imageView = t->textureImageView_;
         colorImageInfo.sampler = t->textureSampler_;
 
-        TextureHelper* n = pSceneMesh->images_[pSceneMesh->textures_[m.normalTexIndex].textureIndex];
+        TextureHelper* n = pSceneMesh_->images_[pSceneMesh_->textures_[m.normalTexIndex].textureIndex];
         VkDescriptorImageInfo normalImageInfo{};
         normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         normalImageInfo.imageView = n->textureImageView_;
         normalImageInfo.sampler = n->textureSampler_;
 
-        TextureHelper* mR = pSceneMesh->images_[pSceneMesh->textures_[m.metallicRoughnessIndex].textureIndex];
+        TextureHelper* mR = pSceneMesh_->images_[pSceneMesh_->textures_[m.metallicRoughnessIndex].textureIndex];
         VkDescriptorImageInfo mrImageInfo{};
         mrImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         mrImageInfo.imageView = mR->textureImageView_;
         mrImageInfo.sampler = mR->textureSampler_;
 
-        TextureHelper* ao = pSceneMesh->images_[pSceneMesh->textures_[m.aoIndex].textureIndex];
+        TextureHelper* ao = pSceneMesh_->images_[pSceneMesh_->textures_[m.aoIndex].textureIndex];
         VkDescriptorImageInfo aoImageInfo{};
         aoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         aoImageInfo.imageView = ao->textureImageView_;
         aoImageInfo.sampler = ao->textureSampler_;
 
-        TextureHelper* em = pSceneMesh->images_[pSceneMesh->textures_[m.emissionIndex].textureIndex];
+        TextureHelper* em = pSceneMesh_->images_[pSceneMesh_->textures_[m.emissionIndex].textureIndex];
         VkDescriptorImageInfo emissionImageInfo{};
         emissionImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         emissionImageInfo.imageView = em->textureImageView_;
@@ -399,12 +399,12 @@ void GLTFObj::createDescriptors() {
 
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
-        vkUpdateDescriptorSets(pDevHelper->getDevice() , static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+        vkUpdateDescriptorSets(pDevHelper_->getDevice() , static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }
 }
 
 GLTFObj::GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper) {
     gltfPath_ = gltfPath;
-    pDevHelper = deviceHelper;
-    pSceneMesh = new MeshHelper(deviceHelper);
+    pDevHelper_ = deviceHelper;
+    pSceneMesh_ = new MeshHelper(deviceHelper);
 }

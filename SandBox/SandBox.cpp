@@ -1,6 +1,6 @@
 #include "GraphicsManager.h"
 
-std::string model_paths[] = {
+std::string pModelPaths[] = {
     /*"VikingRoom/OBJ.obj",
     "GSX/Srad 750.obj"*/
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf"
@@ -9,14 +9,27 @@ std::string model_paths[] = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
 };
 
-//#define NUM_MODELS 2;
-//#define NUM_TEXTURES 0;
+std::string skyBoxModelPath_ = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf";
+
+std::vector<std::string> skyboxTexturePath_ = {
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posx.jpg",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negx.jpg",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posy.jpg",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negy.jpg",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
+};
 
 int main(int argc, char* argv[]) {
     // CHANGE LAST 2 ARGUMENTS FOR DIFFERENT NUMBER OF MODELS/TEXTURES
-    GraphicsManager graphicsManager = GraphicsManager(model_paths, 1, 0);
+    GraphicsManager graphicsManager = GraphicsManager(pModelPaths, skyBoxModelPath_, skyboxTexturePath_, 1, 0);
 
     graphicsManager.setup();
+
+    // Camera Setup
+    graphicsManager.pVkR_->camera_.setVelocity(glm::vec3(0.0f));
+    graphicsManager.pVkR_->camera_.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
+    graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
 
     bool running = true;
     while (running) {
@@ -24,18 +37,18 @@ int main(int argc, char* argv[]) {
         // player input -----------
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            graphicsManager.vkR->camera.processSDL(event);
+            graphicsManager.pVkR_->camera_.processSDL(event);
             ImGui_ImplSDL2_ProcessEvent(&event);
             switch (event.type) {
             case SDL_QUIT:
                 running = false;
                 break;
             case SDL_WINDOWEVENT_RESIZED:
-                graphicsManager.vkR->frBuffResized = true;
+                graphicsManager.pVkR_->frBuffResized_ = true;
             case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_TAB) {
-                    graphicsManager.mousemode = !graphicsManager.mousemode;
-                    if (graphicsManager.mousemode == false) {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    graphicsManager.mousemode_ = !graphicsManager.mousemode_;
+                    if (graphicsManager.mousemode_ == false) {
                         SDL_SetRelativeMouseMode(SDL_FALSE);
                     }
                     else {

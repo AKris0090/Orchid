@@ -6,29 +6,31 @@
 
 #include "VulkanRenderer.h"
 
+const int MAX_FRAMES_IN_FLIGHT = 1;
+
 class GraphicsManager {
 private:
-	int numModels;
-	int numTextures;
-	std::string* model_paths;
-    std::string* texture_paths;
-
-	const int MAX_FRAMES_IN_FLIGHT = 1;
+	int numModels_;
+	int numTextures_;
+	std::string* pModelPaths_;
+    std::vector<std::string> skyboxTexturePaths_;
+	std::string skyboxModelPath_;
 
 	static void check_vk_result(VkResult err);
+	void imGUIUpdate();
 
 	void setupImGUI();
 	void startVulkan();
 	void startSDL();
 public:
-	// Create vulkan rendering pipeline
-	VulkanRenderer* vkR;
-	SDL_Window* window;
-	SDL_Renderer* renderer;
+	VulkanRenderer* pVkR_;
+	SDL_Window* pWindow_;
+	SDL_Renderer* pRenderer_;
 
-	bool mousemode = true;
+	bool mousemode_ = true;
 
-	GraphicsManager(std::string modelStr[], int numModels, int numTextures);
+	GraphicsManager(std::string modelStr[], std::string skyBoxModelPath, std::vector<std::string> skyBoxPaths, int numModels, int numTextures);
+
 	void setup();
 	void loopUpdate();
 	void shutDown();

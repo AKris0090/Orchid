@@ -95,7 +95,7 @@ public:
 
 private:
 	VkDevice device_;
-	DeviceHelper* pDevHelper;
+	DeviceHelper* pDevHelper_;
 
 	VkBuffer vertexBuffer_;
 	VkDeviceMemory vertexBufferMemory_;
