@@ -8,11 +8,10 @@
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include <fstream>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "Skybox.h"
+#include "PrefilteredEnvMap.h"
 #include "Camera.h"
 
 #ifdef NDEBUG
@@ -148,6 +147,9 @@ public:
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
+	BRDFLut* brdfLut;
+	IrradianceCube* irCube;
+	PrefilteredEnvMap* prefEMap;
 
 	VulkanRenderer(int numModels, int numTextures);
 	// Create the vulkan instance
@@ -197,4 +199,6 @@ public:
 	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
 	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 	void freeEverything(int framesInFlight);
+
+	void updateGeneratedImageDescriptorSets();
 };

@@ -14,6 +14,7 @@ public:
 		glm::mat4 transform;
 	};
 	bool isSkyBox_ = false;
+	MeshHelper* pSceneMesh_;
 
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF();
@@ -22,6 +23,7 @@ public:
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
+	void genImageRenderSkybox(VkCommandBuffer commandBuffer);
 
 	uint32_t getTotalVertices() { return totalVertices_; };
 	uint32_t getTotalIndices() { return totalIndices_; };
@@ -31,7 +33,6 @@ private:
 	DeviceHelper* pDevHelper_;
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
-	MeshHelper* pSceneMesh_;
 	tinygltf::Model* pInputModel_;
 	std::vector<SceneNode*> pNodes_;
 
@@ -41,4 +42,5 @@ private:
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* pNode);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
+	void genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node);
 };

@@ -755,7 +755,28 @@ void VulkanRenderer::createDescriptorSetLayout() {
     samplerLayoutBindingEmission.pImmutableSamplers = nullptr;
     samplerLayoutBindingEmission.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO, samplerLayoutBindingEmission };
+    VkDescriptorSetLayoutBinding samplerLayoutBindingBRDF{};
+    samplerLayoutBindingBRDF.binding = 5;
+    samplerLayoutBindingBRDF.descriptorCount = 1;
+    samplerLayoutBindingBRDF.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingBRDF.pImmutableSamplers = nullptr;
+    samplerLayoutBindingBRDF.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding samplerLayoutBindingIrradiance{};
+    samplerLayoutBindingIrradiance.binding = 6;
+    samplerLayoutBindingIrradiance.descriptorCount = 1;
+    samplerLayoutBindingIrradiance.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingIrradiance.pImmutableSamplers = nullptr;
+    samplerLayoutBindingIrradiance.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding samplerLayoutBindingPrefiltered{};
+    samplerLayoutBindingPrefiltered.binding = 7;
+    samplerLayoutBindingPrefiltered.descriptorCount = 1;
+    samplerLayoutBindingPrefiltered.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBindingPrefiltered.pImmutableSamplers = nullptr;
+    samplerLayoutBindingPrefiltered.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO, samplerLayoutBindingEmission, samplerLayoutBindingBRDF, samplerLayoutBindingIrradiance, samplerLayoutBindingPrefiltered };
 
     VkDescriptorSetLayoutCreateInfo layoutCInfo{};
     layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -766,7 +787,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
     }
 
-    layoutCInfo.bindingCount = 5;
+    layoutCInfo.bindingCount = 8;
     layoutCInfo.pBindings = samplerBindings.data();
 
     if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &textureDescriptorSetLayout_) != VK_SUCCESS) {
@@ -1256,8 +1277,8 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space
-    poolSizes[1].descriptorCount = this->numMats_ * 5 * static_cast<uint32_t>(SWChainImages_.size()) + 1; // plus one for the skybox descriptor
+    // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images
+    poolSizes[1].descriptorCount = this->numMats_ * 8 * static_cast<uint32_t>(SWChainImages_.size()) + 1; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1303,6 +1324,56 @@ void VulkanRenderer::createDescriptorSets() {
         descriptorWriteSet.pBufferInfo = &descriptorBufferInfo;
 
         vkUpdateDescriptorSets(device_, 1, &descriptorWriteSet, 0, nullptr);
+    }
+}
+
+void VulkanRenderer::updateGeneratedImageDescriptorSets() {
+    for (GLTFObj* model : pModels_) {
+        for (MeshHelper::Material& m : model->pSceneMesh_->mats_) {
+
+            VkDescriptorImageInfo BRDFLutImageInfo{};
+            BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
+            BRDFLutImageInfo.sampler = brdfLut->brdfLUTImageSampler_;
+
+            VkDescriptorImageInfo IrradianceImageInfo{};
+            IrradianceImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            IrradianceImageInfo.imageView = irCube->iRCubeImageView_;
+            IrradianceImageInfo.sampler = irCube->iRCubeImageSampler_;
+
+            VkDescriptorImageInfo PrefilteredEnvMapInfo{};
+            PrefilteredEnvMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            PrefilteredEnvMapInfo.imageView = prefEMap->prefEMapImageView_;
+            PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
+
+            VkWriteDescriptorSet BRDFLutWrite{};
+            BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            BRDFLutWrite.dstSet = m.descriptorSet;
+            BRDFLutWrite.dstBinding = 5;
+            BRDFLutWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            BRDFLutWrite.descriptorCount = 1;
+            BRDFLutWrite.pImageInfo = &BRDFLutImageInfo;
+
+            VkWriteDescriptorSet IrradianceWrite{};
+            IrradianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            IrradianceWrite.dstSet = m.descriptorSet;
+            IrradianceWrite.dstBinding = 6;
+            IrradianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            IrradianceWrite.descriptorCount = 1;
+            IrradianceWrite.pImageInfo = &IrradianceImageInfo;
+
+            VkWriteDescriptorSet prefilteredWrite{};
+            prefilteredWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            prefilteredWrite.dstSet = m.descriptorSet;
+            prefilteredWrite.dstBinding = 7;
+            prefilteredWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            prefilteredWrite.descriptorCount = 1;
+            prefilteredWrite.pImageInfo = &PrefilteredEnvMapInfo;
+
+            std::vector<VkWriteDescriptorSet> descriptorWriteSets = { BRDFLutWrite, IrradianceWrite, prefilteredWrite };
+
+            vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+        }
     }
 }
 

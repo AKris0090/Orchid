@@ -121,7 +121,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->createFrameBuffer();
     std::cout << "created frame buffers" << std::endl;
 
-    std::cout << "loading: " << numModels_ << " models" << std::endl << std::endl;
+    std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
     for (int i = 0; i < numModels_; i++) {
         std::string s = *(pModelPaths_ + i);
         GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
@@ -156,15 +156,38 @@ void GraphicsManager::startVulkan() {
 
     std::cout << "DONE loading skybox\n" << std::endl;
 
+    pVkR_->createSkyBoxPipeline();
+
+    pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_));
+    pVkR_->brdfLut->genBRDFLUT();
+
+    std::cout << "generated BRDFLUT" << std::endl;
+
+    pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
+    pVkR_->irCube->geniRCube();
+
+    std::cout << std::endl << "generated IrradianceCube" << std::endl;
+
+    pVkR_->prefEMap = new PrefilteredEnvMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
+    pVkR_->prefEMap->genprefEMap();
+
+    std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
+
     for (int i = 0; i < numModels_; i++) {
         GLTFObj* gltfO = pVkR_->pModels_[i];
         gltfO->createDescriptors();
+        std::cout << "created material graphics pipeline" << std::endl;
+    }
+
+    pVkR_->updateGeneratedImageDescriptorSets();
+
+    for (int i = 0; i < numModels_; i++) {
+        GLTFObj* gltfO = pVkR_->pModels_[i];
         pVkR_->createGraphicsPipeline(gltfO->getMeshHelper());
         std::cout << "created material graphics pipeline" << std::endl;
     }
-    std::cout << "\ncreated descriptor sets" << std::endl;
 
-    pVkR_->createSkyBoxPipeline();
+    std::cout << "\ncreated descriptor sets" << std::endl;
 
     pVkR_->createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created commaned buffers" << std::endl;

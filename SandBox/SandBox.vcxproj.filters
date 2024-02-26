@@ -37,6 +37,12 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{20096a3a-bd4c-4266-8f77-83cbd3f09735}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Helpers\Image Creation">
+      <UniqueIdentifier>{d91e581c-12c2-4bb0-8621-41e87a0c825b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Helpers\Image Creation">
+      <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SandBox.cpp">
@@ -87,6 +93,15 @@
     <ClCompile Include="Skybox.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
+    <ClCompile Include="BRDFLut.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClCompile>
+    <ClCompile Include="IrradianceCube.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClCompile>
+    <ClCompile Include="PrefilteredEnvMap.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -136,6 +151,15 @@
     </ClInclude>
     <ClInclude Include="Skybox.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="BRDFLut.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="IrradianceCube.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="PrefilteredEnvMap.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

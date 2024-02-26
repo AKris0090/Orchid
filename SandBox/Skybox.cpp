@@ -14,7 +14,7 @@ void Skybox::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRa
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
-    barrier.srcAccessMask = 0;
+    barrier.srcAccessMask = 0;  
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
     sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;

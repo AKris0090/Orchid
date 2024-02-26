@@ -3,6 +3,8 @@
 #include <iostream>
 #include <vulkan/vulkan.hpp>
 
+#define PI 3.141592653589793
+
 class DeviceHelper {
 private:
     VkDevice device_;

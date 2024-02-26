@@ -6,6 +6,10 @@ layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
 
+layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
+layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
+layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
+
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 fragViewVec;
@@ -107,6 +111,17 @@ vec3 getNormalFromMap()
     return normalize(TBN * tangentNormal);
 }
 
+vec3 prefilteredReflection(vec3 R, float roughness)
+{
+	const float MAX_REFLECTION_LOD = 9.0; // todo: param/const
+	float lod = roughness * MAX_REFLECTION_LOD;
+	float lodf = floor(lod);
+	float lodc = ceil(lod);
+	vec3 a = textureLod(prefilteredEnvMap, R, lodf).rgb;
+	vec3 b = textureLod(prefilteredEnvMap, R, lodc).rgb;
+	return mix(a, b, lod - lodf);
+}
+
 void main() {
     vec4 colorval = texture(colorSampler, fragTexCoord);
     vec3 albedo = colorval.rgb;
@@ -124,16 +139,15 @@ void main() {
 
     vec3 N = getNormalFromMap();
     vec3 V = normalize(fragViewVec);
+
+    vec3 R = reflect(-V, N); 
     
     //reflectance at normal incidence (base reflectivity)
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 
     vec3 Lo = vec3(0.0);
-
-    vec3 ambient = vec3(0.03f) * ao * albedo;
     for(int i = 0; i < 1; i++) {
-
         // calculate per-light radiance
         vec3 L = normalize(fragLightVec);
         vec3 H = normalize(V + L);
@@ -163,17 +177,21 @@ void main() {
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
+    vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 reflection = prefilteredReflection(R, roughness).rgb;	
+    vec3 irradiance = texture(irradianceCube, N).rgb;
+
+    vec3 diffuse = irradiance * albedo;
+
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-	
-    vec3 ks = F;
-    vec3 kd = vec3(1.0f) - ks;
-    kd *= 1.0f - metallic;
 
-    vec3 diffuse = 0.03f * albedo; // 0.03 is camera ambient brightness
+    vec3 specular = reflection * (F * brdf.x + brdf.y);
 
-    ambient = (kd * diffuse) * ao;
+    vec3 kD = 1.0 - F;
+    kD *= 1.0 - metallic;	  
+    vec3 newAmbient = (kD * diffuse + specular) * ao;
 
-    vec3 col = ambient + Lo + texture(emissionSampler, fragTexCoord).xyz;
+    vec3 col = newAmbient + Lo + texture(emissionSampler, fragTexCoord).xyz;
 
     outColor = vec4(pow(Uncharted2Tonemap(col), vec3(2.2)), alpha);
 }

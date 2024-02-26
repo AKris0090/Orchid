@@ -17,8 +17,6 @@ private:
 	VkDeviceMemory stagingBufferMemory_;
 
 	VkImage skyBoxImage_;
-	VkImageView skyBoxImageView_;
-	VkSampler skyBoxImageSampler_;
 
 	VkDeviceMemory skyBoxImageMemory_;
 
@@ -39,6 +37,8 @@ public:
 	VkPipeline skyboxPipeline_;
 	VkDescriptorSetLayout skyBoxDescriptorSetLayout_;
 	VkDescriptorSet skyBoxDescriptorSet_;
+	VkImageView skyBoxImageView_;
+	VkSampler skyBoxImageSampler_;
 
 	Skybox() {};
 	Skybox(std::string modPath, std::vector<std::string> stringPaths, DeviceHelper* devHelper);

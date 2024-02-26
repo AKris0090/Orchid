@@ -6,10 +6,10 @@
 
 #include "VulkanRenderer.h"
 
-const int MAX_FRAMES_IN_FLIGHT = 1;
-
 class GraphicsManager {
 private:
+	int MAX_FRAMES_IN_FLIGHT = 1;
+
 	int numModels_;
 	int numTextures_;
 	std::string* pModelPaths_;

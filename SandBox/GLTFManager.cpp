@@ -69,6 +69,36 @@ void GLTFObj::renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, V
     }
 }
 
+void GLTFObj::genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node) {
+    if (node->mesh.primitives.size() > 0) {
+        glm::mat4 nodeTransform = node->transform;
+        SceneNode* curParent = node->parent;
+        while (curParent) {
+            nodeTransform = curParent->transform * nodeTransform;
+            curParent = curParent->parent;
+        }
+        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
+            if (p.numIndices > 0) {
+                vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
+            }
+        }
+    }
+    for (auto& child : node->children) {
+        genImageDrawSkyBoxIndexed(commandBuffer, child);
+    }
+}
+
+void GLTFObj::genImageRenderSkybox(VkCommandBuffer commandBuffer) {
+    VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    for (auto& node : pNodes_) {
+        genImageDrawSkyBoxIndexed(commandBuffer, node);
+    }
+}
+
 // LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
 void GLTFObj::loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images) {
     for (size_t i = 0; i < in.images.size(); i++) {

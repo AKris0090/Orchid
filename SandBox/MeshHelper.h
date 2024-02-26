@@ -78,6 +78,31 @@ public:
 		}
 	};
 
+	struct altVertex {
+		glm::vec3 pos;
+
+		static VkVertexInputBindingDescription getBindingDescription() {
+			VkVertexInputBindingDescription bindingDescription{};
+			bindingDescription.binding = 0;
+			bindingDescription.stride = sizeof(altVertex);
+			bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+			return bindingDescription;
+		}
+
+		static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
+			std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(altVertex, pos);
+			return attributeDescriptions;
+		}
+
+		bool operator==(const altVertex& other) const {
+			return pos == other.pos;
+		}
+	};
+
 	std::vector<TextureHelper*> images_;
 	std::vector<TextureHelper::TextureIndexHolder> textures_;
 	std::vector<Material> mats_;
