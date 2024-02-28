@@ -29,12 +29,12 @@ void main() {
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 
-    vec4 pos = pc.model * vec4(inPosition, 1.0);
-    fragNormal = inNormal;
-    fragTangent = inTangent;
+    vec4 pos = pc.model * vec4(inPosition, 1.0f);
+    fragPosition = pos.xyz / pos.w;
+    fragNormal = transpose(inverse(mat3(pc.model))) * inNormal;
+    fragTangent = vec4(transpose(inverse(mat3(pc.model))) * inTangent.xyz, inTangent.w);
     fragLightVec = ubo.lightPos.xyz - pos.xyz;
     fragViewVec = ubo.viewPos.xyz - pos.xyz;
-    fragPosition = inPosition;
 
-    gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition.xyz, 1.0);
+    gl_Position = ubo.proj * ubo.view * vec4((pos.xyz / pos.w), 1.0f);
 }

@@ -43,6 +43,12 @@
     <Filter Include="Source Files\Engine\Graphics\Helpers\Image Creation">
       <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Helpers\EXTERNAL">
+      <UniqueIdentifier>{e1634e47-7f3a-4322-a714-2e754a710c60}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Helpers\EXTERNAL">
+      <UniqueIdentifier>{8acb2d15-6491-4464-990e-12ae4791af21}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SandBox.cpp">
@@ -102,6 +108,9 @@
     <ClCompile Include="PrefilteredEnvMap.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
     </ClCompile>
+    <ClCompile Include="mikktspace.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -160,6 +169,9 @@
     </ClInclude>
     <ClInclude Include="PrefilteredEnvMap.h">
       <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="mikktspace.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

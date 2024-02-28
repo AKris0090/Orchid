@@ -1,10 +1,5 @@
 #include "PrefilteredEnvMap.h"
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
-
 void PrefilteredEnvMap::createprefEMapImage() {
     pDevHelper_->createSkyBoxImage(width_, height_, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, prefEMapImage_, prefEMapImageMemory_);
 }
@@ -410,11 +405,12 @@ void PrefilteredEnvMap::createPipeline() {
     brdfLUTPipelineCInfo.stageCount = 2;
     brdfLUTPipelineCInfo.pStages = stages;
 
+    // Describing the format of the vertex data to be passed to the vertex shader
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::altVertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::altVertex::getAttributeDescriptions();
+    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
+    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -467,7 +463,7 @@ void PrefilteredEnvMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBu
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void PrefilteredEnvMap::render() {
     VkClearValue clearValues[1];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
+    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -478,20 +474,27 @@ void PrefilteredEnvMap::render() {
     renderPassBeginInfo.pClearValues = clearValues;
     renderPassBeginInfo.framebuffer = offscreen.framebuffer;
 
-    std::vector<glm::mat4> matrices = {
-        // POSITIVE_X
-        glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_X
-        glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // POSITIVE_Y
-        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_Y
-        glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // POSITIVE_Z
-        glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_Z
-        glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-    };
+    //std::vector<glm::mat4> matrices = {
+    //    // POSITIVE_X (Outside in - so NEG_X face)
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // NEGATIVE_X (Outside in - so POS_X face)
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // POSITIVE_Y
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+    //    // NEGATIVE_Y
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+    //    // POSITIVE_Z
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // NEGATIVE_Z
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //};
+    std::vector<glm::mat4> matrices = { 
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, -1), glm::vec3(0, -1, 0))};
 
     VkCommandBuffer cmdBuf = pDevHelper_->beginSingleTimeCommands();
 
@@ -506,6 +509,9 @@ void PrefilteredEnvMap::render() {
     viewport.y = 0.0f;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
+    viewport.width = (float) width_;
+    viewport.height = (float) height_;
+    vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = { 0, 0 };
@@ -529,7 +535,7 @@ void PrefilteredEnvMap::render() {
 
             vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-            pushBlock.mvp = glm::perspective((float)(PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[face];
+            pushBlock.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[face];
 
             vkCmdPushConstants(cmdBuf, prefEMapPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushBlock), &pushBlock);
 

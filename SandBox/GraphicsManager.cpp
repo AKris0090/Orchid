@@ -153,10 +153,9 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_);
     pVkR_->pSkyBox_->loadSkyBox();
+    pVkR_->createSkyBoxPipeline();
 
     std::cout << "DONE loading skybox\n" << std::endl;
-
-    pVkR_->createSkyBoxPipeline();
 
     pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_));
     pVkR_->brdfLut->genBRDFLUT();

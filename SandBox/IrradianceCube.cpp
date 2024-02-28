@@ -1,10 +1,5 @@
 #include "IrradianceCube.h"
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
-
 void IrradianceCube::createiRCubeImage() {
     pDevHelper_->createSkyBoxImage(width_, height_, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, iRCubeImage_, iRCubeImageMemory_);
 }
@@ -293,8 +288,6 @@ void IrradianceCube::createPipeline() {
 
     VkDescriptorSetLayout descSetLayouts[] = { iRCubeDescriptorSetLayout_ };
 
-    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
-    // Initialize the pipeline layout with another create info struct
     VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeLineLayoutCInfo.setLayoutCount = 1;
@@ -315,39 +308,26 @@ void IrradianceCube::createPipeline() {
     VkShaderModule irCubeVertexShaderModule = createShaderModule(device_, irCubeVertShader);
     VkShaderModule irCubeFragmentShaderModule = createShaderModule(device_, irCubeFragShader);
 
-    // Next struct describes what kind of geometry will be drawn from the verts and if primitive restart should be enabled
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
     inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
 
-    // Initialize the viewport information struct, a lot of the size information will come from the swap chain extent factor
     VkPipelineViewportStateCreateInfo viewportStateCInfo{};
     viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportStateCInfo.viewportCount = 1;
     viewportStateCInfo.scissorCount = 1;
 
-    // Initialize rasterizer, which takes information from the geometry formed by the vertex shader into fragments to be colored by the fragment shader
     VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
     rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    // Fragments beyond the near and far planes are clamped to those planes, instead of discarding them
     rasterizerCInfo.depthClampEnable = VK_FALSE;
-    // If set to true, geometry never passes through the rasterization phase, and disables output to framebuffer
-    rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-    // Determines how fragments are generated for geometry, using other modes requires enabling a GPU feature
     rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    // Linewidth describes thickness of lines in terms of number of fragments 
     rasterizerCInfo.lineWidth = 1.0f;
-    // Specify type of culling and and the vertex order for the faces to be considered
     rasterizerCInfo.cullMode = VK_CULL_MODE_NONE;
     rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    // Alter depth values by adding constant or biasing them based on a fragment's slope
-    rasterizerCInfo.depthBiasEnable = VK_FALSE;
 
-    // Multisampling information struct
     VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
     multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.sampleShadingEnable = VK_FALSE;
     multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     // Depth and stencil testing would go here, but not doing this for the triangle
@@ -356,29 +336,17 @@ void IrradianceCube::createPipeline() {
     depthStencilCInfo.depthTestEnable = VK_FALSE;
     depthStencilCInfo.depthWriteEnable = VK_FALSE;
     depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilCInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
 
-    // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
-    // If <blendEnable> is set to false, then the color from the fragment shader is passed through to the framebuffer
-    // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = 0xf;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
-    // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.logicOpEnable = VK_FALSE;
-    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
     colorBlendingCInfo.attachmentCount = 1;
     colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-    colorBlendingCInfo.blendConstants[0] = 0.0f;
-    colorBlendingCInfo.blendConstants[1] = 0.0f;
-    colorBlendingCInfo.blendConstants[2] = 0.0f;
-    colorBlendingCInfo.blendConstants[3] = 0.0f;
 
-    // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR
@@ -405,18 +373,17 @@ void IrradianceCube::createPipeline() {
 
     VkPipelineShaderStageCreateInfo stages[] = { irCubeVertexStageCInfo, irCubeFragmentStageCInfo };
 
-    // Combine the shader stages, fixed-function state, pipeline layout, and render pass to create the graphics pipeline
-    // First - populate struct with the information
     VkGraphicsPipelineCreateInfo brdfLUTPipelineCInfo{};
     brdfLUTPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     brdfLUTPipelineCInfo.stageCount = 2;
     brdfLUTPipelineCInfo.pStages = stages;
 
+    // Describing the format of the vertex data to be passed to the vertex shader
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::altVertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::altVertex::getAttributeDescriptions();
+    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
+    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -471,7 +438,7 @@ void IrradianceCube::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff,
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void IrradianceCube::render() {
     VkClearValue clearValues[1];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
+    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -482,21 +449,6 @@ void IrradianceCube::render() {
     renderPassBeginInfo.pClearValues = clearValues;
     renderPassBeginInfo.framebuffer = offscreen.framebuffer;
 
-    std::vector<glm::mat4> matrices = {
-        // POSITIVE_X
-        glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_X
-        glm::rotate(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // POSITIVE_Y
-        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_Y
-        glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // POSITIVE_Z
-        glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
-        // NEGATIVE_Z
-        glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-    };
-
     VkCommandBuffer cmdBuf = pDevHelper_->beginSingleTimeCommands();
 
     VkImageSubresourceRange subresourceRange = {};
@@ -506,10 +458,11 @@ void IrradianceCube::render() {
     subresourceRange.layerCount = 6;
 
     VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    viewport.width = width_;
+    viewport.height = height_;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = { 0, 0 };
@@ -525,17 +478,42 @@ void IrradianceCube::render() {
     subresourceRange2.levelCount = 1;
     subresourceRange2.layerCount = 1;
 
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f);
+
+    //std::vector<glm::mat4> matrices = {
+    //    // POSITIVE_X (Outside in - so NEG_X face)
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // NEGATIVE_X (Outside in - so POS_X face)
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // POSITIVE_Y
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+    //    // NEGATIVE_Y
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+    //    // POSITIVE_Z
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //    // NEGATIVE_Z
+    //    glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    //};
+
+    std::vector<glm::mat4> matrices = { 
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(1, 0, 0), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(-1, 0, 0), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, -1)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, -1, 0)),
+        glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, -1), glm::vec3(0, -1, 0)) };
+
     for (uint32_t  mip = 0; mip < mipLevels_; mip++) {
         for (uint32_t  face = 0; face < 6; face++) {
             viewport.width = static_cast<float>(width_ * std::pow(0.5f, mip));
             viewport.height = static_cast<float>(height_ * std::pow(0.5f, mip));
             vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
-            vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE); 
 
-            pushBlock.mvp = glm::perspective((float)(PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[face];
+            pushBlock.mvp = proj * matrices[face];
 
-            vkCmdPushConstants(cmdBuf, iRCubePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushBlock), &pushBlock);
+            vkCmdPushConstants(cmdBuf, iRCubePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradianceCube::PushBlock), &pushBlock);
 
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipeline_);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipelineLayout_, 0, 1, &iRCubeDescriptorSet_, 0, NULL);

@@ -152,6 +152,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="IrradianceCube.cpp" />
     <ClCompile Include="MeshHelper.cpp" />
+    <ClCompile Include="mikktspace.cpp" />
     <ClCompile Include="PrefilteredEnvMap.cpp" />
     <ClCompile Include="SandBox.cpp" />
     <ClCompile Include="GLTFManager.cpp" />
@@ -175,6 +176,7 @@
     <ClInclude Include="IrradianceCube.h" />
     <ClInclude Include="MeshHelper.h" />
     <ClInclude Include="GLTFManager.h" />
+    <ClInclude Include="mikktspace.h" />
     <ClInclude Include="PrefilteredEnvMap.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="TextureHelper.h" />

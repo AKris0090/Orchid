@@ -16,6 +16,9 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     // Camera logic
     this->camera_.update();
 
+    if (rotate_) {
+
+    }
     UniformBufferObject ubo{};
     ubo.view = this->camera_.getViewMatrix();
     ubo.proj = glm::perspective(glm::radians(70.0f), this->SWChainExtent_.width / (float)this->SWChainExtent_.height, 0.0001f, 10000.0f);
