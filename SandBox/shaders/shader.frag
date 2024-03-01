@@ -10,13 +10,12 @@ layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 fragViewVec;
+layout(location = 0) in vec3 fragPosition;
+layout(location = 1) in vec3 fragViewPos;
+layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
-layout(location = 6) in vec3 fragPosition;
 
 layout(location = 0) out vec4 outColor;
 
@@ -124,36 +123,16 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	return color;
 }
 
-mat3 cotangent_frame( vec3 N, vec3 p, vec2 uv ) {
-	vec3 dp1 = dFdx( p );
-	vec3 dp2 = dFdy( p );
-	vec2 duv1 = dFdx( uv );
-	vec2 duv2 = dFdy( uv );
-
-	vec3 dp2perp = cross( dp2, N );
-	vec3 dp1perp = cross( N, dp1 );
-	vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
-	vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
-	
-	float invmax = inversesqrt( max( dot(T,T), dot(B,B) ) );
-	return mat3( T * invmax, B * invmax, N );
-}
-
-vec3 perturb_normal( vec3 N, vec3 V) { 
-	vec3 map = texture( normalSampler, fragTexCoord ).xyz; 
-	mat3 TBN = cotangent_frame( N, -V, fragTexCoord ); 
-	return normalize( TBN * map ); 
-}
-
 vec3 calculateNormal()
 {
 	vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
 
-	vec3 N = normalize(fragNormal);
-	vec3 T = fragTangent.xyz;
-        vec3 B = cross(N, T);
-	mat3 TBN = mat3(T, B, N);
-	return normalize(TBN * tangentNormal);
+
+        vec3 T = normalize(fragTangent.xyz);
+        vec3 B = normalize(cross(fragNormal.xyz, fragTangent.xyz) * fragTangent.w);
+        vec3 N = normalize(fragNormal);
+
+	return normalize(mat3(T, B, N) * tangentNormal);
 }
 
 void main()
@@ -165,7 +144,7 @@ void main()
    	}
 	vec3 N = calculateNormal();
 
-	vec3 V = normalize(fragViewVec);
+	vec3 V = normalize(fragViewPos - fragPosition);
 	vec3 R = -normalize(reflect(V, N)); 
 
 	float metallic = texture(metallicRoughnessSampler, fragTexCoord).b;
@@ -204,5 +183,5 @@ void main()
 	// Gamma correction
 	//color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-	outColor = vec4(N, ALPHA);
+	outColor = vec4(color, ALPHA);
 }

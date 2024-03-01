@@ -35,7 +35,11 @@ glm::mat4 FPSCam::getViewMatrix() {
     glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), this->position_);
     glm::mat4 camRotation = this->getRotationMatrix();
 
-    this->viewPos_ = glm::vec4(this->position_, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+    //this->viewPos_ = glm::vec4(this->position_, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+    this->viewPos_ = glm::vec4(this->position_, 0.0f);
+    //glm::mat4 viewMatrix = glm::inverse(camTranslation * camRotation);
+    //viewMatrix = glm::transpose(glm::inverse(viewMatrix));
+    //viewPos_ = glm::vec4(viewMatrix[2][0], viewMatrix[2][1], viewMatrix[2][2], 1.0f);
 
     return glm::inverse(camTranslation * camRotation);
 }

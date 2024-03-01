@@ -4,6 +4,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <filesystem>
 #include "MeshHelper.h"
+#include "mikktspace.h"
 
 class GLTFObj {
 public:

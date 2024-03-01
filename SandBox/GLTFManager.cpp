@@ -2,6 +2,60 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
+// MIKKTSPACE TANGENT FUNCTIONS, REFERENCED OFF OF: https://github.com/Eearslya/glTFView. SUCH AN AMAZING PERSON
+struct MikkTContext {
+    MeshHelper* mesh;
+};
+
+static int MikkTGetNumFaces(const SMikkTSpaceContext* context) {
+    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
+    return data->mesh->vertices_.size() / 3;
+}
+
+static int MikkTGetNumVerticesOfFace(const SMikkTSpaceContext* context, const int face) {
+    return 3;
+}
+
+static void MikkTGetPosition(const SMikkTSpaceContext* context, float fvPosOut[], const int face, const int vert) {
+    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
+    const glm::vec3 pos = data->mesh->vertices_[face * 3 + vert].pos;
+    fvPosOut[0] = pos.x;
+    fvPosOut[1] = pos.y;
+    fvPosOut[2] = pos.z;
+}
+
+static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[], const int face, const int vert) {
+    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
+    const glm::vec3 norm = data->mesh->vertices_[face * 3 + vert].normal;
+    fvNormOut[0] = norm.x;
+    fvNormOut[1] = norm.y;
+    fvNormOut[2] = norm.z;
+}
+
+static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
+    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
+    glm::vec2 uv = data->mesh->vertices_[face * 3 + vert].uv;
+    fvTexcOut[0] = uv.x;
+    fvTexcOut[1] = 1.0 - uv.y;
+}
+
+static void MikkTSetTSpaceBasic(
+    const SMikkTSpaceContext* context, const float fvTangent[], const float fSign, const int face, const int vert) {
+    auto data = reinterpret_cast<MikkTContext*>(context->m_pUserData);
+
+    data->mesh->vertices_[face * 3 + vert].tangent = glm::vec4(glm::make_vec3(fvTangent), fSign);
+}
+
+static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces,
+                                              .m_getNumVerticesOfFace = MikkTGetNumVerticesOfFace,
+                                              .m_getPosition = MikkTGetPosition,
+                                              .m_getNormal = MikkTGetNormal,
+                                              .m_getTexCoord = MikkTGetTexCoord,
+                                              .m_setTSpaceBasic = MikkTSetTSpaceBasic,
+                                              .m_setTSpace = nullptr };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void GLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = node->transform;
@@ -129,6 +183,8 @@ void GLTFObj::loadTextures(tinygltf::Model& in, std::vector<TextureHelper::Textu
 }
 
 void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes) {
+    SMikkTSpaceContext mikktContext = { .m_pInterface = &MikkTInterface };
+
     SceneNode* scNode = new SceneNode{};
     scNode->transform = glm::mat4(1.0f);
     scNode->parent = parent;
@@ -239,6 +295,53 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             totalIndices_ += indexCount;
             p.materialIndex = gltfPrims.material;
             scNode->mesh.primitives.push_back(p);
+
+            // TANGENT SPACE CREATION - ALSO REFERENCED OFF OF: https://github.com/Eearslya/glTFView.
+            totalIndices_ = 0;
+            totalVertices_ = 0;
+            if (!tangentsBuff) {
+                //UNPACK VERTICES
+                std::vector<MeshHelper::Vertex> unpacked(pSceneMesh_->indices_.size());
+                uint32_t newInd = 0;
+                for (uint32_t index : pSceneMesh_->indices_) {
+                    unpacked[newInd] = pSceneMesh_->vertices_[index];
+                    newInd++;
+                }
+                pSceneMesh_->vertices_ = std::move(unpacked);
+                pSceneMesh_->indices_.clear();
+
+                // GEN TANGENT SPACE
+                MikkTContext context{ pSceneMesh_ };
+                mikktContext.m_pUserData = &context;
+                genTangSpaceDefault(&mikktContext);
+
+                //WELD VERTICES
+                pSceneMesh_->indices_.clear();
+                pSceneMesh_->indices_.reserve(pSceneMesh_->vertices_.size());
+                std::unordered_map<MeshHelper::Vertex, uint32_t> uniqueVertices;
+
+                size_t oldVertexCount = pSceneMesh_->vertices_.size();
+                uint32_t postTVertexCount = 0;
+                for (size_t i = 0; i < oldVertexCount; ++i) {
+                    MeshHelper::Vertex v = pSceneMesh_->vertices_[i];
+
+                    auto index = uniqueVertices.find(v);
+                    if (index == uniqueVertices.end()) {
+                        uint32_t vertIndex = postTVertexCount;
+                        postTVertexCount++;
+                        uniqueVertices.insert(std::make_pair(v, vertIndex));
+                        pSceneMesh_->vertices_[vertIndex] = v;
+                        pSceneMesh_->indices_.push_back(vertIndex);
+                    }
+                    else {
+                        pSceneMesh_->indices_.push_back(index->second);
+                    }
+                }
+                pSceneMesh_->vertices_.resize(postTVertexCount);
+
+                totalIndices_ += pSceneMesh_->indices_.size();
+                totalVertices_ += pSceneMesh_->vertices_.size();
+            }
         }
     }
 
