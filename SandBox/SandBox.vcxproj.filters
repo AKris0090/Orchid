@@ -173,5 +173,8 @@
     <ClInclude Include="mikktspace.h">
       <Filter>Header Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
     </ClInclude>
+    <ClInclude Include="PointLight.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

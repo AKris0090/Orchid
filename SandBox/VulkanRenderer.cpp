@@ -2,9 +2,10 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
-VulkanRenderer::VulkanRenderer(int numModels, int numTextures) {
+VulkanRenderer::VulkanRenderer(int numModels) {
     this->numModels_ = numModels;
-    this->numTextures_ = numTextures;
+    lights_.push_back(glm::vec4(0.0f, 4.5f, 0.0f, 1.0f));
+    lights_.push_back(glm::vec4(0.0f, 4.5f, 0.0f, 1.0f));
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {

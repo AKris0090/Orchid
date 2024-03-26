@@ -12,7 +12,9 @@
 #include <chrono>
 
 #include "PrefilteredEnvMap.h"
+#include "PointLight.h"
 #include "Camera.h"
+#include "PointLight.h"
 
 #ifdef NDEBUG
 const bool enableValLayers = false;
@@ -30,7 +32,7 @@ const std::vector<const char*> deviceExts = {
 struct UniformBufferObject {
 	glm::mat4 view;
 	glm::mat4 proj;
-    glm::vec4 lightPos = glm::vec4(0.0f, 2.5f, 0.0f, 1.0f);
+	glm::vec4 lightPos;
 	glm::vec4 viewPos;
 };
 
@@ -115,6 +117,7 @@ public:
 	bool rotate_ = false;
 	bool frBuffResized_ = false;
 	glm::vec4* pLightPos_ = new glm::vec4(0.0f, 4.5f, 0.0f, 1.0f); // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
+	std::vector<glm::vec4> lights_;
 	FPSCam camera_;
 
 	DeviceHelper* pDevHelper_;
@@ -151,7 +154,7 @@ public:
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
 
-	VulkanRenderer(int numModels, int numTextures);
+	VulkanRenderer(int numModels);
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
 	// Check if the validation layers requested are supported

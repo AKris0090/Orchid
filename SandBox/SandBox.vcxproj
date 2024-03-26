@@ -177,6 +177,7 @@
     <ClInclude Include="MeshHelper.h" />
     <ClInclude Include="GLTFManager.h" />
     <ClInclude Include="mikktspace.h" />
+    <ClInclude Include="PointLight.h" />
     <ClInclude Include="PrefilteredEnvMap.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="TextureHelper.h" />

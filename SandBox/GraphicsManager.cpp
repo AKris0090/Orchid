@@ -69,9 +69,9 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::SliderFloat("camX", &pVkR_->pLightPos_->x, -15.0f, 15.0f);
     ImGui::SliderFloat("camY", &pVkR_->pLightPos_->y, -15.0f, 15.0f);
     ImGui::SliderFloat("camZ", &pVkR_->pLightPos_->z, -15.0f, 15.0f);
-    ImGui::SliderFloat("X", &pVkR_->camera_.position_.x, -100.0f, 100.0f);
-    ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -100.0f, 100.0f);
-    ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -100.0f, 100.0f);
+    ImGui::SliderFloat("X", &pVkR_->camera_.position_.x, -50.0f, 50.0f);
+    ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -50.0f, 50.0f);
+    ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
 
@@ -79,7 +79,7 @@ void GraphicsManager::imGUIUpdate() {
 }
 
 void GraphicsManager::startVulkan() {
-    pVkR_ = new VulkanRenderer(numModels_, 0);
+    pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
@@ -200,7 +200,7 @@ void GraphicsManager::loopUpdate() {
 
     pVkR_->drawNewFrame(pWindow_, MAX_FRAMES_IN_FLIGHT);
 
-    // IIMGUI Rendering
+    // IMGUI Rendering
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
 
