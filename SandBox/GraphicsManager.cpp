@@ -66,9 +66,9 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::NewFrame();
 
     ImGui::Begin("Var Editor");
-    ImGui::SliderFloat("camX", &pVkR_->pLightPos_->x, -15.0f, 15.0f);
-    ImGui::SliderFloat("camY", &pVkR_->pLightPos_->y, -15.0f, 15.0f);
-    ImGui::SliderFloat("camZ", &pVkR_->pLightPos_->z, -15.0f, 15.0f);
+    ImGui::DragFloat("lightX", &pVkR_->pLightPos_->x);
+    ImGui::DragFloat("lightY", &pVkR_->pLightPos_->y);
+    ImGui::DragFloat("lightZ", &pVkR_->pLightPos_->z);
     ImGui::SliderFloat("X", &pVkR_->camera_.position_.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -50.0f, 50.0f);
@@ -81,6 +81,7 @@ void GraphicsManager::imGUIUpdate() {
 void GraphicsManager::startVulkan() {
     pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
+    pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 
@@ -171,6 +172,11 @@ void GraphicsManager::startVulkan() {
     pVkR_->prefEMap->genprefEMap();
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
+
+    pVkR_->shadowMap = new ShadowMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_);
+    pVkR_->shadowMap->genShadowMap();
+
+    std::cout << std::endl << "generated Shadow Map" << std::endl;
 
     for (int i = 0; i < numModels_; i++) {
         GLTFObj* gltfO = pVkR_->pModels_[i];

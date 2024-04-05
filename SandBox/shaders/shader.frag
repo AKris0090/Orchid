@@ -10,14 +10,19 @@ layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 
+layout(set = 1, binding = 8) uniform sampler2D samplerDepthMap;
+
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragViewPos;
 layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
+layout(location = 6) in vec4 fragShadowCoord;
 
 layout(location = 0) out vec4 outColor;
+
+float ambient = 0.1f;
 
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
@@ -135,6 +140,33 @@ vec3 calculateNormal()
 	return normalize(mat3(T, B, N) * tangentNormal);
 }
 
+float textureProj(vec4 shadowCoord, vec2 off)
+{
+	float shadow = 1.0;
+	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
+	{
+		float dist = texture( samplerDepthMap, shadowCoord.st + off ).r;
+		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z ) 
+		{
+			shadow = ambient;
+		}
+	}
+	return shadow;
+}
+
+float ShadowCalculation(vec4 fragPosLightSpace, float bias)
+{
+    vec3 projCoords = vec3(fragPosLightSpace / fragPosLightSpace.w);
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    float closestDepth = texture(samplerDepthMap, projCoords.xy).r; 
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // check whether current frag pos is in shadow
+    float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;  
+
+    return shadow;
+}
+
 void main()
 {		
 	if (ALPHA_MASK) {
@@ -142,6 +174,7 @@ void main()
             		discard;
         	}
    	}
+
 	vec3 N = calculateNormal();
 
 	vec3 V = normalize(fragViewPos - fragPosition);
@@ -159,12 +192,17 @@ void main()
                 Lo += specularContribution(L, V, N, F0, metallic, roughness);
 	}  
 
+	float bias = max(0.05 * (1.0 - dot(N, normalize(fragLightVec))), 0.005);  
+
+	float shadow = ShadowCalculation(fragShadowCoord, bias);
+
 	vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
 
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * ALBEDO;
+	diffuse *= (1.0 - shadow);
 
         vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);	
 
@@ -175,7 +213,7 @@ void main()
 	kD *= 1.0 - metallic;	
 	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
 	
-	vec3 color = ambient + Lo + texture(emissionSampler, fragTexCoord).rgb;
+	vec3 color = (ambient + (Lo)) + texture(emissionSampler, fragTexCoord).rgb;
 
 	// Tone mapping
 	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure
@@ -183,5 +221,7 @@ void main()
 	// Gamma correction
 	//color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-	outColor = vec4(color, ALPHA);
+	outColor = vec4(vec3(color), ALPHA);
+
+        //outColor = vec4(color, ALPHA);
 }

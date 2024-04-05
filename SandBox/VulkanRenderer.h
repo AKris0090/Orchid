@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "PrefilteredEnvMap.h"
+#include "ShadowMap.h"
 #include "PointLight.h"
 #include "Camera.h"
 #include "PointLight.h"
@@ -34,6 +34,7 @@ struct UniformBufferObject {
 	glm::mat4 proj;
 	glm::vec4 lightPos;
 	glm::vec4 viewPos;
+	glm::mat4 depthBiasMVP;
 };
 
 // Queue family struct
@@ -97,6 +98,8 @@ private:
 	std::vector<VkFence> inFlightFences_;
 	std::vector<VkFence> imagesInFlight_;
 
+	bool rendered = false;
+
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
@@ -116,7 +119,7 @@ public:
 	int numTextures_;
 	bool rotate_ = false;
 	bool frBuffResized_ = false;
-	glm::vec4* pLightPos_ = new glm::vec4(0.0f, 4.5f, 0.0f, 1.0f); // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
+	glm::vec4* pLightPos_; // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
 	std::vector<glm::vec4> lights_;
 	FPSCam camera_;
 
@@ -153,6 +156,7 @@ public:
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
+	ShadowMap* shadowMap;
 
 	VulkanRenderer(int numModels);
 	// Create the vulkan instance

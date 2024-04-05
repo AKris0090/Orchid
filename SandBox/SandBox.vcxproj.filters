@@ -111,6 +111,9 @@
     <ClCompile Include="mikktspace.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
     </ClCompile>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -175,6 +178,9 @@
     </ClInclude>
     <ClInclude Include="PointLight.h">
       <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -14,6 +14,11 @@ public:
 		MeshHelper::MeshObj mesh;
 		glm::mat4 transform;
 	};
+	struct depthMVModel {
+		glm::mat4 mvp;
+		glm::mat4 model;
+	} depthPushBlock_;
+
 	bool isSkyBox_ = false;
 	MeshHelper* pSceneMesh_;
 
@@ -23,6 +28,7 @@ public:
 	void createDescriptors();
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+	void renderBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp);
 	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
 	void genImageRenderSkybox(VkCommandBuffer commandBuffer);
 
@@ -42,6 +48,7 @@ private:
 	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* pNode);
+	void drawBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node);
 };

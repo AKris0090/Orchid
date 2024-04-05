@@ -5,6 +5,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 proj;
     vec4 lightPos;
     vec4 viewPos;
+    mat4 depthMVP;
 } ubo;
 
 layout(push_constant) uniform pushConstant {

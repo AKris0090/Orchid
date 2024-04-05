@@ -1,5 +1,7 @@
 #include "PrefilteredEnvMap.h"
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 void PrefilteredEnvMap::createprefEMapImage() {
     pDevHelper_->createSkyBoxImage(width_, height_, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, prefEMapImage_, prefEMapImageMemory_);
 }

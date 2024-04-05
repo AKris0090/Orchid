@@ -90,6 +90,39 @@ void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
     }
 }
 
+void GLTFObj::drawBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+    if (node->mesh.primitives.size() > 0) {
+        glm::mat4 nodeTransform = node->transform;
+        SceneNode* curParent = node->parent;
+        while (curParent) {
+            nodeTransform = curParent->transform * nodeTransform;
+            curParent = curParent->parent;
+        }
+        depthPushBlock_.model = nodeTransform;
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(depthMVModel), &depthPushBlock_);
+        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
+            if (p.numIndices > 0) {
+                vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
+            }
+        }
+    }
+    for (auto& child : node->children) {
+        drawBasic(commandBuffer, pipelineLayout, child);
+    }
+}
+
+void GLTFObj::renderBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp) {
+    VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
+    depthPushBlock_.mvp = mvp;
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    for (auto& node : pNodes_) {
+        drawBasic(commandBuffer, pipelineLayout, node);
+    }
+}
+
 void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline_, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = node->transform;

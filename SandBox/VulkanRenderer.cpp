@@ -1,6 +1,7 @@
 #include "VulkanRenderer.h"
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 VulkanRenderer::VulkanRenderer(int numModels) {
     this->numModels_ = numModels;
@@ -14,17 +15,24 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
+    UniformBufferObject ubo{};
+
     // Camera logic
     this->camera_.update();
 
     if (rotate_) {
-
+        // Animate the light source
+        this->pLightPos_->x = -5 + (cos(glm::radians(time * 360.0f)) * 5.0f);
+        //this->pLightPos_->y = 17.5f + (sin(glm::radians(time * 360.0f)) * 5.0f);
+        this->pLightPos_->z = 3.75f + (sin(glm::radians(time * 360.0f)) * 5.0f);
     }
-    UniformBufferObject ubo{};
+    shadowMap->updateUniBuffers();
+
     ubo.view = this->camera_.getViewMatrix();
     ubo.proj = glm::perspective(glm::radians(70.0f), this->SWChainExtent_.width / (float)this->SWChainExtent_.height, 0.0001f, 10000.0f);
     ubo.viewPos = this->camera_.viewPos_;
     ubo.lightPos = *(this->pLightPos_);
+    ubo.depthBiasMVP = shadowMap->depthPushBlock.mvp;
 
     ubo.proj[1][1] *= -1;
 
@@ -652,9 +660,7 @@ void VulkanRenderer::createRenderPass() {
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = 0;
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
@@ -780,7 +786,14 @@ void VulkanRenderer::createDescriptorSetLayout() {
     samplerLayoutBindingPrefiltered.pImmutableSamplers = nullptr;
     samplerLayoutBindingPrefiltered.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO, samplerLayoutBindingEmission, samplerLayoutBindingBRDF, samplerLayoutBindingIrradiance, samplerLayoutBindingPrefiltered };
+    VkDescriptorSetLayoutBinding samplerLayoutShadow{};
+    samplerLayoutShadow.binding = 8;
+    samplerLayoutShadow.descriptorCount = 1;
+    samplerLayoutShadow.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutShadow.pImmutableSamplers = nullptr;
+    samplerLayoutShadow.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::vector<VkDescriptorSetLayoutBinding> samplerBindings = { samplerLayoutBindingColor, samplerLayoutBindingNormal, samplerLayoutBindingMetallicRoughness, samplerLayoutBindingAO, samplerLayoutBindingEmission, samplerLayoutBindingBRDF, samplerLayoutBindingIrradiance, samplerLayoutBindingPrefiltered, samplerLayoutShadow };
 
     VkDescriptorSetLayoutCreateInfo layoutCInfo{};
     layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -791,7 +804,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
     }
 
-    layoutCInfo.bindingCount = 8;
+    layoutCInfo.bindingCount = 9;
     layoutCInfo.pBindings = samplerBindings.data();
 
     if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &textureDescriptorSetLayout_) != VK_SUCCESS) {
@@ -885,7 +898,6 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     depthStencilCInfo.depthTestEnable = VK_TRUE;
     depthStencilCInfo.depthWriteEnable = VK_TRUE;
     depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilCInfo.stencilTestEnable = VK_FALSE;
 
     // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
@@ -1281,8 +1293,8 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images
-    poolSizes[1].descriptorCount = this->numMats_ * 8 * static_cast<uint32_t>(SWChainImages_.size()) + 1; // plus one for the skybox descriptor
+    // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
+    poolSizes[1].descriptorCount = this->numMats_ * 9 * static_cast<uint32_t>(SWChainImages_.size()) + 1; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1350,6 +1362,11 @@ void VulkanRenderer::updateGeneratedImageDescriptorSets() {
             PrefilteredEnvMapInfo.imageView = prefEMap->prefEMapImageView_;
             PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
 
+            VkDescriptorImageInfo shadowMpaInfo{};
+            shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            shadowMpaInfo.imageView = shadowMap->sMImageView_;
+            shadowMpaInfo.sampler = shadowMap->sMImageSampler_;
+
             VkWriteDescriptorSet BRDFLutWrite{};
             BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             BRDFLutWrite.dstSet = m.descriptorSet;
@@ -1374,7 +1391,15 @@ void VulkanRenderer::updateGeneratedImageDescriptorSets() {
             prefilteredWrite.descriptorCount = 1;
             prefilteredWrite.pImageInfo = &PrefilteredEnvMapInfo;
 
-            std::vector<VkWriteDescriptorSet> descriptorWriteSets = { BRDFLutWrite, IrradianceWrite, prefilteredWrite };
+            VkWriteDescriptorSet shadowWrite{};
+            shadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            shadowWrite.dstSet = m.descriptorSet;
+            shadowWrite.dstBinding = 8;
+            shadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            shadowWrite.descriptorCount = 1;
+            shadowWrite.pImageInfo = &shadowMpaInfo;
+
+            std::vector<VkWriteDescriptorSet> descriptorWriteSets = { BRDFLutWrite, IrradianceWrite, prefilteredWrite, shadowWrite };
 
             vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
         }
@@ -1461,7 +1486,6 @@ void VulkanRenderer::createCommandBuffers(int numFramesInFlight) {
 }
 
 void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-
     VkRenderPassBeginInfo sbRPBeginInfo{};
     // Create the render pass
     sbRPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1510,6 +1534,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     if (vkBeginCommandBuffer(commandBuffer, &CBBeginInfo) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
+
+    shadowMap->render(commandBuffer);
 
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
@@ -1563,7 +1589,6 @@ void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL
         std::cout << "recording failed, you bum!" << std::endl;
         std::_Xruntime_error("Failed to record back the command buffer!");
     }
-
 
     vkResetFences(device_, 1, &inFlightFences_[currentFrame_]);
 
