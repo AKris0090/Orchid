@@ -22,14 +22,13 @@ layout(location = 6) in vec4 fragShadowCoord;
 
 layout(location = 0) out vec4 outColor;
 
-float ambient = 0.1f;
-
 layout (constant_id = 0) const bool ALPHA_MASK = false;
 layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO texture(colorSampler, fragTexCoord).rgb
 #define ALPHA texture(colorSampler, fragTexCoord).a
+#define AMBIENT 0.1
 
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
@@ -148,23 +147,41 @@ float textureProj(vec4 shadowCoord, vec2 off)
 		float dist = texture( samplerDepthMap, shadowCoord.st + off ).r;
 		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z ) 
 		{
-			shadow = ambient;
+			shadow = AMBIENT;
 		}
 	}
 	return shadow;
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace, float bias)
+float ShadowCalculation(vec4 fragPosLightSpace)
 {
-    vec3 projCoords = vec3(fragPosLightSpace / fragPosLightSpace.w);
-    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = texture(samplerDepthMap, projCoords.xy).r; 
-    // get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-    // check whether current frag pos is in shadow
-    float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;  
+    	ivec2 texDim = textureSize(samplerDepthMap, 0);
+	float scale = 1.5;
+	float dx = scale * 1.0 / float(texDim.x);
+	float dy = scale * 1.0 / float(texDim.y);
 
-    return shadow;
+	float shadowFactor = 0.0;
+	int count = 0;
+	int range = 1;
+	
+	for (int x = -range; x <= range; x++)
+	{
+		for (int y = -range; y <= range; y++)
+		{
+			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y));
+			count++;
+		}
+	
+	}
+	return shadowFactor / count;
+}
+
+float LinearizeDepth(float depth)
+{
+  float n = 10.0f;
+  float f = 100.0f;
+  float z = depth;
+  return (2.0 * n) / (f + n - z * (f - n));	
 }
 
 void main()
@@ -190,11 +207,11 @@ void main()
 	for(int i = 0; i < 1; i++) {
 		vec3 L = normalize(fragLightVec);
                 Lo += specularContribution(L, V, N, F0, metallic, roughness);
-	}  
+	}
 
-	float bias = max(0.05 * (1.0 - dot(N, normalize(fragLightVec))), 0.005);  
+	float shadow = ShadowCalculation(fragShadowCoord / fragShadowCoord.w);
 
-	float shadow = ShadowCalculation(fragShadowCoord, bias);
+	Lo *= (shadow);
 
 	vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
@@ -202,7 +219,6 @@ void main()
 
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * ALBEDO;
-	diffuse *= (1.0 - shadow);
 
         vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);	
 
@@ -224,4 +240,7 @@ void main()
 	outColor = vec4(vec3(color), ALPHA);
 
         //outColor = vec4(color, ALPHA);
+
+        //float depth = texture(samplerDepthMap, fragTexCoord).r;
+	//outColor = vec4(vec3(1.0-LinearizeDepth(depth)), 1.0);
 }

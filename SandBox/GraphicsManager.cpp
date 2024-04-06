@@ -139,6 +139,11 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
 
+    pVkR_->shadowMap = new ShadowMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_);
+    pVkR_->shadowMap->genShadowMap();
+
+    std::cout << std::endl << "generated Shadow Map" << std::endl;
+
     pVkR_->createUniformBuffers();
     std::cout << "created uniform buffers" << std::endl;
 
@@ -172,11 +177,6 @@ void GraphicsManager::startVulkan() {
     pVkR_->prefEMap->genprefEMap();
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
-
-    pVkR_->shadowMap = new ShadowMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_);
-    pVkR_->shadowMap->genShadowMap();
-
-    std::cout << std::endl << "generated Shadow Map" << std::endl;
 
     for (int i = 0; i < numModels_; i++) {
         GLTFObj* gltfO = pVkR_->pModels_[i];

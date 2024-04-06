@@ -46,5 +46,8 @@ void main() {
 
     fragShadowCoord = (biasMat * ubo.depthVP * pc.model) * vec4(inPosition, 1.0);
 
+    //fragTexCoord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
+    //gl_Position = vec4(fragTexCoord * 2.0f - 1.0f, 0.0f, 1.0f);
+
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
 }

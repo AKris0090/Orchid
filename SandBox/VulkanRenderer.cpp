@@ -36,10 +36,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.proj[1][1] *= -1;
 
-    void* data;
-    vkMapMemory(this->device_, this->uniformBuffersMemory_[currentImage], 0, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(this->device_, this->uniformBuffersMemory_[currentImage]);
+    memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
 void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
@@ -1282,9 +1279,12 @@ void VulkanRenderer::createUniformBuffers() {
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
+    mappedBuffers_.resize(SWChainImages_.size());
 
     for (size_t i = 0; i < SWChainImages_.size(); i++) {
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers_[i], uniformBuffersMemory_[i]);
+        vkMapMemory(this->device_, this->uniformBuffersMemory_[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffers_[i]);
+        updateUniformBuffer(i);
     }
 }
 

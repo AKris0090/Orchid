@@ -88,6 +88,7 @@ private:
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers_;
+	std::vector<void*> mappedBuffers_;
 	std::vector<VkDeviceMemory> uniformBuffersMemory_;
 	// Descriptor set handles
 	std::vector<VkDescriptorSet> descriptorSets_;
