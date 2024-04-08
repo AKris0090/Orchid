@@ -19,6 +19,7 @@ layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
 layout(location = 6) in vec4 fragShadowCoord;
+layout(location = 7) in float fragBias;
 
 layout(location = 0) out vec4 outColor;
 
@@ -145,7 +146,7 @@ float textureProj(vec4 shadowCoord, vec2 off)
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
 	{
 		float dist = texture( samplerDepthMap, shadowCoord.st + off ).r;
-		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z ) 
+		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - fragBias ) 
 		{
 			shadow = AMBIENT;
 		}
@@ -176,14 +177,6 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 	return shadowFactor / count;
 }
 
-float LinearizeDepth(float depth)
-{
-  float n = 10.0f;
-  float f = 100.0f;
-  float z = depth;
-  return (2.0 * n) / (f + n - z * (f - n));	
-}
-
 void main()
 {		
 	if (ALPHA_MASK) {
@@ -209,10 +202,6 @@ void main()
                 Lo += specularContribution(L, V, N, F0, metallic, roughness);
 	}
 
-	float shadow = ShadowCalculation(fragShadowCoord / fragShadowCoord.w);
-
-	Lo *= (shadow);
-
 	vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
@@ -228,8 +217,10 @@ void main()
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - metallic;	
 	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
+
+	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w));
 	
-	vec3 color = (ambient + (Lo)) + texture(emissionSampler, fragTexCoord).rgb;
+	vec3 color = ((ambient + (Lo)) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
 
 	// Tone mapping
 	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure
@@ -237,9 +228,7 @@ void main()
 	// Gamma correction
 	//color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-	outColor = vec4(vec3(color), ALPHA);
-
-        //outColor = vec4(color, ALPHA);
+        outColor = vec4(color, ALPHA);
 
         //float depth = texture(samplerDepthMap, fragTexCoord).r;
 	//outColor = vec4(vec3(1.0-LinearizeDepth(depth)), 1.0);

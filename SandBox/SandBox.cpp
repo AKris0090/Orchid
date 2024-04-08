@@ -1,8 +1,6 @@
 #include "GraphicsManager.h"
 
 std::string pModelPaths[] = {
-    /*"VikingRoom/OBJ.obj",
-    "GSX/Srad 750.obj"*/
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"

@@ -6,6 +6,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 lightPos;
     vec4 viewPos;
     mat4 depthVP;
+    float bias;
 } ubo;
 
 layout(push_constant) uniform pushConstant {
@@ -25,6 +26,7 @@ layout(location = 3) out vec3 fragLightVec;
 layout(location = 4) out vec3 fragNormal;
 layout(location = 5) out vec4 fragTangent;
 layout(location = 6) out vec4 fragShadowCoord;
+layout(location = 7) out float fragBias;
 
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
@@ -34,6 +36,8 @@ const mat4 biasMat = mat4(
 
 void main() {
     fragTexCoord = inTexCoord;
+
+    fragBias = ubo.bias;
 
     vec4 pos = pc.model * vec4(inPosition, 1.0f);
     fragPosition = pos.xyz / pos.w;
@@ -45,9 +49,6 @@ void main() {
     fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
 
     fragShadowCoord = (biasMat * ubo.depthVP * pc.model) * vec4(inPosition, 1.0);
-
-    //fragTexCoord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
-    //gl_Position = vec4(fragTexCoord * 2.0f - 1.0f, 0.0f, 1.0f);
 
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
 }

@@ -73,6 +73,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
+    ImGui::DragFloat("depthBias", &pVkR_->depthBias);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
 
     ImGui::End();
@@ -82,6 +83,7 @@ void GraphicsManager::startVulkan() {
     pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
     pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
+    pVkR_->depthBias = 0.000015f;
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 

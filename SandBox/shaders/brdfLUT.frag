@@ -6,7 +6,7 @@ layout (constant_id = 0) const uint NUM_SAMPLES = 1024u;
 
 const float PI = 3.1415926536;
 
-// Based omn http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
+// Based on http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
 float random(vec2 co)
 {
 	float a = 12.9898;

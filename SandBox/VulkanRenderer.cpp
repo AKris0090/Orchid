@@ -22,9 +22,9 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     if (rotate_) {
         // Animate the light source
-        this->pLightPos_->x = -5 + (cos(glm::radians(time * 360.0f)) * 5.0f);
+        this->pLightPos_->x = 0.0f + (cos(glm::radians(time * 360.0f)) * 20.0f);
         //this->pLightPos_->y = 17.5f + (sin(glm::radians(time * 360.0f)) * 5.0f);
-        this->pLightPos_->z = 3.75f + (sin(glm::radians(time * 360.0f)) * 5.0f);
+        this->pLightPos_->z = 0.0f + (sin(glm::radians(time * 360.0f)) * 8.0f);
     }
     shadowMap->updateUniBuffers();
 
@@ -33,6 +33,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     ubo.viewPos = this->camera_.viewPos_;
     ubo.lightPos = *(this->pLightPos_);
     ubo.depthBiasMVP = shadowMap->depthPushBlock.mvp;
+    ubo.bias = this->depthBias;
 
     ubo.proj[1][1] *= -1;
 

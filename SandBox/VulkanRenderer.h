@@ -35,6 +35,7 @@ struct UniformBufferObject {
 	glm::vec4 lightPos;
 	glm::vec4 viewPos;
 	glm::mat4 depthBiasMVP;
+	float bias = 0.005f;
 };
 
 // Queue family struct
@@ -123,6 +124,7 @@ public:
 	glm::vec4* pLightPos_; // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
 	std::vector<glm::vec4> lights_;
 	FPSCam camera_;
+	float depthBias;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
