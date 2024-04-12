@@ -145,7 +145,7 @@ void ShadowMap::createFrameBuffer() {
 	vkCreateSampler(device_, &sampler, nullptr, &sMImageSampler_);
 
 
-	sMImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	sMImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	sMImageInfo.imageView = sMImageView_;
 	sMImageInfo.sampler = sMImageSampler_;
 
@@ -361,7 +361,7 @@ void ShadowMap::createPipeline() {
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
+    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;

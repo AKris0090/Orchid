@@ -261,7 +261,7 @@ SWAP CHAIN METHODS
 VkSurfaceFormatKHR SWChainSuppDetails::chooseSwSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     for (const auto& availableFormat : availableFormats) {
         // If it has the right color space and format, return it. UNORM for color mode of imgui
-        if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (availableFormat.format == VK_FORMAT_R8G8B8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
         }
     }
@@ -1038,7 +1038,7 @@ void VulkanRenderer::createSkyBoxPipeline() {
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
+    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -1295,7 +1295,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
-    poolSizes[1].descriptorCount = this->numMats_ * 9 * static_cast<uint32_t>(SWChainImages_.size()) + 1; // plus one for the skybox descriptor
+    poolSizes[1].descriptorCount = this->numMats_ * 9 * static_cast<uint32_t>(SWChainImages_.size()) + 2; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

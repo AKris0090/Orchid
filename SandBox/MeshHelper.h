@@ -73,6 +73,15 @@ public:
 			return attributeDescriptions;
 		}
 
+		static std::array<VkVertexInputAttributeDescription, 1> getPositionAttributeDescription() {
+			std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(Vertex, pos);
+			return attributeDescriptions;
+		}
+
 		bool operator==(const Vertex& other) const {
 			return pos == other.pos && color == other.color && uv == other.uv && normal == other.normal;
 		}

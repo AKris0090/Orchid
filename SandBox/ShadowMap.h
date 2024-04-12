@@ -4,13 +4,6 @@
 
 class ShadowMap {
 private:
-	// Keep depth range as small as possible
-    // for better shadow map precision
-	float zNear;
-	float zFar;
-
-	Skybox* pSkybox_;
-
 	struct {
 		VkImage image;
 		VkDeviceMemory memory;
@@ -64,6 +57,11 @@ private:
 	void endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_);
 
 public:
+	// Keep depth range as small as possible
+    // for better shadow map precision
+	float zNear;
+	float zFar;
+
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
 

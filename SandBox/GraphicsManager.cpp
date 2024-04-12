@@ -29,6 +29,8 @@ void GraphicsManager::setupImGUI() {
     init_info.ImageCount = 2;
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, pVkR_->renderPass_);
+
+    m_Dset = ImGui_ImplVulkan_AddTexture(pVkR_->shadowMap->sMImageSampler_, pVkR_->shadowMap->sMImageView_, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 }
 
 void GraphicsManager::startSDL() {
@@ -69,13 +71,19 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("lightX", &pVkR_->pLightPos_->x);
     ImGui::DragFloat("lightY", &pVkR_->pLightPos_->y);
     ImGui::DragFloat("lightZ", &pVkR_->pLightPos_->z);
+    ImGui::DragFloat("near plane", &pVkR_->shadowMap->zNear);
+    ImGui::DragFloat("far plane", &pVkR_->shadowMap->zFar);
     ImGui::SliderFloat("X", &pVkR_->camera_.position_.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
     ImGui::DragFloat("depthBias", &pVkR_->depthBias);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
+    ImGui::End();
 
+    ImGui::Begin("Viewport");
+    ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+    ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
     ImGui::End();
 }
 
@@ -83,7 +91,7 @@ void GraphicsManager::startVulkan() {
     pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
     pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
-    pVkR_->depthBias = 0.000015f;
+    pVkR_->depthBias = 0.0003f;
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 
