@@ -302,8 +302,8 @@ void IrradianceCube::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> irCubeVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/filterCubeVert.spv");
-    std::vector<char> irCubeFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/irradianceCubeFrag.spv");
+    std::vector<char> irCubeVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
+    std::vector<char> irCubeFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/irradianceCubeFrag.spv");
 
     std::cout << "read files" << std::endl;
 

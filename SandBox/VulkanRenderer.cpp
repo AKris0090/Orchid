@@ -818,8 +818,8 @@ GRAPHICS PIPELINE
 
 void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/vert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/frag.spv");
+    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
+    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -1025,8 +1025,8 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
 }
 
 void VulkanRenderer::createSkyBoxPipeline() {
-    std::vector<char> skyBoxVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/skyboxVert.spv");
-    std::vector<char> skyBoxFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/skyboxFrag.spv");
+    std::vector<char> skyBoxVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxVert.spv");
+    std::vector<char> skyBoxFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxFrag.spv");
 
     std::cout << "read files" << std::endl;
 

@@ -302,8 +302,8 @@ void PrefilteredEnvMap::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> prefEMapVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/filterCubeVert.spv");
-    std::vector<char> prefEMapFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/prefilteredEnvMapFrag.spv");
+    std::vector<char> prefEMapVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
+    std::vector<char> prefEMapFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/prefilteredEnvMapFrag.spv");
 
     std::cout << "read files" << std::endl;
 

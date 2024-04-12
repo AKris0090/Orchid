@@ -270,8 +270,8 @@ void ShadowMap::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/shadowMap.spv");
-	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/shadowMapFrag.spv");
+    std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
+	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMapFrag.spv");
 
 	//std::cout << "read files" << std::endl;
 

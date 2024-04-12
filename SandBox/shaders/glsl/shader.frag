@@ -229,7 +229,4 @@ void main()
 	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
         outColor = vec4(color, ALPHA);
-
-        //float depth = texture(samplerDepthMap, fragTexCoord).r;
-	//outColor = vec4(vec3(1.0-LinearizeDepth(depth)), 1.0);
 }

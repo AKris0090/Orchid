@@ -37,8 +37,6 @@ const mat4 biasMat = mat4(
 void main() {
     fragTexCoord = inTexCoord;
 
-    fragBias = ubo.bias;
-
     vec4 pos = pc.model * vec4(inPosition, 1.0f);
     fragPosition = pos.xyz / pos.w;
 
@@ -49,6 +47,7 @@ void main() {
     fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
 
     fragShadowCoord = (biasMat * ubo.depthVP * pc.model) * vec4(inPosition, 1.0);
+    fragBias = ubo.bias;
 
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
 }
