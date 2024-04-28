@@ -125,6 +125,45 @@ VkCommandBuffer DeviceHelper::beginSingleTimeCommands() {
     return commandBuffer;
 }
 
+std::vector<char> DeviceHelper::readFile(const std::string& filename) {
+    // Start reading at end of the file and read as binary
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) {
+        std::cout << "failed to open file" << std::endl;
+        std::_Xruntime_error("");
+    }
+
+    // Read the file, create the buffer, and return it
+    size_t fileSize = file.tellg();
+    std::vector<char> buffer((size_t)file.tellg());
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    return buffer;
+}
+
+void DeviceHelper::endSingleTimeCommandsFenced(VkDevice device_, VkCommandBuffer cmdBuff) {
+    vkEndCommandBuffer(cmdBuff);
+
+    VkSubmitInfo queueSubmitInfo{};
+    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    queueSubmitInfo.commandBufferCount = 1;
+    queueSubmitInfo.pCommandBuffers = &cmdBuff;
+    // Create fence to ensure that the command buffer has finished executing
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFence fence;
+    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
+    // Submit to the queue
+    vkQueueSubmit(this->graphicsQueue_, 1, &queueSubmitInfo, fence);
+    // Wait for the fence to signal that command buffer has finished executing
+    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
+    vkDestroyFence(device_, fence, nullptr);
+
+    vkFreeCommandBuffers(device_, this->commandPool_, 1, &cmdBuff);
+}
+
 void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 
@@ -136,11 +175,7 @@ void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphicsQueue_);
 
-    std::cout << "submitted command buffer" << std::endl;
-
     vkFreeCommandBuffers(device_, commandPool_, 1, &commandBuffer);
-
-    std::cout << ("freed command buffer: ");
 }
 
 void DeviceHelper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {

@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "ShadowMap.h"
+#include "GameObject.h"
 #include "PointLight.h"
 #include "Camera.h"
 #include "PointLight.h"
@@ -31,7 +31,7 @@ const std::vector<const char*> deviceExts = {
 
 struct UniformBufferObject {
 	glm::mat4 view;
-	glm::mat4 proj;
+	glm::mat4 proj;	
 	glm::vec4 lightPos;
 	glm::vec4 viewPos;
 	glm::mat4 depthBiasMVP;
@@ -125,6 +125,8 @@ public:
 	std::vector<glm::vec4> lights_;
 	FPSCam camera_;
 	float depthBias;
+
+	std::vector<GameObject*> gameObjects;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;

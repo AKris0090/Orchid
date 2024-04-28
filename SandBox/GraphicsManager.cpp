@@ -88,6 +88,10 @@ void GraphicsManager::imGUIUpdate() {
 }
 
 void GraphicsManager::startVulkan() {
+    for (int i = 0; i < numModels_; i++) {
+        gameObjects.push_back(new GameObject());
+    }
+
     pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
     pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
@@ -143,6 +147,8 @@ void GraphicsManager::startVulkan() {
         pVkR_->numImages_ = static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+
+        gameObjects[i]->setGLTFObj(mod);
     }
 
     pVkR_->createDescriptorPool();
@@ -173,7 +179,7 @@ void GraphicsManager::startVulkan() {
 
     std::cout << "DONE loading skybox\n" << std::endl;
 
-    pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_));
+    pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_);
     pVkR_->brdfLut->genBRDFLUT();
 
     std::cout << "generated BRDFLUT" << std::endl;
@@ -209,6 +215,10 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->createSemaphores(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created semaphores \n" << std::endl;
+
+    for (int i = 0; i < numModels_; i++) {
+        (gameObjects)[i]->setTransform(glm::mat4(1.0f));
+    }
 }
 
 void GraphicsManager::loopUpdate() {

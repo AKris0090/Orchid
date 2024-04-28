@@ -6,18 +6,15 @@
 
 class IrradianceCube {
 private:
-	Skybox* pSkybox_;
-
 	struct {
 		VkImage image;
-		VkImageView view;
 		VkDeviceMemory memory;
+		VkImageView view;
 		VkFramebuffer framebuffer;
 	} offscreen;
 
 	struct PushBlock {
 		glm::mat4 mvp;
-		// Sampling deltas
 		float deltaPhi = (2.0f * float(PI)) / 180.0f;
 		float deltaTheta = (0.5f * float(PI)) / 64.0f;
 	} pushBlock;
@@ -26,6 +23,7 @@ private:
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
+	Skybox* pSkybox_;
 
 	uint32_t width_, height_;
 
@@ -64,8 +62,6 @@ private:
 	void createPipeline();
 	void render();
 
-	uint32_t findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	std::vector<char> readFile(const std::string& filename);
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
 	void transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage prefImage);
 

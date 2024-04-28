@@ -102,9 +102,9 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;_DEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\tinyobjloader-master;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\stb-master;imgui;C:\VulkanSDK\1.3.268.0\Include\SDL2;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\tinyobjloader-master;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\stb-master;imgui;C:\VulkanSDK\1.3.268.0\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
@@ -112,7 +112,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -122,9 +122,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\tinyobjloader-master;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\stb-master;imgui;C:\VulkanSDK\1.3.268.0\Include\SDL2;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\tinyobjloader-master;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\stb-master;imgui;C:\VulkanSDK\1.3.268.0\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
@@ -134,7 +134,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -142,6 +142,7 @@
     <ClCompile Include="BRDFLut.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceHelper.cpp" />
+    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GraphicsManager.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
@@ -153,9 +154,10 @@
     <ClCompile Include="IrradianceCube.cpp" />
     <ClCompile Include="MeshHelper.cpp" />
     <ClCompile Include="mikktspace.cpp" />
+    <ClCompile Include="PhysicsManager.cpp" />
     <ClCompile Include="PrefilteredEnvMap.cpp" />
     <ClCompile Include="SandBox.cpp" />
-    <ClCompile Include="GLTFManager.cpp" />
+    <ClCompile Include="GLTFObject.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="TextureHelper.cpp" />
@@ -165,6 +167,7 @@
     <ClInclude Include="BRDFLut.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeviceHelper.h" />
+    <ClInclude Include="GameObject.h" />
     <ClInclude Include="GraphicsManager.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
@@ -176,8 +179,9 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="IrradianceCube.h" />
     <ClInclude Include="MeshHelper.h" />
-    <ClInclude Include="GLTFManager.h" />
+    <ClInclude Include="GLTFObject.h" />
     <ClInclude Include="mikktspace.h" />
+    <ClInclude Include="PhysicsManager.h" />
     <ClInclude Include="PointLight.h" />
     <ClInclude Include="PrefilteredEnvMap.h" />
     <ClInclude Include="ShadowMap.h" />

@@ -26,7 +26,6 @@ private:
 	VkDescriptorPool sMDescriptorPool_;
 	VkDescriptorSet sMDescriptorSet_;
 
-	VkPipelineLayout sMPipelineLayout_;
 	VkPipeline sMPipeline_;
 
 	VkAttachmentDescription sMAttachment;
@@ -62,6 +61,9 @@ public:
 	float zNear;
 	float zFar;
 
+	VkPipelineLayout sMPipelineLayout_;
+
+
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
 
@@ -71,7 +73,7 @@ public:
 
 	ShadowMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_);
 
-	void render(VkCommandBuffer cmdBuf);
+	VkCommandBuffer render(VkCommandBuffer cmdBuf);
 	void genShadowMap();
 	void updateUniBuffers();
 	VkDescriptorSet getDescriptorSet() { return this->sMDescriptorSet_; };

@@ -177,8 +177,6 @@ void PrefilteredEnvMap::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSu
     destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
     vkCmdPipelineBarrier(cmdBuff, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    std::cout << "transitioned skybox image" << std::endl;
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp

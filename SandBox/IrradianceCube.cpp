@@ -145,19 +145,6 @@ void IrradianceCube::createRenderPass() {
     vkCreateRenderPass(device_, &renderPassCI, nullptr, &iRCubeRenderpass_);
 }
 
-uint32_t IrradianceCube::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    std::_Xruntime_error("Failed to find a suitable memory type!");
-}
-
 void IrradianceCube::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage irImage) {
     // transition image layout
     VkImageMemoryBarrier barrier{};
@@ -179,91 +166,68 @@ void IrradianceCube::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubre
     destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
     vkCmdPipelineBarrier(cmdBuff, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    std::cout << "transitioned skybox image" << std::endl;
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void IrradianceCube::createFrameBuffer() {
-    // Offfscreen framebuffer
-    {
-        // Color attachment
-        VkImageCreateInfo imageCreateInfo{};
-        imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageCreateInfo.format = imageFormat_;
-        imageCreateInfo.extent.width = width_;
-        imageCreateInfo.extent.height = height_;
-        imageCreateInfo.extent.depth = 1;
-        imageCreateInfo.mipLevels = 1;
-        imageCreateInfo.arrayLayers = 1;
-        imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        vkCreateImage(device_, &imageCreateInfo, nullptr, &offscreen.image);
+    // Color attachment
+    VkImageCreateInfo imageCreateInfo{};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.format = imageFormat_;
+    imageCreateInfo.extent.width = width_;
+    imageCreateInfo.extent.height = height_;
+    imageCreateInfo.extent.depth = 1;
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vkCreateImage(device_, &imageCreateInfo, nullptr, &offscreen.image);
 
-        VkMemoryAllocateInfo memAlloc{};
-        memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        VkMemoryRequirements memReqs;
-        vkGetImageMemoryRequirements(device_, offscreen.image, &memReqs);
-        memAlloc.allocationSize = memReqs.size;
-        memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->getPhysicalDevice(), memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkAllocateMemory(device_, &memAlloc, nullptr, &offscreen.memory);
-        vkBindImageMemory(device_, offscreen.image, offscreen.memory, 0);
+    VkMemoryAllocateInfo memAlloc{};
+    memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(device_, offscreen.image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = pDevHelper_->findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkAllocateMemory(device_, &memAlloc, nullptr, &offscreen.memory);
+    vkBindImageMemory(device_, offscreen.image, offscreen.memory, 0);
 
-        VkImageViewCreateInfo colorImageView{};
-        colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        colorImageView.format = imageFormat_;
-        colorImageView.flags = 0;
-        colorImageView.subresourceRange = {};
-        colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        colorImageView.subresourceRange.baseMipLevel = 0;
-        colorImageView.subresourceRange.levelCount = 1;
-        colorImageView.subresourceRange.baseArrayLayer = 0;
-        colorImageView.subresourceRange.layerCount = 1;
-        colorImageView.image = offscreen.image;
-        vkCreateImageView(device_, &colorImageView, nullptr, &offscreen.view);
+    VkImageViewCreateInfo colorImageView{};
+    colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    colorImageView.format = imageFormat_;
+    colorImageView.flags = 0;
+    colorImageView.subresourceRange = {};
+    colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    colorImageView.subresourceRange.baseMipLevel = 0;
+    colorImageView.subresourceRange.levelCount = 1;
+    colorImageView.subresourceRange.baseArrayLayer = 0;
+    colorImageView.subresourceRange.layerCount = 1;
+    colorImageView.image = offscreen.image;
+    vkCreateImageView(device_, &colorImageView, nullptr, &offscreen.view);
 
-        VkFramebufferCreateInfo fbufCreateInfo{};
-        fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        fbufCreateInfo.renderPass = iRCubeRenderpass_;
-        fbufCreateInfo.attachmentCount = 1;
-        fbufCreateInfo.pAttachments = &offscreen.view;
-        fbufCreateInfo.width = width_;
-        fbufCreateInfo.height = height_;
-        fbufCreateInfo.layers = 1;
-        vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &offscreen.framebuffer);
+    VkFramebufferCreateInfo fbufCreateInfo{};
+    fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbufCreateInfo.renderPass = iRCubeRenderpass_;
+    fbufCreateInfo.attachmentCount = 1;
+    fbufCreateInfo.pAttachments = &offscreen.view;
+    fbufCreateInfo.width = width_;
+    fbufCreateInfo.height = height_;
+    fbufCreateInfo.layers = 1;
+    vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &offscreen.framebuffer);
 
-        VkCommandBuffer layoutCmd = pDevHelper_->beginSingleTimeCommands();
-        VkImageSubresourceRange subRange{};
-        subRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        subRange.baseMipLevel = 0;
-        subRange.levelCount = 1;
-        subRange.layerCount = 1;
-        transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
-        endCommandBuffer(device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
-    }
-}
-
-std::vector<char> IrradianceCube::readFile(const std::string& filename) {
-    // Start reading at end of the file and read as binary
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "failed to open file" << std::endl;
-        std::_Xruntime_error("");
-    }
-
-    // Read the file, create the buffer, and return it
-    size_t fileSize = file.tellg();
-    std::vector<char> buffer((size_t)file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
+    VkCommandBuffer layoutCmd = pDevHelper_->beginSingleTimeCommands();
+    VkImageSubresourceRange subRange{};
+    subRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subRange.baseMipLevel = 0;
+    subRange.levelCount = 1;
+    subRange.layerCount = 1;
+    transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
+    endCommandBuffer(device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
 }
 
 // In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
@@ -302,8 +266,8 @@ void IrradianceCube::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> irCubeVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
-    std::vector<char> irCubeFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/irradianceCubeFrag.spv");
+    std::vector<char> irCubeVertShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
+    std::vector<char> irCubeFragShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/irradianceCubeFrag.spv");
 
     std::cout << "read files" << std::endl;
 

@@ -3,12 +3,11 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
-
 #include "VulkanRenderer.h"
 
 class GraphicsManager {
 private:
-	int MAX_FRAMES_IN_FLIGHT = 1;
+	int MAX_FRAMES_IN_FLIGHT = 3;
 
 	int numModels_;
 	int numTextures_;
@@ -27,6 +26,8 @@ public:
 	SDL_Window* pWindow_;
 	SDL_Renderer* pRenderer_;
 	VkDescriptorSet m_Dset;
+
+	std::vector<GameObject*> gameObjects = {};
 
 	bool mousemode_ = true;
 

@@ -1536,7 +1536,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
-    shadowMap->render(commandBuffer);
+    VkCommandBuffer cmdBuf = shadowMap->render(commandBuffer);
+    for (int i = 0; i < gameObjects.size(); i++) {
+        gameObjects[i]->renderTarget->renderBasic(cmdBuf, shadowMap->sMPipelineLayout_, shadowMap->depthPushBlock.mvp);
+    }
+
+    vkCmdEndRenderPass(cmdBuf);
 
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
@@ -1576,8 +1581,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (int i = 0; i < this->numModels_; i++) {
-        pModels_[i]->render(commandBuffer, pipeLineLayout_);
+    for (int i = 0; i < gameObjects.size(); i++) {
+        gameObjects[i]->renderTarget->render(commandBuffer, pipeLineLayout_);
     }
 }
 

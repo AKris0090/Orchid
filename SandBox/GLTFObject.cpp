@@ -1,4 +1,4 @@
-#include "GLTFManager.h"
+#include "GLTFObject.h"
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
@@ -58,13 +58,14 @@ static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces
 
 void GLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = node->transform;
-        SceneNode* curParent = node->parent;
-        while (curParent) {
-            nodeTransform = curParent->transform * nodeTransform;
-            curParent = curParent->parent;
-        }
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
+        glm::mat4 nodeTransform = modelTransform;
+        //nodeTransform *= node->transform;
+        //SceneNode* curParent = node->parent;
+        //while (curParent) {
+        //    nodeTransform = curParent->transform * nodeTransform;
+        //    curParent = curParent->parent;
+        //}
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(nodeTransform));
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 MeshHelper::Material mat = pSceneMesh_->mats_[p.materialIndex];
@@ -92,12 +93,13 @@ void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
 void GLTFObj::drawBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = node->transform;
-        SceneNode* curParent = node->parent;
-        while (curParent) {
-            nodeTransform = curParent->transform * nodeTransform;
-            curParent = curParent->parent;
-        }
+        glm::mat4 nodeTransform = modelTransform;
+        //nodeTransform *= node->transform;
+        //SceneNode* curParent = node->parent;
+        //while (curParent) {
+        //    nodeTransform = curParent->transform * nodeTransform;
+        //    curParent = curParent->parent;
+        //}
         depthPushBlock_.model = nodeTransform;
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(depthMVModel), &depthPushBlock_);
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
@@ -131,7 +133,7 @@ void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeli
             nodeTransform = curParent->transform * nodeTransform;
             curParent = curParent->parent;
         }
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeTransform);
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(nodeTransform));
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
@@ -202,6 +204,8 @@ void GLTFObj::loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& image
     pSceneMesh_->images_.push_back(dummyNormal);
     pSceneMesh_->images_.push_back(dummyMetallic);
     pSceneMesh_->images_.push_back(dummyAO);
+
+    std::cout << std::endl << "loaded: " << in.images.size() << " materials" << std::endl;
 }
 
 void GLTFObj::loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures) {
@@ -330,9 +334,9 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             scNode->mesh.primitives.push_back(p);
 
             // TANGENT SPACE CREATION - ALSO REFERENCED OFF OF: https://github.com/Eearslya/glTFView.
-            totalIndices_ = 0;
-            totalVertices_ = 0;
             if (!tangentsBuff) {
+                totalIndices_ = 0;
+                totalVertices_ = 0;
                 //UNPACK VERTICES
                 std::vector<MeshHelper::Vertex> unpacked(pSceneMesh_->indices_.size());
                 uint32_t newInd = 0;
@@ -425,13 +429,11 @@ void GLTFObj::loadGLTF() {
 
 void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats) {
     uint32_t numImages = static_cast<uint32_t>(in.images.size());
-    std::cout << numImages << std::endl;
     uint32_t dummyNormalIndex = numImages;
     uint32_t dummyMetallicRoughnessIndex = numImages + 1;
     uint32_t dummyAOIndex = numImages + 2;
     mats.resize(in.materials.size());
     int count = 0;
-    std::cout << mats.size() << std::endl;
     for (MeshHelper::Material& m : mats) {
         tinygltf::Material gltfMat = in.materials[count];
         if (gltfMat.values.find("baseColorFactor") != gltfMat.values.end()) {
@@ -477,6 +479,8 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
         m.doubleSides = gltfMat.doubleSided;
         count++;
     }
+
+    std::cout << std::endl << "loaded: " << mats.size() << " materials" << std::endl;
 }
 
 void GLTFObj::createDescriptors() {

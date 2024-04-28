@@ -68,8 +68,6 @@ void TextureHelper::transitionImageLayout(VkImage image, VkFormat format, VkImag
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     pDevHelper_->endSingleTimeCommands(commandBuffer);
-
-    std::cout << "transitioned image layout" << std::endl;
 }
 
 void TextureHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
@@ -90,8 +88,6 @@ void TextureHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     pDevHelper_->endSingleTimeCommands(commandBuffer);
-
-    std::cout << "created texture image" << std::endl;
 }
 
 void TextureHelper::createTextureImages() {
@@ -184,6 +180,8 @@ void TextureHelper::createTextureImages() {
         vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory, nullptr);
 
         generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, mipLevels_);
+
+        std::cout << "loaded: DUMMY " << index_ << std::endl;
     }
     else {
         VkBuffer stagingBuffer;
@@ -212,6 +210,8 @@ void TextureHelper::createTextureImages() {
         if (deleteBuff) {
             delete[] buff;
         }
+
+        std::cout << "loaded: " << curImage.uri << std::endl;
     }
 }
 
@@ -301,8 +301,6 @@ void TextureHelper::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t
         1, &barrier);
 
     pDevHelper_->endSingleTimeCommands(commandBuffer);
-
-    std::cout << "pipeline barrier for mipmaps" << std::endl << std::endl;
 }
 
 void TextureHelper::createTextureImageView(VkFormat f) {

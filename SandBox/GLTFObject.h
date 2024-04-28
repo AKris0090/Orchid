@@ -22,6 +22,9 @@ public:
 	bool isSkyBox_ = false;
 	MeshHelper* pSceneMesh_;
 
+	glm::mat4 modelTransform;
+	glm::vec3* pos;
+
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF();
 
@@ -32,8 +35,8 @@ public:
 	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
 	void genImageRenderSkybox(VkCommandBuffer commandBuffer);
 
-	uint32_t getTotalVertices() { return totalVertices_; };
-	uint32_t getTotalIndices() { return totalIndices_; };
+	uint32_t getTotalVertices() { return this->totalVertices_; };
+	uint32_t getTotalIndices() { return this->totalIndices_; };
 	MeshHelper* getMeshHelper() { return pSceneMesh_; };
 private:
 	std::string gltfPath_;

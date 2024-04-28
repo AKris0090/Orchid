@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GLTFManager.h"
+#include "GLTFObject.h"
 #include "stb_image.h"
 
 class Skybox {

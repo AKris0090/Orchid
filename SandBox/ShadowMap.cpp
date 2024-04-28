@@ -292,7 +292,7 @@ void ShadowMap::createPipeline() {
 	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCInfo.pNext = nullptr;
 	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_FALSE;
+	rasterizerCInfo.depthClampEnable = VK_TRUE;
 	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
@@ -414,7 +414,7 @@ void ShadowMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQu
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-void ShadowMap::render(VkCommandBuffer cmdBuf) {
+VkCommandBuffer ShadowMap::render(VkCommandBuffer cmdBuf) {
     VkClearValue clearValues[1];
     clearValues[0].depthStencil = { 1.0f, 0 };
 
@@ -445,11 +445,7 @@ void ShadowMap::render(VkCommandBuffer cmdBuf) {
     vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipeline_);
     vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipelineLayout_, 0, 1, &sMDescriptorSet_, 0, NULL);
 
-	for (int i = 0; i < numModels_; i++) {
-		pModels_[i]->renderBasic(cmdBuf, sMPipelineLayout_, depthPushBlock.mvp);
-	}
-
-    vkCmdEndRenderPass(cmdBuf);
+	return cmdBuf;
 }
 
 void ShadowMap::updateUniBuffers() {

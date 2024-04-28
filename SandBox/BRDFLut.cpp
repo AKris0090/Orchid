@@ -77,6 +77,7 @@ void BRDFLut::createBRDFLutDescriptors() {
 }
 
 void BRDFLut::createRenderPass() {
+    VkAttachmentDescription brdfLUTattachment{};
 	brdfLUTattachment.format = imageFormat_;
 	brdfLUTattachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	brdfLUTattachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -132,24 +133,6 @@ void BRDFLut::createFrameBuffer() {
 	vkCreateFramebuffer(device_, &framebufferCI, nullptr, &brdfLUTFrameBuffer_);
 }
 
-std::vector<char> readFile(const std::string& filename) {
-    // Start reading at end of the file and read as binary
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "failed to open file" << std::endl;
-        std::_Xruntime_error("");
-    }
-
-    // Read the file, create the buffer, and return it
-    size_t fileSize = file.tellg();
-    std::vector<char> buffer((size_t)file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
-
 // In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
 VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary) {
     // We need to specify a pointer to the buffer with the bytecode and the length of the bytecode. Bytecode pointer is a uint32_t pointer
@@ -181,8 +164,8 @@ void BRDFLut::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> brdfVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
-    std::vector<char> brdfFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
+    std::vector<char> brdfVertShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
+    std::vector<char> brdfFragShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -313,29 +296,6 @@ void BRDFLut::createPipeline() {
     std::cout << "pipeline created" << std::endl;
 }
 
-void endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(*(pGraphicsQueue_), 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-    if (free)
-    {
-        vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
-    }
-}
-
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void BRDFLut::render() {
     VkClearValue clearValues[1];
@@ -377,7 +337,7 @@ void BRDFLut::render() {
     vkCmdDraw(cmdBuf, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmdBuf);
 
-    endCommandBuffer(device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
+    pDevHelper_->endSingleTimeCommandsFenced(device_, cmdBuf);
 }
 
 void BRDFLut::genBRDFLUT() {
@@ -393,12 +353,10 @@ void BRDFLut::genBRDFLUT() {
     render();
 }
 
-BRDFLut::BRDFLut(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool) {
+BRDFLut::BRDFLut(DeviceHelper* devHelper) {
 	this->pDevHelper_ = devHelper;
 	this->device_ = devHelper->getDevice();
 	this->imageFormat_ = VK_FORMAT_R16G16_SFLOAT;
 	this->width_ = this->height_ = 512;
 	this->mipLevels_ = 1;
-    this->pGraphicsQueue_ = graphicsQueue;
-    this->pCommandPool_ = cmdPool;
 }

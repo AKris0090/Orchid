@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Skybox.h"
-#include <fstream>
 
 class BRDFLut {
 private:
@@ -12,10 +11,10 @@ private:
 
 	uint32_t width_, height_;
 
+	VkImage brdfLUTImage_;
+	VkDeviceMemory brdfLUTImageMemory_;
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
-
-	VkImage brdfLUTImage_;
 
 	VkFramebuffer brdfLUTFrameBuffer_;
 	VkRenderPass brdfLUTRenderpass_;
@@ -24,15 +23,8 @@ private:
 	VkDescriptorPool brdfLUTDescriptorPool_;
 	VkDescriptorSet brdfLUTDescriptorSet_;
 
-	VkDeviceMemory brdfLUTImageMemory_;
-
 	VkPipelineLayout brdfLUTPipelineLayout_;
 	VkPipeline brdfLUTPipeline_;
-
-	VkAttachmentDescription brdfLUTattachment;
-
-	VkQueue* pGraphicsQueue_;
-	VkCommandPool* pCommandPool_;
 
 	void createBRDFLutImage();
 	void createBRDFLutImageView();
@@ -50,7 +42,7 @@ public:
 	VkImageView brdfLUTImageView_;
 	VkSampler brdfLUTImageSampler_;
 
-	BRDFLut(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool);
+	BRDFLut(DeviceHelper* devHelper);
 
 	void genBRDFLUT();
 	VkDescriptorSet getDescriptorSet() { return this->brdfLUTDescriptorSet_; };
