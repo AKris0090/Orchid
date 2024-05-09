@@ -91,7 +91,7 @@ void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
     }
 }
 
-void GLTFObj::drawBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = modelTransform;
         //nodeTransform *= node->transform;
@@ -109,11 +109,11 @@ void GLTFObj::drawBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipeline
         }
     }
     for (auto& child : node->children) {
-        drawBasic(commandBuffer, pipelineLayout, child);
+        drawShadow(commandBuffer, pipelineLayout, child);
     }
 }
 
-void GLTFObj::renderBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp) {
+void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     depthPushBlock_.mvp = mvp;
     VkDeviceSize offsets[] = { 0 };
@@ -121,7 +121,7 @@ void GLTFObj::renderBasic(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     for (auto& node : pNodes_) {
-        drawBasic(commandBuffer, pipelineLayout, node);
+        drawShadow(commandBuffer, pipelineLayout, node);
     }
 }
 
@@ -198,12 +198,15 @@ void GLTFObj::loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& image
     TextureHelper* dummyAO = new TextureHelper(in, -1, pDevHelper_);
     TextureHelper* dummyMetallic = new TextureHelper(in, -2, pDevHelper_);
     TextureHelper* dummyNormal = new TextureHelper(in, -3, pDevHelper_);
+    TextureHelper* dummyEmission = new TextureHelper(in, -4, pDevHelper_);
     dummyAO->load();
     dummyMetallic->load();
     dummyNormal->load();
+    dummyEmission->load();
     pSceneMesh_->images_.push_back(dummyNormal);
     pSceneMesh_->images_.push_back(dummyMetallic);
     pSceneMesh_->images_.push_back(dummyAO);
+    pSceneMesh_->images_.push_back(dummyEmission);
 
     std::cout << std::endl << "loaded: " << in.images.size() << " materials" << std::endl;
 }
@@ -217,6 +220,7 @@ void GLTFObj::loadTextures(tinygltf::Model& in, std::vector<TextureHelper::Textu
     pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size });
     pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 1 });
     pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 2 });
+    pSceneMesh_->textures_.push_back(TextureHelper::TextureIndexHolder{ size + 3 });
 }
 
 void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes) {
@@ -432,6 +436,7 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
     uint32_t dummyNormalIndex = numImages;
     uint32_t dummyMetallicRoughnessIndex = numImages + 1;
     uint32_t dummyAOIndex = numImages + 2;
+    uint32_t dummyEmissionIndex = numImages + 3;
     mats.resize(in.materials.size());
     int count = 0;
     for (MeshHelper::Material& m : mats) {
@@ -468,7 +473,7 @@ void GLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Materia
 
         }
         else {
-            m.emissionIndex = dummyMetallicRoughnessIndex;
+            m.emissionIndex = dummyEmissionIndex;
         }
         pSceneMesh_->images_[pSceneMesh_->textures_[m.normalTexIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
         pSceneMesh_->images_[pSceneMesh_->textures_[m.metallicRoughnessIndex].textureIndex]->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
@@ -494,6 +499,7 @@ void GLTFObj::createDescriptors() {
 
         VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(m.descriptorSet));
         if (res != VK_SUCCESS) {
+            std::cout << res;
             std::_Xruntime_error("Failed to allocate descriptor sets!");
         }
 

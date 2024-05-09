@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
+#include "DeviceHelper.h"
 
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
@@ -15,8 +16,9 @@ private:
 
 public:
 	float moveSpeed_ = 0.005f; // slow is 0.0015;
-	glm::vec3 position_ = { 0.0f, 0.0f, 0.0f };
-	glm::vec4 viewPos_ = { 0.0f, 0.0f, 0.0f, 0.0f };
+	glm::mat4 viewMatrix;
+
+	Transform transform;
 
 	void update();
 	void setVelocity(glm::vec3 vel);

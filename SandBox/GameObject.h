@@ -15,7 +15,7 @@ public:
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	GameObject();
+	GameObject() {};
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);

@@ -39,58 +39,35 @@ void PhysicsManager::setup() {
 	}
 
 	pMaterial = pPhysics_->createMaterial(0.5f, 0.5f, 0.6f);
-	physx::PxRigidStatic* groundPlane = PxCreatePlane(*pPhysics_, physx::PxPlane(0, 1, 0, 0), *pMaterial);
-	pScene->addActor(*groundPlane);
+
+	playerGlobalDisplacement = glm::vec3(0.0f);
 }
 
-void PhysicsManager::addShapes(MeshHelper* mesh, std::vector<GameObject*> gameObjects) {
-	//float halfExtent = 0.5f;
-	//physx::PxShape* shape = pPhysics_->createShape(physx::PxBoxGeometry(halfExtent, halfExtent, halfExtent), *pMaterial);
-	//uint32_t size = 15;
-	//physx::PxTransform t(physx::PxVec3(0));
-	//for (physx::PxU32 i = 0; i < size; i++)
-	//{
-	//	for (physx::PxU32 j = 0; j < size - i; j++)
-	//	{
-	//		physx::PxTransform localTm(physx::PxVec3(physx::PxReal(j * 2) - physx::PxReal(size - i), physx::PxReal(i * 2 + 1), 0) * halfExtent);
-	//		physx::PxRigidDynamic* body = pPhysics_->createRigidDynamic(t.transform(localTm));
-	//		body->attachShape(*shape);
-	//		physx::PxRigidBodyExt::updateMassAndInertia(*body, 10.0f);
-	//		pScene->addActor(*body);
-	//	}
-	//}
-
-	// creating the simulation - move to separate functions
-	physx::PxTransform t(physx::PxVec3(0.0f, 0.0f, 0.0f));
-
-	//physx::PxShape* shape2 = pPhysics_->createShape(physx::PxBoxGeometry(15, 15, 5), *pMaterial);
-	physx::PxTransform localTm2(physx::PxVec3(0, 400, 0));
-	//physx::PxRigidStatic* nonMoving = pPhysics_->createRigidStatic(t.transform(localTm2));
-	//nonMoving->attachShape(*shape2);
-	//pScene->addActor(*nonMoving);
-
+void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent) {
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
-	physx::PxShape* shape = createPhysicsFromMesh(mesh, pMaterial, glm::vec3(0.008f));
-	physx::PxRigidStatic* body = pPhysics_->createRigidStatic(t);
-	body->attachShape(*shape);
-	pScene->addActor(*body);
-
-	gameObjects[1]->physicsActor = body;
-	gameObjects[1]->pShape_ = shape;
-
-	physx::PxShape* sphereShape = pPhysics_->createShape(physx::PxBoxGeometry(physx::PxReal(0.8f), physx::PxReal(0.8f), physx::PxReal(0.8f)), &pMaterial, 1, true, shapeFlags);
-	physx::PxRigidDynamic* body2 = pPhysics_->createRigidDynamic(localTm2);
-	body2->attachShape(*sphereShape);
+	physx::PxShape* cubeShape = pPhysics_->createShape(physx::PxBoxGeometry(physx::PxReal(halfExtent), physx::PxReal(halfExtent), physx::PxReal(halfExtent)), &pMaterial, 1, true, shapeFlags);
+	physx::PxRigidDynamic* body2 = pPhysics_->createRigidDynamic(physx::PxTransform(globalTransform));
+	body2->attachShape(*cubeShape);
+	gameObject->physicsActor = body2;
+	gameObject->pShape_ = cubeShape;
 	physx::PxRigidBodyExt::updateMassAndInertia(*body2, 10.0f);
 	pScene->addActor(*body2);
 
+	cubeShape->release();
+}
 
-	gameObjects[0]->physicsActor = body2;
-	gameObjects[0]->pShape_ = sphereShape;
+void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale) {
+	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
-	//shape->release();
-	//shape2->release();
+	physx::PxShape* shape = createPhysicsFromMesh(gameObject->renderTarget->getMeshHelper(), pMaterial, scale);
+	physx::PxRigidStatic* body = pPhysics_->createRigidStatic(physx::PxTransform(globalTransform));
+	gameObject->physicsActor = body;
+	gameObject->pShape_ = shape;
+	body->attachShape(*shape);
+	pScene->addActor(*body);
+
+	shape->release();
 }
 
 physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::PxMaterial* material, glm::vec3 scale) {
@@ -143,23 +120,57 @@ physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::P
 
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 	physx::PxShape* shape = pPhysics_->createShape(geo, *(material), shapeFlags);
-	shape->setFlag(physx::PxShapeFlag::eSIMULATION_SHAPE, false);
 
 	return shape;
 }
 
 
-void PhysicsManager::loopUpdate(std::vector<GameObject*> gameObjects) {
-	pScene->simulate(1.0f / 60.0f);
+void PhysicsManager::loopUpdate(std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
+	pScene->simulate(deltaTime);
+
+	playerGlobalDisplacement = glm::vec3(0.0f);
 
 	pScene->fetchResults(true);
 
 	for (GameObject* g : gameObjects) {
 		glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
-		//g->transform.position = g->PxVec3toGlmVec3(g->physicsActor->getGlobalPose().p);
-		//std::cout << "Cube Position" << g->physicsActor->getGlobalPose().p.x << " , " << g->physicsActor->getGlobalPose().p.y << " , " << g->physicsActor->getGlobalPose().p.z << std::endl;
 		g->renderTarget->modelTransform =  transform * g->transform.to_matrix();
 	}
+
+	glm::mat4 inverseViewMatrix = glm::inverse(cam->viewMatrix);
+	glm::vec3 forward = (inverseViewMatrix[2]);
+	glm::vec3 right = (inverseViewMatrix[0]);
+	glm::vec3 movementVector = glm::normalize(glm::vec3(forward.x, 0.0f, forward.z));
+
+	if (Input::forwardKeyDown()) {
+		playerGlobalDisplacement -= movementVector * 0.5f;
+	}
+
+	if (Input::backwardKeyDown()) {
+		playerGlobalDisplacement += movementVector * 0.5f;
+	}
+
+	if (Input::rightKeyDown()) {
+		playerGlobalDisplacement += right * 0.5f;
+	}
+
+	if (Input::leftKeyDown()) {
+		playerGlobalDisplacement -= right * 0.5f;
+	}
+
+	float len = length(playerGlobalDisplacement);
+	if (len != 0.0) {
+		playerGlobalDisplacement = (playerGlobalDisplacement / len) * player->playerSpeed;
+	}
+
+	physx::PxFilterData filterData;
+	filterData.word0 = 0;
+	physx::PxControllerFilters data;
+	data.mFilterData = &filterData;
+	
+	player->characterController->move(physx::PxVec3(playerGlobalDisplacement.x, 0, playerGlobalDisplacement.z), 0.001f, 1.0f / 60.0f, data);
+
+	cam->transform.position = PxVec3toGlmVec3(player->characterController->getFootPosition()) + glm::vec3(0.0f, player->cap_height, 0.0f);
 }
 
 void PhysicsManager::shutDown() {

@@ -10,6 +10,7 @@ private:
 	int MAX_FRAMES_IN_FLIGHT = 3;
 
 	int numModels_;
+	int numAnimated;
 	int numTextures_;
 	std::string* pModelPaths_;
     std::vector<std::string> skyboxTexturePaths_;
@@ -28,6 +29,7 @@ public:
 	VkDescriptorSet m_Dset;
 
 	std::vector<GameObject*> gameObjects = {};
+	std::vector<AnimatedGameObject*> animatedObjects = {};
 
 	bool mousemode_ = true;
 

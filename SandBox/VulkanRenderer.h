@@ -12,6 +12,7 @@
 #include <chrono>
 
 #include "GameObject.h"
+#include "AnimatedGameObject.h"
 #include "PointLight.h"
 #include "Camera.h"
 #include "PointLight.h"
@@ -127,6 +128,7 @@ public:
 	float depthBias;
 
 	std::vector<GameObject*> gameObjects;
+	std::vector<AnimatedGameObject*> animatedObjects;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
@@ -143,6 +145,7 @@ public:
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	// Pipeline Layout for "gloabls" to change shaders
 	VkPipelineLayout pipeLineLayout_;
+	VkPipelineLayout animatedPipelineLayout_;
 	// Render pass handles
 	VkRenderPass renderPass_;
 	VkRenderPass skyboxRenderPass_;
@@ -158,6 +161,7 @@ public:
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
+	VkDescriptorSetLayout animatedDescriptorSetLayout_;
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
@@ -186,6 +190,7 @@ public:
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
 	void createGraphicsPipeline(MeshHelper* m);
+	void createAnimatedGraphicsPipeline(MeshHelper* m);
 	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();

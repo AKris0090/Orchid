@@ -2,28 +2,10 @@
 
 void FPSCam::update() {
 	glm::mat4 camrotation = getRotationMatrix();
-	position_ += glm::vec3(camrotation * glm::vec4(velocity_ * 0.5f, 0.0f));
+	transform.position += glm::vec3(camrotation * glm::vec4(velocity_ * 0.5f, 0.0f));
 }
 
 void FPSCam::processSDL(SDL_Event& event) {
-    if (event.type == SDL_KEYDOWN) {
-        if (event.key.keysym.sym == SDLK_w) { this->velocity_.z = -moveSpeed_; }
-        if (event.key.keysym.sym == SDLK_s) { this->velocity_.z = moveSpeed_; }
-        if (event.key.keysym.sym == SDLK_a) { this->velocity_.x = -moveSpeed_; }
-        if (event.key.keysym.sym == SDLK_d) { this->velocity_.x = moveSpeed_; }
-        if (event.key.keysym.sym == SDLK_e) { this->velocity_.y = moveSpeed_; }
-        if (event.key.keysym.sym == SDLK_q) { this->velocity_.y = -moveSpeed_; }
-    }
-
-    if (event.type == SDL_KEYUP) {
-        if (event.key.keysym.sym == SDLK_w) { this->velocity_.z = 0.0f; }
-        if (event.key.keysym.sym == SDLK_s) { this->velocity_.z = 0.0f; }
-        if (event.key.keysym.sym == SDLK_a) { this->velocity_.x = 0.0f; }
-        if (event.key.keysym.sym == SDLK_d) { this->velocity_.x = 0.0f; }
-        if (event.key.keysym.sym == SDLK_e) { this->velocity_.y = 0.0f; }
-        if (event.key.keysym.sym == SDLK_q) { this->velocity_.y = 0.0f; }
-    }
-
     if (event.type == SDL_MOUSEMOTION) {
         this->yaw_ += (float)event.motion.xrel / 300.f;
         this->pitch_ -= (float)event.motion.yrel / 300.f;
@@ -32,16 +14,12 @@ void FPSCam::processSDL(SDL_Event& event) {
 
 glm::mat4 FPSCam::getViewMatrix() {
     // to have a real camera matrix, you dont rotate/move the camera, but you move/rotate the world in the opposite direction of camera motion. Matrices are accumulated by shaders (VKGuide)
-    glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), this->position_);
+    glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), transform.position);
     glm::mat4 camRotation = this->getRotationMatrix();
 
-    //this->viewPos_ = glm::vec4(this->position_, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
-    this->viewPos_ = glm::vec4(this->position_, 0.0f);
-    //glm::mat4 viewMatrix = glm::inverse(camTranslation * camRotation);
-    //viewMatrix = glm::transpose(glm::inverse(viewMatrix));
-    //viewPos_ = glm::vec4(viewMatrix[2][0], viewMatrix[2][1], viewMatrix[2][2], 1.0f);
+    this->viewMatrix = glm::inverse(camTranslation * camRotation);
 
-    return glm::inverse(camTranslation * camRotation);
+    return this->viewMatrix;
 }
 
 glm::mat4 FPSCam::getRotationMatrix() {
@@ -53,7 +31,7 @@ glm::mat4 FPSCam::getRotationMatrix() {
 }
 
 void FPSCam::setPosition(glm::vec3 pos) {
-    this->position_ = pos;
+    transform.position = pos;
 }
 
 void FPSCam::setVelocity(glm::vec3 vel) {

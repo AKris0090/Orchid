@@ -9,4 +9,5 @@ C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/irradianceCube.frag -o spv/irradianceC
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/prefEnvMap.frag -o spv/prefilteredEnvMapFrag.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/shadowMap.vert -o spv/shadowMap.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/shadowMap.frag -o spv/shadowMapFrag.spv
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/animShader.vert -o spv/animvert.spv
 pause

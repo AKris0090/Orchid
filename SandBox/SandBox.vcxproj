@@ -139,10 +139,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AnimatedGLTFObj.cpp" />
     <ClCompile Include="BRDFLut.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceHelper.cpp" />
-    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="GraphicsManager.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
@@ -151,10 +151,12 @@
     <ClCompile Include="imgui\imgui_impl_vulkan.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Input.cpp" />
     <ClCompile Include="IrradianceCube.cpp" />
     <ClCompile Include="MeshHelper.cpp" />
     <ClCompile Include="mikktspace.cpp" />
     <ClCompile Include="PhysicsManager.cpp" />
+    <ClCompile Include="PlayerObject.cpp" />
     <ClCompile Include="PrefilteredEnvMap.cpp" />
     <ClCompile Include="SandBox.cpp" />
     <ClCompile Include="GLTFObject.cpp" />
@@ -164,11 +166,15 @@
     <ClCompile Include="VulkanRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimatedGameObject.h" />
+    <ClInclude Include="AnimatedGLTFObj.h" />
     <ClInclude Include="BRDFLut.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeviceHelper.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="GraphicsManager.h" />
+    <ClInclude Include="Input.h" />
+    <ClInclude Include="PlayerObject.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_impl_sdl2.h" />

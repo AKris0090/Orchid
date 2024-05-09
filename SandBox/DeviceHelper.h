@@ -6,6 +6,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <PxPhysics.h>
+#include <PxPhysicsAPI.h>
+#include <PxCooking.h>
+#include <characterkinematic/PxControllerManager.h>
 
 #define PI 3.141592653589793
 

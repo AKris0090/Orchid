@@ -73,9 +73,9 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("lightZ", &pVkR_->pLightPos_->z);
     ImGui::DragFloat("near plane", &pVkR_->shadowMap->zNear);
     ImGui::DragFloat("far plane", &pVkR_->shadowMap->zFar);
-    ImGui::SliderFloat("X", &pVkR_->camera_.position_.x, -50.0f, 50.0f);
-    ImGui::SliderFloat("Y", &pVkR_->camera_.position_.y, -50.0f, 50.0f);
-    ImGui::SliderFloat("Z", &pVkR_->camera_.position_.z, -50.0f, 50.0f);
+    ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
+    ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
+    ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
     ImGui::DragFloat("depthBias", &pVkR_->depthBias);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
@@ -151,6 +151,12 @@ void GraphicsManager::startVulkan() {
         gameObjects[i]->setGLTFObj(mod);
     }
 
+    animatedObjects.push_back(new AnimatedGameObject());
+    animatedObjects[0]->setAnimatedGLTFObj(new AnimatedGLTFObj("C://Users//arjoo//OneDrive//Documents//GameProjects//SndBx//SandBox//emily//Emily_Walk.glb", pVkR_->pDevHelper_));
+    animatedObjects[0]->renderTarget->loadGLTF();
+    numAnimated = 1;
+    pVkR_->animatedObjects = animatedObjects;
+
     pVkR_->createDescriptorPool();
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
@@ -200,6 +206,8 @@ void GraphicsManager::startVulkan() {
         std::cout << "created material graphics pipeline" << std::endl;
     }
 
+    pVkR_->animatedObjects[0]->renderTarget->createDescriptors(pVkR_->animatedDescriptorSetLayout_);
+
     pVkR_->updateGeneratedImageDescriptorSets();
 
     for (int i = 0; i < numModels_; i++) {
@@ -207,6 +215,8 @@ void GraphicsManager::startVulkan() {
         pVkR_->createGraphicsPipeline(gltfO->getMeshHelper());
         std::cout << "created material graphics pipeline" << std::endl;
     }
+
+    pVkR_->createAnimatedGraphicsPipeline(pVkR_->animatedObjects[0]->renderTarget->getMeshHelper());
 
     std::cout << "\ncreated descriptor sets" << std::endl;
 

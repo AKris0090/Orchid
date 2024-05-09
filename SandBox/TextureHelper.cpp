@@ -136,6 +136,17 @@ void TextureHelper::createTextureImages() {
 
         dummy = true;
         break;
+    case -4:
+        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyEmission.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        imageSize = texWidth * texHeight * 4;
+        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+        }
+
+        dummy = true;
+        break;
     default:
         curImage = pInputModel_->images[index_];
 
