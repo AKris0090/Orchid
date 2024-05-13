@@ -97,7 +97,7 @@ void AnimatedGLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout& pi
     }
 }
 
-void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = modelTransform;
         //nodeTransform *= node->transform;
@@ -108,6 +108,9 @@ void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout
         //}
         depthPushBlock_.model = nodeTransform;
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(depthMVModel), &depthPushBlock_);
+        if (node->skin >= 0) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(skins_[node->skin].descriptorSet), 0, nullptr);
+        }
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
@@ -115,11 +118,11 @@ void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout
         }
     }
     for (auto& child : node->children) {
-        drawShadow(commandBuffer, pipelineLayout, child);
+        drawShadow(commandBuffer, pipelineLayout, animatedShadowPipeline, child);
     }
 }
 
-void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp) {
+void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, glm::mat4 mvp) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     depthPushBlock_.mvp = mvp;
     VkDeviceSize offsets[] = { 0 };
@@ -127,7 +130,7 @@ void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayo
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     for (auto& node : pNodes_) {
-        drawShadow(commandBuffer, pipelineLayout, node);
+        drawShadow(commandBuffer, pipelineLayout, animatedShadowPipeline, node);
     }
 }
 
@@ -739,7 +742,7 @@ void AnimatedGLTFObj::loadMaterials(tinygltf::Model& in, std::vector<MeshHelper:
     std::cout << std::endl << "loaded: " << mats.size() << " materials" << std::endl;
 }
 
-void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout descSetLayout) {
+void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout animDescSetLayout) {
     for (MeshHelper::Material& m : pSceneMesh_->mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -834,7 +837,7 @@ void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout descSetLayout) {
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
         allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout animatedSet = descSetLayout;
+        const VkDescriptorSetLayout animatedSet = animDescSetLayout;
         allocateInfo.pSetLayouts = &(animatedSet);
 
         VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(skin.descriptorSet));
@@ -847,15 +850,15 @@ void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout descSetLayout) {
         descriptorBufferInfo.offset = 0;
         descriptorBufferInfo.range = sizeof(glm::mat4) * skin.inverseBindMatrices.size();
 
-        VkWriteDescriptorSet skinWriteSet{};
-        skinWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        skinWriteSet.dstSet = skin.descriptorSet;
-        skinWriteSet.dstBinding = 0;
-        skinWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        skinWriteSet.descriptorCount = 1;
-        skinWriteSet.pBufferInfo = &descriptorBufferInfo;
+        VkWriteDescriptorSet animSkinWriteSet{};
+        animSkinWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        animSkinWriteSet.dstSet = skin.descriptorSet;
+        animSkinWriteSet.dstBinding = 0;
+        animSkinWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        animSkinWriteSet.descriptorCount = 1;
+        animSkinWriteSet.pBufferInfo = &descriptorBufferInfo;
 
-        vkUpdateDescriptorSets(pDevHelper_->getDevice(), 1, &skinWriteSet, 0, nullptr);
+        vkUpdateDescriptorSets(pDevHelper_->getDevice(), 1, &animSkinWriteSet, 0, nullptr);
     }
 }
 

@@ -1027,6 +1027,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
 
         // For double sided materials, culling will be disabled
         rasterizerCInfo.cullMode = material.doubleSides ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+        //rasterizerCInfo.cullMode = VK_CULL_MODE_NONE;
 
         // Create the object
         VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(material.pipeline));
@@ -1821,8 +1822,9 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     for (int i = 0; i < gameObjects.size(); i++) {
         gameObjects[i]->renderTarget->renderShadow(cmdBuf, shadowMap->sMPipelineLayout_, shadowMap->depthPushBlock.mvp);
     }
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
     for (int i = 0; i < animatedObjects.size(); i++) {
-        animatedObjects[i]->renderTarget->renderShadow(cmdBuf, shadowMap->sMPipelineLayout_, shadowMap->depthPushBlock.mvp);
+        animatedObjects[i]->renderTarget->renderShadow(cmdBuf, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline, shadowMap->depthPushBlock.mvp);
     }
 
     vkCmdEndRenderPass(cmdBuf);

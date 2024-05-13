@@ -207,8 +207,10 @@ void GraphicsManager::startVulkan() {
     }
 
     pVkR_->animatedObjects[0]->renderTarget->createDescriptors(pVkR_->animatedDescriptorSetLayout_);
-
     pVkR_->updateGeneratedImageDescriptorSets();
+
+    pVkR_->shadowMap->createAnimatedPipeline(pVkR_->animatedDescriptorSetLayout_);
+
 
     for (int i = 0; i < numModels_; i++) {
         GLTFObj* gltfO = pVkR_->pModels_[i];

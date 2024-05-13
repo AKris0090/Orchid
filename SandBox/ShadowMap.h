@@ -23,11 +23,12 @@ private:
 	VkRenderPass sMRenderpass_;
 
 	VkDescriptorSetLayout sMDescriptorSetLayout_;
+	VkDescriptorSetLayout animatedSmDescriptorSetLayout;
 	VkDescriptorPool sMDescriptorPool_;
 	VkDescriptorSet sMDescriptorSet_;
+	VkDescriptorSet animatedSmDescriptorSet;
 
 	VkPipeline sMPipeline_;
-
 	VkAttachmentDescription sMAttachment;
 	VkDescriptorImageInfo sMImageInfo;
 
@@ -62,10 +63,12 @@ public:
 	float zFar;
 
 	VkPipelineLayout sMPipelineLayout_;
-
+	VkPipelineLayout animatedSmPipelineLayout;
 
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
+	VkPipeline animatedSMPipeline;
+
 
 	struct depthMVP {
 		glm::mat4 mvp;
@@ -73,8 +76,11 @@ public:
 
 	ShadowMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_);
 
+	void createAnimatedPipeline(VkDescriptorSetLayout descLayout);
+
 	VkCommandBuffer render(VkCommandBuffer cmdBuf);
 	void genShadowMap();
 	void updateUniBuffers();
 	VkDescriptorSet getDescriptorSet() { return this->sMDescriptorSet_; };
+	VkDescriptorSet getAnimatedDescriptorSet() { return this->animatedSmDescriptorSet; };
 };

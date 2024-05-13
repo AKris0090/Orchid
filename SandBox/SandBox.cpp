@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
-    graphicsManager.animatedObjects[0]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+    graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
         g->renderTarget->modelTransform = g->transform.to_matrix();

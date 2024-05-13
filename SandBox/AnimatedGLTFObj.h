@@ -29,6 +29,7 @@ public:
 		VkBuffer ssboBufferHandle;
 		void* ssbo;
 		VkDescriptorSet descriptorSet;
+		VkDescriptorSet shadowMapDescriptorSet;
 	};
 
 	struct AnimationSampler {
@@ -68,7 +69,7 @@ public:
 	void createDescriptors(VkDescriptorSetLayout descSetLayout);
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp);
+	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, glm::mat4 mvp);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
@@ -96,7 +97,7 @@ private:
 	glm::mat4 getNodeMatrix(SceneNode* node);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* pNode);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
 };

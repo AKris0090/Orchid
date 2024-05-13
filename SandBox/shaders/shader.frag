@@ -29,7 +29,6 @@ layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO texture(colorSampler, fragTexCoord).rgb
 #define ALPHA texture(colorSampler, fragTexCoord).a
-#define AMBIENT 0.4
 
 vec3 ACESFilm(vec3 x)
 {
@@ -150,7 +149,7 @@ vec3 calculateNormal()
 	return normalize(mat3(T, B, N) * tangentNormal);
 }
 
-float textureProj(vec4 shadowCoord, vec2 off)
+float textureProj(vec4 shadowCoord, vec2 off, vec3 ambient)
 {
 	float shadow = 1.0;
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
@@ -158,13 +157,13 @@ float textureProj(vec4 shadowCoord, vec2 off)
 		float dist = texture( samplerDepthMap, shadowCoord.st + off ).r;
 		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - fragBias ) 
 		{
-			shadow = AMBIENT;
+			shadow = length(ambient);
 		}
 	}
 	return shadow;
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace)
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 ambient)
 {
     	ivec2 texDim = textureSize(samplerDepthMap, 0);
 	float scale = 1.5;
@@ -179,7 +178,7 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y));
+			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), ambient);
 			count++;
 		}
 	
@@ -228,12 +227,12 @@ void main()
 	kD *= 1.0 - metallic;	
 	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
 
-	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w));
+	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), ambient);
 	
 	vec3 color = ((ambient + Lo) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
 
 	// Tone mapping
-	color = ACESFilm(color); // 4.5f is exposure
+	color = Uncharted2Tonemap(color);
 
 	// Gamma correction
 	color = pow(color, vec3(1.0f / 2.4f)); // 2.2 is gamma
