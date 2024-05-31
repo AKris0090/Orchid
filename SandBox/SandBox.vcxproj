@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AnimatedGLTFObj.cpp" />
+    <ClCompile Include="AreaLights.cpp" />
     <ClCompile Include="BRDFLut.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceHelper.cpp" />
@@ -160,14 +161,16 @@
     <ClCompile Include="PrefilteredEnvMap.cpp" />
     <ClCompile Include="SandBox.cpp" />
     <ClCompile Include="GLTFObject.cpp" />
-    <ClCompile Include="ShadowMap.cpp" />
+    <ClCompile Include="DirectionalLight.cpp" />
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="TextureHelper.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
+    <ClCompile Include="VulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AnimatedGameObject.h" />
     <ClInclude Include="AnimatedGLTFObj.h" />
+    <ClInclude Include="AreaLights.h" />
     <ClInclude Include="BRDFLut.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeviceHelper.h" />
@@ -190,10 +193,11 @@
     <ClInclude Include="PhysicsManager.h" />
     <ClInclude Include="PointLight.h" />
     <ClInclude Include="PrefilteredEnvMap.h" />
-    <ClInclude Include="ShadowMap.h" />
+    <ClInclude Include="DirectionalLight.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="TextureHelper.h" />
     <ClInclude Include="VulkanRenderer.h" />
+    <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

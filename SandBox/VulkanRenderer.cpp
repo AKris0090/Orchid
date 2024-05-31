@@ -15,8 +15,6 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    UniformBufferObject ubo{};
-
     // Camera logic
     this->camera_.update();
 
@@ -26,16 +24,19 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
         //this->pLightPos_->y = 17.5f + (sin(glm::radians(time * 360.0f)) * 5.0f);
         this->pLightPos_->z = 0.0f + (sin(glm::radians(time * 360.0f)) * 8.0f);
     }
-    shadowMap->updateUniBuffers();
+
+    UniformBufferObject ubo;
 
     ubo.view = this->camera_.getViewMatrix();
-    ubo.proj = glm::perspective(glm::radians(70.0f), this->SWChainExtent_.width / (float)this->SWChainExtent_.height, 0.0001f, 10000.0f);
+    ubo.proj = glm::perspective(camera_.getFOV(), camera_.getAspectRatio(), camera_.getNearPlane(), camera_.getFarPlane());
+    ubo.proj[1][1] *= -1;
     ubo.viewPos = glm::vec4(this->camera_.transform.position, 0.0f);
     ubo.lightPos = *(this->pLightPos_);
-    ubo.depthBiasMVP = shadowMap->depthPushBlock.mvp;
+    for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+        ubo.cascadeSplits[i] = shadowMap->cascades[i].splitDepth;
+        ubo.cascadeViewProjMat[i] = shadowMap->cascades[i].viewProjectionMatrix;
+    }
     ubo.bias = this->depthBias;
-
-    ubo.proj[1][1] *= -1;
 
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
@@ -58,6 +59,9 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     }
 
     updateUniformBuffer(imageIndex_);
+    glm::mat4 proj = glm::perspective(camera_.getFOV(), camera_.getAspectRatio(), camera_.getNearPlane(), camera_.getFarPlane());
+    proj[1][1] *= -1;
+    shadowMap->updateUniBuffers(proj, camera_.getViewMatrix(), camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
@@ -725,7 +729,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
     UBOLayoutBinding.binding = 0;
     UBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     UBOLayoutBinding.descriptorCount = 1;
-    UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     UBOLayoutBinding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutBinding AnimatedSSBOBinding{};
@@ -1517,7 +1521,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size()) + 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
-    poolSizes[1].descriptorCount = this->numMats_ * 10 * static_cast<uint32_t>(SWChainImages_.size()) + 2; // plus one for the skybox descriptor
+    poolSizes[1].descriptorCount = this->numMats_ * 10 * static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1622,7 +1626,11 @@ void VulkanRenderer::updateGeneratedImageDescriptorSets() {
             shadowWrite.descriptorCount = 1;
             shadowWrite.pImageInfo = &shadowMpaInfo;
 
-            std::vector<VkWriteDescriptorSet> descriptorWriteSets = { BRDFLutWrite, IrradianceWrite, prefilteredWrite, shadowWrite };
+            std::vector<VkWriteDescriptorSet> descriptorWriteSets;
+            descriptorWriteSets.push_back(BRDFLutWrite); //= { BRDFLutWrite, IrradianceWrite, prefilteredWrite, shadowWrite };
+            descriptorWriteSets.push_back(IrradianceWrite);
+            descriptorWriteSets.push_back(prefilteredWrite);
+            descriptorWriteSets.push_back(shadowWrite);
 
             vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
         }
@@ -1818,16 +1826,17 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
-    VkCommandBuffer cmdBuf = shadowMap->render(commandBuffer);
-    for (int i = 0; i < gameObjects.size(); i++) {
-        gameObjects[i]->renderTarget->renderShadow(cmdBuf, shadowMap->sMPipelineLayout_, shadowMap->depthPushBlock.mvp);
+    for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+        DirectionalLight::PostRenderPacket cmdBuf = shadowMap->render(commandBuffer, j);
+        for (int i = 0; i < gameObjects.size(); i++) {
+            gameObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->sMPipelineLayout_, j, shadowMap->cascades[j].descriptorSet);
+        }
+        //vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
+        //for (int i = 0; i < animatedObjects.size(); i++) {
+        //    animatedObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline);
+        //}
+        vkCmdEndRenderPass(cmdBuf.commandBuffer);
     }
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
-    for (int i = 0; i < animatedObjects.size(); i++) {
-        animatedObjects[i]->renderTarget->renderShadow(cmdBuf, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline, shadowMap->depthPushBlock.mvp);
-    }
-
-    vkCmdEndRenderPass(cmdBuf);
 
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 

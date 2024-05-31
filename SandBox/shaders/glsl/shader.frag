@@ -1,5 +1,23 @@
 #version 450
 
+#define SHADOW_MAP_CASCADE_COUNT 4
+
+layout(set = 0, binding = 0) uniform UniformBufferObject {
+    mat4 view;
+    mat4 proj;
+    vec4 lightPos;
+    vec4 viewPos;
+    float cascadeSplits[4];
+    mat4[SHADOW_MAP_CASCADE_COUNT] cascadeViewProj;
+    float bias;
+} ubo;
+
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 );
+
 layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
@@ -10,7 +28,7 @@ layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 
-layout(set = 1, binding = 8) uniform sampler2D samplerDepthMap;
+layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragViewPos;
@@ -18,8 +36,7 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
-layout(location = 6) in vec4 fragShadowCoord;
-layout(location = 7) in float fragBias;
+layout(location = 6) in mat4 fragModel;
 
 layout(location = 0) out vec4 outColor;
 
@@ -140,13 +157,13 @@ vec3 calculateNormal()
 	return normalize(mat3(T, B, N) * tangentNormal);
 }
 
-float textureProj(vec4 shadowCoord, vec2 off)
+float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex)
 {
 	float shadow = 1.0;
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
 	{
-		float dist = texture( samplerDepthMap, shadowCoord.st + off ).r;
-		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - fragBias ) 
+		float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
+		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - ubo.bias ) 
 		{
 			shadow = AMBIENT;
 		}
@@ -154,9 +171,9 @@ float textureProj(vec4 shadowCoord, vec2 off)
 	return shadow;
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace)
+float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex)
 {
-    	ivec2 texDim = textureSize(samplerDepthMap, 0);
+    	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
 	float scale = 1.5;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -169,7 +186,7 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y));
+			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex);
 			count++;
 		}
 	
@@ -218,7 +235,17 @@ void main()
 	kD *= 1.0 - metallic;	
 	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
 
-	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w));
+
+	// Get cascade index for the current fragment's view position
+	uint cascadeIndex = 0;
+	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
+		if(fragViewPos.z < ubo.cascadeSplits[i]) {	
+			cascadeIndex = i + 1;
+		}
+	}
+	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex] * fragModel) * vec4(fragPosition, 1.0);
+
+	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex);
 	
 	vec3 color = ((ambient + (Lo)) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
 

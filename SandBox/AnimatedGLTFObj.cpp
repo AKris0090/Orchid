@@ -122,9 +122,8 @@ void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout
     }
 }
 
-void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, glm::mat4 mvp) {
+void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
-    depthPushBlock_.mvp = mvp;
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);

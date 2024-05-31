@@ -29,8 +29,6 @@ void GraphicsManager::setupImGUI() {
     init_info.ImageCount = 2;
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, pVkR_->renderPass_);
-
-    m_Dset = ImGui_ImplVulkan_AddTexture(pVkR_->shadowMap->sMImageSampler_, pVkR_->shadowMap->sMImageView_, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 }
 
 void GraphicsManager::startSDL() {
@@ -81,10 +79,10 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
 
-    ImGui::Begin("Viewport");
-    ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-    ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
-    ImGui::End();
+    //ImGui::Begin("Viewport");
+    //ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+    //ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
+    //ImGui::End();
 }
 
 void GraphicsManager::startVulkan() {
@@ -96,6 +94,11 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_ = new DeviceHelper();
     pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
     pVkR_->depthBias = 0.0003f;
+    pVkR_->camera_.setNearPlane(0.0001f);
+    pVkR_->camera_.setFarPlane(10000.0f);
+    pVkR_->camera_.setFOV(glm::radians(75.0f));
+
+    pVkR_->camera_.update();
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 
@@ -116,6 +119,8 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->createSWChain(pWindow_);
     std::cout << "chreated swap chain" << std::endl;
+
+    pVkR_->camera_.setAspectRatio((float)pVkR_->SWChainExtent_.width / (float)pVkR_->SWChainExtent_.height);
 
     pVkR_->createImageViews();
     std::cout << "created swap chain image views" << std::endl;
@@ -161,8 +166,11 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
 
-    pVkR_->shadowMap = new ShadowMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_);
-    pVkR_->shadowMap->genShadowMap();
+    pVkR_->shadowMap = new DirectionalLight(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_, pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
+
+    glm::mat4 proj = glm::perspective(pVkR_->camera_.getFOV(), pVkR_->camera_.getAspectRatio(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane());
+    proj[1][1] *= -1;
+    pVkR_->shadowMap->genShadowMap(proj, pVkR_->camera_.getViewMatrix(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane(), pVkR_->camera_.getAspectRatio());
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 

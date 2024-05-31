@@ -1,9 +1,35 @@
-#include "ShadowMap.h"
+#include "DirectionalLight.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-uint32_t ShadowMap::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+std::vector<glm::vec4> DirectionalLight::getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view) {
+	const auto inv = glm::inverse(proj * view);
+
+	std::vector<glm::vec4> frustumCorners;
+	for (unsigned int x = 0; x < 2; ++x)
+	{
+		for (unsigned int y = 0; y < 2; ++y)
+		{
+			for (unsigned int z = 0; z < 2; ++z)
+			{
+				const glm::vec4 pt =
+					inv * glm::vec4(
+						2.0f * x - 1.0f,
+						2.0f * y - 1.0f,
+						2.0f * z - 1.0f,
+						1.0f);
+				frustumCorners.push_back(pt / pt.w);
+			}
+		}
+	}
+
+	return frustumCorners;
+}
+
+uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
 
@@ -16,11 +42,11 @@ uint32_t ShadowMap::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, V
 	std::_Xruntime_error("Failed to find a suitable memory type!");
 }
 
-void ShadowMap::findDepthFormat(VkPhysicalDevice GPU_) {
+void DirectionalLight::findDepthFormat(VkPhysicalDevice GPU_) {
 	imageFormat_ = findSupportedFormat(GPU_, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-VkFormat ShadowMap::findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features) {
+VkFormat DirectionalLight::findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (VkFormat format : potentialFormats) {
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(GPU_, format, &props);
@@ -37,7 +63,7 @@ VkFormat ShadowMap::findSupportedFormat(VkPhysicalDevice GPU_, const std::vector
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void ShadowMap::createRenderPass() {
+void DirectionalLight::createRenderPass() {
 	VkAttachmentDescription attachmentDescription{};
 	attachmentDescription.format = imageFormat_;
 	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -89,7 +115,7 @@ void ShadowMap::createRenderPass() {
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void ShadowMap::createFrameBuffer() { 
+void DirectionalLight::createFrameBuffer() {
 	VkImageCreateInfo image{};
 	image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image.imageType = VK_IMAGE_TYPE_2D;
@@ -97,7 +123,7 @@ void ShadowMap::createFrameBuffer() {
 	image.extent.height = height_;
 	image.extent.depth = 1;
 	image.mipLevels = 1;
-	image.arrayLayers = 1;
+	image.arrayLayers = SHADOW_MAP_CASCADE_COUNT;
 	image.samples = VK_SAMPLE_COUNT_1_BIT;
 	image.tiling = VK_IMAGE_TILING_OPTIMAL;
 	image.format = imageFormat_;																// Depth stencil attachment
@@ -115,19 +141,44 @@ void ShadowMap::createFrameBuffer() {
 
 	VkImageViewCreateInfo depthStencilView{};
 	depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 	depthStencilView.format = imageFormat_;
 	depthStencilView.subresourceRange = {};
 	depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	depthStencilView.subresourceRange.baseMipLevel = 0;
 	depthStencilView.subresourceRange.levelCount = 1;
 	depthStencilView.subresourceRange.baseArrayLayer = 0;
-	depthStencilView.subresourceRange.layerCount = 1;
+	depthStencilView.subresourceRange.layerCount = SHADOW_MAP_CASCADE_COUNT;
 	depthStencilView.image = offscreen.image;
 	vkCreateImageView(device_, &depthStencilView, nullptr, &sMImageView_);
 
-	// Create sampler to sample from to depth attachment
-	// Used to sample in the fragment shader for shadowed rendering
+	createRenderPass();
+
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+		viewInfo.format = imageFormat_;
+		viewInfo.subresourceRange = {};
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = i;
+		viewInfo.subresourceRange.layerCount = 1;
+		viewInfo.image = offscreen.image;
+		vkCreateImageView(device_, &viewInfo, nullptr, &cascades[i].imageView);
+
+		VkFramebufferCreateInfo fbufCreateInfo{};
+		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		fbufCreateInfo.renderPass = sMRenderpass_;
+		fbufCreateInfo.attachmentCount = 1;
+		fbufCreateInfo.pAttachments = &cascades[i].imageView;
+		fbufCreateInfo.width = width_;
+		fbufCreateInfo.height = height_;
+		fbufCreateInfo.layers = 1;
+		vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &cascades[i].frameBuffer);
+	}
+
 	VkFilter shadowmap_filter = VK_FILTER_LINEAR;
 	VkSamplerCreateInfo sampler{};
 	sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -143,53 +194,45 @@ void ShadowMap::createFrameBuffer() {
 	sampler.maxLod = 1.0f;
 	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	vkCreateSampler(device_, &sampler, nullptr, &sMImageSampler_);
-
-
-	sMImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	sMImageInfo.imageView = sMImageView_;
-	sMImageInfo.sampler = sMImageSampler_;
-
-	createRenderPass();
-
-	// Create frame buffer
-	VkFramebufferCreateInfo fbufCreateInfo{};
-	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbufCreateInfo.renderPass = sMRenderpass_;
-	fbufCreateInfo.attachmentCount = 1;
-	fbufCreateInfo.pAttachments = &sMImageView_;
-	fbufCreateInfo.width = width_;
-	fbufCreateInfo.height = height_;
-	fbufCreateInfo.layers = 1;
-
-	vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &sMFrameBuffer_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void ShadowMap::createSMDescriptors() {
-	VkDescriptorSetLayoutBinding samplerLayoutBindingDepth{};
-	samplerLayoutBindingDepth.binding = 0;
-	samplerLayoutBindingDepth.descriptorCount = 1;
-	samplerLayoutBindingDepth.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBindingDepth.pImmutableSamplers = nullptr;
-	samplerLayoutBindingDepth.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+void DirectionalLight::createSMDescriptors(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+	VkDeviceSize bufferSize = sizeof(UBO);
+
+	uniformBuffer.resize(1);
+	uniformMemory.resize(1);
+	mappedBuffer.resize(1);
+
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[0], uniformMemory[0]);
+	VkResult res1 = vkMapMemory(pDevHelper_->getDevice(), uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
+	
+	updateUniBuffers(camProj, camView, camNear, camFar, aspectRatio);
+
+	VkDescriptorSetLayoutBinding UBOLayoutBinding{};
+	UBOLayoutBinding.binding = 0;
+	UBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	UBOLayoutBinding.descriptorCount = 1;
+	UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	UBOLayoutBinding.pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo layoutCInfo{};
 	layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutCInfo.bindingCount = 1;
-	layoutCInfo.pBindings = &(samplerLayoutBindingDepth);
+	layoutCInfo.pBindings = &(UBOLayoutBinding);
 
-	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &sMDescriptorSetLayout_);
+	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &cascadeSetLayout);
 
 	std::array<VkDescriptorPoolSize, 1> poolSizes{};
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[0].descriptorCount = 1;
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[0].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
 
 	VkDescriptorPoolCreateInfo poolCInfo{};
 	poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolCInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolCInfo.pPoolSizes = poolSizes.data();
-	poolCInfo.maxSets = 2;
+	poolCInfo.maxSets = SHADOW_MAP_CASCADE_COUNT;
 
 	if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &sMDescriptorPool_) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the descriptor pool!");
@@ -199,25 +242,32 @@ void ShadowMap::createSMDescriptors() {
 	allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocateInfo.descriptorPool = sMDescriptorPool_;
 	allocateInfo.descriptorSetCount = 1;
-	allocateInfo.pSetLayouts = &sMDescriptorSetLayout_;
+	allocateInfo.pSetLayouts = &cascadeSetLayout;
 
-	vkAllocateDescriptorSets(device_, &allocateInfo, &sMDescriptorSet_);
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		VkResult res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &cascades[i].descriptorSet);
 
-	// WRITE SET
-	VkWriteDescriptorSet sMDescriptorWriteSet{};
-	sMDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	sMDescriptorWriteSet.dstSet = sMDescriptorSet_;
-	sMDescriptorWriteSet.dstBinding = 0;
-	sMDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sMDescriptorWriteSet.descriptorCount = 1;
-	sMDescriptorWriteSet.pImageInfo = &sMImageInfo;
+		VkDescriptorBufferInfo descriptorBufferInfo{};
+		descriptorBufferInfo.buffer = uniformBuffer[0];
+		descriptorBufferInfo.offset = 0;
+		descriptorBufferInfo.range = sizeof(UBO);
 
-	std::vector<VkWriteDescriptorSet> descriptorWriteSets = { sMDescriptorWriteSet };
+		VkWriteDescriptorSet bufferWriteSet{};
+		bufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		bufferWriteSet.dstSet = cascades[i].descriptorSet;
+		bufferWriteSet.dstBinding = 0;
+		bufferWriteSet.dstArrayElement = 0;
+		bufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		bufferWriteSet.descriptorCount = 1;
+		bufferWriteSet.pBufferInfo = &descriptorBufferInfo;
 
-	vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+		std::array<VkWriteDescriptorSet, 1> descriptors = { bufferWriteSet };
+
+		vkUpdateDescriptorSets(device_, 1, descriptors.data(), 0, NULL);
+	}
 }
 
-VkShaderModule ShadowMap::createShaderModule(VkDevice dev, const std::vector<char>& binary) {
+VkShaderModule DirectionalLight::createShaderModule(VkDevice dev, const std::vector<char>& binary) {
 	// We need to specify a pointer to the buffer with the bytecode and the length of the bytecode. Bytecode pointer is a uint32_t pointer
 	VkShaderModuleCreateInfo shaderModuleCInfo{};
 	shaderModuleCInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -232,7 +282,7 @@ VkShaderModule ShadowMap::createShaderModule(VkDevice dev, const std::vector<cha
 	return shaderMod;
 }
 
-std::vector<char> ShadowMap::readFile(const std::string& filename) {
+std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 	// Start reading at end of the file and read as binary
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 	if (!file.is_open()) {
@@ -250,17 +300,18 @@ std::vector<char> ShadowMap::readFile(const std::string& filename) {
 	return buffer;
 }
 
-void ShadowMap::createPipeline() {
+void DirectionalLight::createPipeline() {
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
-    pcRange.size = sizeof(GLTFObj::depthMVModel);
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pcRange.size = sizeof(GLTFObj::cascadeMVP);
+    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 0;
+    pipeLineLayoutCInfo.setLayoutCount = 1;
+	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
     if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
@@ -386,17 +437,17 @@ void ShadowMap::createPipeline() {
     //std::cout << "pipeline created" << std::endl;
 }
 
-void ShadowMap::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout) {
+void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout) {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
-	pcRange.size = sizeof(GLTFObj::depthMVModel);
-	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	pcRange.size = sizeof(GLTFObj::cascadeMVP);
+	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	VkDescriptorSetLayout descSetLayouts[] = { animatedDescLayout };
+	VkDescriptorSetLayout descSetLayouts[] = { animatedDescLayout, cascadeSetLayout };
 
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
 	pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeLineLayoutCInfo.setLayoutCount = 1;
+	pipeLineLayoutCInfo.setLayoutCount = 2;
 	pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
@@ -424,11 +475,11 @@ void ShadowMap::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout)
 	viewportStateCInfo.viewportCount = 1;
 	viewportStateCInfo.scissorCount = 1;
 
-	VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+	/*	VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCInfo.pNext = nullptr;
 	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_TRUE;
+	rasterizerCInfo.depthClampEnable = VK_FALSE;
 	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
@@ -455,7 +506,40 @@ void ShadowMap::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout)
 	depthStencilCInfo.front = {};
 	depthStencilCInfo.back = {};
 	depthStencilCInfo.minDepthBounds = 0.0f;
-	depthStencilCInfo.maxDepthBounds = 1.0f;
+	depthStencilCInfo.maxDepthBounds = 1.0f;*/
+
+VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizerCInfo.pNext = nullptr;
+	rasterizerCInfo.flags = 0;
+	rasterizerCInfo.depthClampEnable = VK_FALSE;
+	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
+	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
+	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizerCInfo.depthBiasEnable = VK_TRUE;
+	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
+	rasterizerCInfo.depthBiasClamp = 0.0f;
+	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
+	rasterizerCInfo.lineWidth = 1.0f;
+	
+	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
+	multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	
+	VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
+	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilCInfo.pNext = nullptr;
+	depthStencilCInfo.flags = 0;
+	depthStencilCInfo.depthTestEnable = VK_TRUE;
+	depthStencilCInfo.depthWriteEnable = VK_TRUE;
+	depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
+	depthStencilCInfo.stencilTestEnable = VK_FALSE;
+	depthStencilCInfo.front = {};
+	depthStencilCInfo.back = {};
+	depthStencilCInfo.minDepthBounds = 1.0f;
+	depthStencilCInfo.maxDepthBounds = 0.0f;
 
 	VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
 	colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -526,7 +610,7 @@ void ShadowMap::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout)
 }
 
 
-void ShadowMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
+void DirectionalLight::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
     vkEndCommandBuffer(cmdBuff);
 
     VkSubmitInfo queueSubmitInfo{};
@@ -550,7 +634,7 @@ void ShadowMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQu
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-VkCommandBuffer ShadowMap::render(VkCommandBuffer cmdBuf) {
+DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex) {
     VkClearValue clearValues[1];
     clearValues[0].depthStencil = { 1.0f, 0 };
 
@@ -561,53 +645,235 @@ VkCommandBuffer ShadowMap::render(VkCommandBuffer cmdBuf) {
     renderPassBeginInfo.renderArea.extent.height = height_;
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clearValues;
-    renderPassBeginInfo.framebuffer = sMFrameBuffer_;
+	renderPassBeginInfo.framebuffer = cascades[cascadeIndex].frameBuffer;
+
+	VkViewport viewport{};
+	viewport.width = width_;
+	viewport.height = height_;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent.width = width_;
+	scissor.extent.height = height_;
+	vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
 	vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkViewport viewport{};
-    viewport.width = width_;
-    viewport.height = height_;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+	vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipeline_);
 
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent.width = width_;
-    scissor.extent.height = height_;
-    vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
-
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipeline_);
-
-	return cmdBuf;
+	return { renderPassBeginInfo, sMPipeline_, sMPipelineLayout_, cmdBuf };
 }
 
-void ShadowMap::updateUniBuffers() {
-	// Matrix from light's point of view
-	glm::vec3 pos = glm::vec3(*lightPos);
-	float near_plane = zNear, far_plane = zFar;
-	glm::mat4 lightProjection = glm::perspective(glm::radians(45.0f), 1.0f, near_plane, far_plane);
+
+std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& projview)
+{
+	const auto inv = glm::inverse(projview);
+
+	std::vector<glm::vec4> frustumCorners;
+	for (unsigned int x = 0; x < 2; ++x)
+	{
+		for (unsigned int y = 0; y < 2; ++y)
+		{
+			for (unsigned int z = 0; z < 2; ++z)
+			{
+				const glm::vec4 pt = inv * glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
+				frustumCorners.push_back(pt / pt.w);
+			}
+		}
+	}
+
+	return frustumCorners;
+}
+
+std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view)
+{
+	return getFrustumCornersWorldSpace(proj * view);
+}
+
+glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio) {
+	const auto proj = glm::perspective(75.0f,aspectRatio, nearPlane,farPlane);
+	const auto corners = getFrustumCornersWorldSpace(proj, camView);
+
+	glm::vec3 center = glm::vec3(0, 0, 0);
+	for (const auto& v : corners)
+	{
+		center += glm::vec3(v);
+	}
+	center /= corners.size();
+
+	const auto lightView = glm::lookAt(center + glm::vec3(*lightPos), center, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	float minX = std::numeric_limits<float>::max();
+	float maxX = std::numeric_limits<float>::lowest();
+	float minY = std::numeric_limits<float>::max();
+	float maxY = std::numeric_limits<float>::lowest();
+	float minZ = std::numeric_limits<float>::max();
+	float maxZ = std::numeric_limits<float>::lowest();
+	for (const auto& v : corners)
+	{
+		const auto trf = lightView * v;
+		minX = std::min(minX, trf.x);
+		maxX = std::max(maxX, trf.x);
+		minY = std::min(minY, trf.y);
+		maxY = std::max(maxY, trf.y);
+		minZ = std::min(minZ, trf.z);
+		maxZ = std::max(maxZ, trf.z);
+	}
+
+	// Tune this parameter according to the scene
+	constexpr float zMult = 10.0f;
+	if (minZ < 0)
+	{
+		minZ *= zMult;
+	}
+	else
+	{
+		minZ /= zMult;
+	}
+	if (maxZ < 0)
+	{
+		maxZ /= zMult;
+	}
+	else
+	{
+		maxZ *= zMult;
+	}
+
+	glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 	lightProjection[1][1] *= -1;
-	glm::mat4 depthViewMatrix = glm::lookAt(pos, glm::vec3(0.0f), glm::vec3(0, 1, 0));
-
-	depthPushBlock.mvp = lightProjection * depthViewMatrix;
+	return lightProjection * lightView;
 }
 
-void ShadowMap::genShadowMap() {
-	width_ = 8192;
-	height_ = 8192;
-	zNear = 10.0f;
-	zFar = 100.0f;
+void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio) {
+	//getLightSpaceMatrices(cameraProj, camView);
+	//for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+	//	uniShadow.cascadeMVP[i] = cascades[i].viewProjectionMatrix;
+	//}
+
+	float clipRange = cameraFarPlane - cameraNearPlane;
+
+	float minZ = cameraNearPlane;
+	float maxZ = cameraNearPlane + clipRange;
+
+	float range = maxZ - minZ;
+	float ratio = maxZ / minZ;
+
+	std::vector<float> shadowCascadeLevels{};
+	shadowCascadeLevels.resize(4);
+
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
+		float log = minZ * std::pow(ratio, p);
+		float uniform = minZ + range * p;
+		float d = cascadeSplitLambda * (log - uniform) + uniform;
+		shadowCascadeLevels[i] = (d - cameraNearPlane) / clipRange;
+	}
+
+	//std::vector<glm::mat4> ret;
+	//for (size_t i = 0; i < shadowCascadeLevels.size(); i++)
+	//{
+	//	if (i == 0)
+	//	{
+	//		ret.push_back(getLightSpaceMatrix(cameraNearPlane, shadowCascadeLevels[i], camView, aspectRatio));
+	//	}
+	//	else if (i < shadowCascadeLevels.size() - 1)
+	//	{
+	//		ret.push_back(getLightSpaceMatrix(shadowCascadeLevels[i], shadowCascadeLevels[i + 1], camView, aspectRatio));
+	//	}
+	//	else
+	//	{
+	//		ret.push_back(getLightSpaceMatrix(shadowCascadeLevels[i], cameraFarPlane, camView, aspectRatio));
+	//	}
+	//}
+	// 
+	// Calculate orthographic projection matrix for each cascade
+	float lastSplitDist = 0.0;
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		float splitDist = shadowCascadeLevels[i];
+
+		glm::vec3 frustumCorners[8] = {
+			glm::vec3(-1.0f,  1.0f, 0.0f),
+			glm::vec3(1.0f,  1.0f, 0.0f),
+			glm::vec3(1.0f, -1.0f, 0.0f),
+			glm::vec3(-1.0f, -1.0f, 0.0f),
+			glm::vec3(-1.0f,  1.0f,  1.0f),
+			glm::vec3(1.0f,  1.0f,  1.0f),
+			glm::vec3(1.0f, -1.0f,  1.0f),
+			glm::vec3(-1.0f, -1.0f,  1.0f),
+		};
+
+		// Project frustum corners into world space
+		glm::mat4 invCam = glm::inverse(cameraProj * camView);
+		for (uint32_t j = 0; j < 8; j++) {
+			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
+			if (invCorner.w != 0.0f) {
+				frustumCorners[j] = invCorner / invCorner.w;
+			}
+			else {
+				frustumCorners[j] = invCorner / 0.0000000001f;
+			}
+		}
+
+		for (uint32_t j = 0; j < 4; j++) {
+			glm::vec3 dist = frustumCorners[j + 4] - frustumCorners[j];
+			frustumCorners[j + 4] = frustumCorners[j] + (dist * splitDist);
+			frustumCorners[j] = frustumCorners[j] + (dist * lastSplitDist);
+		}
+
+		// Get frustum center
+		glm::vec3 frustumCenter = glm::vec3(0.0f);
+		for (uint32_t j = 0; j < 8; j++) {
+			frustumCenter += frustumCorners[j];
+		}
+		frustumCenter /= 8.0f;
+
+		float radius = 0.0f;
+		for (uint32_t j = 0; j < 8; j++) {
+			float distance = glm::length(frustumCorners[j] - frustumCenter);
+			radius = glm::max(radius, distance);
+		}
+		radius = std::ceil(radius * 16.0f) / 16.0f;
+
+		glm::vec3 maxExtents = glm::vec3(radius);
+		glm::vec3 minExtents = -maxExtents;
+
+		glm::vec3 lightDir = normalize(-(*lightPos));
+		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+
+		// Store split distance and matrix in cascade
+		cascades[i].splitDepth = (cameraNearPlane + splitDist * clipRange) * -1.0f;
+		cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
+
+		lastSplitDist = shadowCascadeLevels[i];
+	}
+
+	UBO ubo;
+	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		ubo.cascadeMVP[i] = cascades[i].viewProjectionMatrix;
+	}
+
+	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));
+}
+
+void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+	width_ = 4096;
+	height_ = 4096;
+	zNear = 10.f;
+	zFar = 500.0f;
 	imageFormat_ = VK_FORMAT_D16_UNORM;
-	updateUniBuffers();
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
+
+	createSMDescriptors(camProj, camView, camNear, camFar, aspectRatio);
 
 	createPipeline();
 }
 
-ShadowMap::ShadowMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_) {
+DirectionalLight::DirectionalLight(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_, float swapChainWidth, float swapChainHeight) {
 	this->pDevHelper_ = devHelper;
 	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
@@ -616,4 +882,6 @@ ShadowMap::ShadowMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandP
 	this->numModels_ = numModels_;
 	this->pModels_ = pModels_;
 	this->imageFormat_ = VK_FORMAT_D16_UNORM;
+	this->swapChainHeight = swapChainHeight;
+	this->swapChainWidth = swapChainWidth;
 }

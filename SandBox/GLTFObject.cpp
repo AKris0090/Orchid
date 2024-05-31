@@ -91,7 +91,7 @@ void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
     }
 }
 
-void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = modelTransform;
         //nodeTransform *= node->transform;
@@ -100,8 +100,9 @@ void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelin
         //    nodeTransform = curParent->transform * nodeTransform;
         //    curParent = curParent->parent;
         //}
-        depthPushBlock_.model = nodeTransform;
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(depthMVModel), &depthPushBlock_);
+        cascadeBlock.model = nodeTransform;
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
@@ -109,19 +110,19 @@ void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelin
         }
     }
     for (auto& child : node->children) {
-        drawShadow(commandBuffer, pipelineLayout, child);
+        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, cascadeDescriptor, child);
     }
 }
 
-void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp) {
+void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
-    depthPushBlock_.mvp = mvp;
+    cascadeBlock.cascadeIndex = cascadeIndex;
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     for (auto& node : pNodes_) {
-        drawShadow(commandBuffer, pipelineLayout, node);
+        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, cascadeDescriptor, node);
     }
 }
 

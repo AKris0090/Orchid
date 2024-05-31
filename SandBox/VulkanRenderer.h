@@ -13,9 +13,7 @@
 
 #include "GameObject.h"
 #include "AnimatedGameObject.h"
-#include "PointLight.h"
 #include "Camera.h"
-#include "PointLight.h"
 
 #ifdef NDEBUG
 const bool enableValLayers = false;
@@ -28,15 +26,6 @@ const std::vector<const char*> validationLayers = {
 };
 const std::vector<const char*> deviceExts = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-};
-
-struct UniformBufferObject {
-	glm::mat4 view;
-	glm::mat4 proj;	
-	glm::vec4 lightPos;
-	glm::vec4 viewPos;
-	glm::mat4 depthBiasMVP;
-	float bias = 0.005f;
 };
 
 // Queue family struct
@@ -74,7 +63,6 @@ private:
 	VkSwapchainKHR swapChain_;
 	std::vector<VkImage> SWChainImages_;
 	VkFormat SWChainImageFormat_;
-	VkExtent2D SWChainExtent_;
 	std::vector<VkImageView> SWChainImageViews_;
 
 	// Color image and mem handles
@@ -126,6 +114,7 @@ public:
 	std::vector<glm::vec4> lights_;
 	FPSCam camera_;
 	float depthBias;
+	VkExtent2D SWChainExtent_;
 
 	std::vector<GameObject*> gameObjects;
 	std::vector<AnimatedGameObject*> animatedObjects;
@@ -165,7 +154,7 @@ public:
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
-	ShadowMap* shadowMap;
+	DirectionalLight* shadowMap;
 
 	VulkanRenderer(int numModels);
 	// Create the vulkan instance
@@ -218,4 +207,14 @@ public:
 	void freeEverything(int framesInFlight);
 
 	void updateGeneratedImageDescriptorSets();
+
+	struct UniformBufferObject {
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::vec4 lightPos;
+		glm::vec4 viewPos;
+		float cascadeSplits[4];
+		glm::mat4 cascadeViewProjMat[4];
+		float bias = 0.005f;
+	};
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ShadowMap.h"
+#include "DirectionalLight.h"
 #include <PxPhysics.h>
 #include <PxPhysicsAPI.h>
 #include <PxCooking.h>

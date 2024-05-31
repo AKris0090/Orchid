@@ -13,6 +13,10 @@ private:
 	// left-right
 	float yaw_ = 0.0f;
 	glm::mat4 getRotationMatrix();
+	float nearPlane;
+	float farPlane;
+	float aspectRatio;
+	float FOV;
 
 public:
 	float moveSpeed_ = 0.005f; // slow is 0.0015;
@@ -26,4 +30,12 @@ public:
 	void processSDL(SDL_Event& e);
 	void setPitchYaw(float nPitch, float nYaw);
 	glm::mat4 getViewMatrix();
+	void setNearPlane(float nearP);
+	void setFarPlane(float farP);
+	void setAspectRatio(float aspect);
+	void setFOV(float fov);
+	float getNearPlane() { return this->nearPlane; };
+	float getFarPlane() { return this->farPlane; };
+	float getAspectRatio() { return this->aspectRatio; };
+	float getFOV() { return this->FOV; };
 };

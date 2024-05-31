@@ -26,7 +26,6 @@ public:
 	VulkanRenderer* pVkR_;
 	SDL_Window* pWindow_;
 	SDL_Renderer* pRenderer_;
-	VkDescriptorSet m_Dset;
 
 	std::vector<GameObject*> gameObjects = {};
 	std::vector<AnimatedGameObject*> animatedObjects = {};

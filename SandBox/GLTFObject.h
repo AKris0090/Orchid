@@ -15,9 +15,14 @@ public:
 		glm::mat4 transform;
 	};
 	struct depthMVModel {
-		glm::mat4 mvp;
 		glm::mat4 model;
+		uint32_t index;
 	} depthPushBlock_;
+
+	struct cascadeMVP {
+		glm::mat4 model;
+		uint32_t cascadeIndex;
+	} cascadeBlock;
 
 	bool isSkyBox_ = false;
 	MeshHelper* pSceneMesh_;
@@ -30,8 +35,12 @@ public:
 
 	void createDescriptors();
 
+	struct UBO {
+		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
+	} uniform;
+
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, glm::mat4 mvp);
+	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
 	void genImageRenderSkybox(VkCommandBuffer commandBuffer);
 
@@ -51,7 +60,7 @@ private:
 	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* pNode);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node);
 };

@@ -69,7 +69,7 @@ public:
 	void createDescriptors(VkDescriptorSetLayout descSetLayout);
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, glm::mat4 mvp);
+	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };

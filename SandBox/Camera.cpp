@@ -42,3 +42,19 @@ void FPSCam::setPitchYaw(float nPitch, float nYaw) {
     this->pitch_ = nPitch;
     this->yaw_ = nYaw;
 }
+
+void FPSCam::setNearPlane(float nearP) {
+    this->nearPlane = nearP;
+}
+
+void FPSCam::setFarPlane(float farP) {
+    this->farPlane = farP;
+}
+
+void FPSCam::setAspectRatio(float aspect) {
+    this->aspectRatio = aspect;
+}
+
+void FPSCam::setFOV(float fov) {
+    this->FOV = fov;
+}
