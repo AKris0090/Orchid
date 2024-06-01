@@ -22,6 +22,7 @@ I implemented the Cook-Torrence BRDF with reference from: https://learnopengl.co
 
 Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
 
+
 ### Image-Based Lighting
 |                                      Warm Skybox                         |                     Cool Skybox                                          |
 | :----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
@@ -32,4 +33,4 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 ### Animations
 |                                 Person                              |                                       Wolf                               |
 | :-----------------------------------------------------------------: | :----------------------------------------------------------------------: |
-|         ![](README_IMAGES/animation/emily-walk.mp4.mov)             |          ![](README_IMAGES/animation/wolf-run.mp4.mov)                   |
+| https://github.com/AKris0090/Orchid/assets/58652090/10a08d44-6a50-47f7-a3bd-44fd110459ec | https://github.com/AKris0090/Orchid/assets/58652090/5fe352cd-5954-4341-9e8d-47369368d225 |
