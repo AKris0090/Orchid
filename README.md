@@ -32,4 +32,4 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 ### Animations
 |                                 Person                              |                                       Wolf                               |
 | :-----------------------------------------------------------------: | :----------------------------------------------------------------------: |
-|         <video src='README_IMAGES/animation/emily-walk.mp4.mov'>        |          <video src='README_IMAGES/animation/wolf-run.mp4.mov'>                       |
+|         ![](README_IMAGES/animation/emily-walk.mp4.mov)             |          ![](README_IMAGES/animation/wolf-run.mp4.mov)                   |
