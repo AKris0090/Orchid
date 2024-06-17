@@ -7,8 +7,8 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 proj;
     vec4 lightPos;
     vec4 viewPos;
-    float cascadeSplits[4];
-    mat4[SHADOW_MAP_CASCADE_COUNT] cascadeViewProj;
+    vec4 cascadeSplits;
+    mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
     float bias;
 } ubo;
 
@@ -36,7 +36,7 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
 layout(location = 5) in vec4 fragTangent;
-layout(location = 6) in mat4 fragModel;
+layout(location = 6) in vec3 fragShadow;
 
 layout(location = 0) out vec4 outColor;
 
@@ -157,13 +157,13 @@ vec3 calculateNormal()
 	return normalize(mat3(T, B, N) * tangentNormal);
 }
 
-float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex)
+float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
 	float shadow = 1.0;
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
 	{
 		float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
-		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - ubo.bias ) 
+		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 		{
 			shadow = AMBIENT;
 		}
@@ -171,10 +171,10 @@ float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex)
 	return shadow;
 }
 
-float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex)
+float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
 {
     	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
-	float scale = 1.5;
+	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
@@ -186,7 +186,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex)
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex);
+			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
 			count++;
 		}
 	
@@ -238,14 +238,24 @@ void main()
 
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
+	vec3 fragShadowViewPos = fragShadow;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-		if(fragViewPos.z < ubo.cascadeSplits[i]) {	
+		if(fragShadowViewPos.z < ubo.cascadeSplits[i]) {	
 			cascadeIndex = i + 1;
 		}
 	}
-	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex] * fragModel) * vec4(fragPosition, 1.0);
 
-	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex);
+	float newBias = max(0.05 * (1.0 - dot(N, fragLightVec)), ubo.bias);
+
+	if(cascadeIndex == SHADOW_MAP_CASCADE_COUNT) {
+		newBias *= 1 / (((ubo.proj[2][3] / ubo.proj[2][2]) + 1.0) * 0.5);
+	} else {
+		newBias *= 1 / (ubo.cascadeSplits[cascadeIndex] * 0.5);
+	}
+
+	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition, 1.0);
+
+	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
 	vec3 color = ((ambient + (Lo)) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
 

@@ -343,7 +343,7 @@ void DirectionalLight::createPipeline() {
 	rasterizerCInfo.depthClampEnable = VK_TRUE;
 	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizerCInfo.depthBiasEnable = VK_FALSE;
 	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
@@ -809,12 +809,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		glm::mat4 invCam = glm::inverse(cameraProj * camView);
 		for (uint32_t j = 0; j < 8; j++) {
 			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
-			if (invCorner.w != 0.0f) {
-				frustumCorners[j] = invCorner / invCorner.w;
-			}
-			else {
-				frustumCorners[j] = invCorner / 0.0000000001f;
-			}
+			frustumCorners[j] = invCorner / invCorner.w;
 		}
 
 		for (uint32_t j = 0; j < 4; j++) {
@@ -842,10 +837,11 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 
 		glm::vec3 lightDir = normalize(-(*lightPos));
 		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
 		// Store split distance and matrix in cascade
 		cascades[i].splitDepth = (cameraNearPlane + splitDist * clipRange) * -1.0f;
+		lightOrthoMatrix[1][1] *= -1.0f;
 		cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
 
 		lastSplitDist = shadowCascadeLevels[i];
@@ -862,9 +858,10 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
 	width_ = 4096;
 	height_ = 4096;
-	zNear = 10.f;
-	zFar = 500.0f;
+	zNear = 1.f;
+	zFar = 100.0f;
 	imageFormat_ = VK_FORMAT_D16_UNORM;
+	cascadeSplitLambda = 0.95f;
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 

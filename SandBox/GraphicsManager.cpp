@@ -94,8 +94,8 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_ = new DeviceHelper();
     pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
     pVkR_->depthBias = 0.0003f;
-    pVkR_->camera_.setNearPlane(0.0001f);
-    pVkR_->camera_.setFarPlane(10000.0f);
+    pVkR_->camera_.setNearPlane(0.01f);
+    pVkR_->camera_.setFarPlane(50.0f);
     pVkR_->camera_.setFOV(glm::radians(75.0f));
 
     pVkR_->camera_.update();
@@ -170,6 +170,7 @@ void GraphicsManager::startVulkan() {
 
     glm::mat4 proj = glm::perspective(pVkR_->camera_.getFOV(), pVkR_->camera_.getAspectRatio(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane());
     proj[1][1] *= -1;
+    glm::mat4 view = pVkR_->camera_.getViewMatrix();
     pVkR_->shadowMap->genShadowMap(proj, pVkR_->camera_.getViewMatrix(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane(), pVkR_->camera_.getAspectRatio());
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;

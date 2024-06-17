@@ -84,7 +84,7 @@ public:
 
 	std::array<Cascade, SHADOW_MAP_CASCADE_COUNT> cascades;
 
-	float cascadeSplitLambda = 0.95f;
+	float cascadeSplitLambda;
 
 	struct depthMVP {
 		glm::mat4 model;

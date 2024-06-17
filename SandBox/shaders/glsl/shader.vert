@@ -1,11 +1,16 @@
 #version 450
 
+
+#define SHADOW_MAP_CASCADE_COUNT 4
+
+
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
     vec4 lightPos;
     vec4 viewPos;
-    mat4 depthVP;
+    vec4 cascadeSplits;
+    mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
     float bias;
 } ubo;
 
@@ -25,7 +30,7 @@ layout(location = 2) out vec2 fragTexCoord;
 layout(location = 3) out vec3 fragLightVec;
 layout(location = 4) out vec3 fragNormal;
 layout(location = 5) out vec4 fragTangent;
-layout(location = 6) out mat4 fragModel;
+layout(location = 6) out vec3 fragShadow;
 
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
@@ -46,7 +51,7 @@ void main() {
     fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
 
     //fragShadowCoord = (biasMat * ubo.depthVP * pc.model) * vec4(inPosition, 1.0);
-    fragModel = pc.model;
+    fragShadow = (ubo.view * vec4(fragPosition, 1.0f)).xyz;
 
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
 }

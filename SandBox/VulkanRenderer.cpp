@@ -32,6 +32,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     ubo.proj[1][1] *= -1;
     ubo.viewPos = glm::vec4(this->camera_.transform.position, 0.0f);
     ubo.lightPos = *(this->pLightPos_);
+    shadowMap->updateUniBuffers(ubo.proj, ubo.view, camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
     for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
         ubo.cascadeSplits[i] = shadowMap->cascades[i].splitDepth;
         ubo.cascadeViewProjMat[i] = shadowMap->cascades[i].viewProjectionMatrix;
@@ -59,9 +60,6 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     }
 
     updateUniformBuffer(imageIndex_);
-    glm::mat4 proj = glm::perspective(camera_.getFOV(), camera_.getAspectRatio(), camera_.getNearPlane(), camera_.getFarPlane());
-    proj[1][1] *= -1;
-    shadowMap->updateUniBuffers(proj, camera_.getViewMatrix(), camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
@@ -1521,7 +1519,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size()) + 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
-    poolSizes[1].descriptorCount = this->numMats_ * 10 * static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
+    poolSizes[1].descriptorCount = (this->numMats_) * 10 * static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
