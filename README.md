@@ -36,6 +36,7 @@ Basic area light shadowmapping by rendering the scene from the light's perspecti
 |                   ![](README_IMAGES/CSM/3.png)              |               ![](README_IMAGES/CSM/2.png)                  |
 |                                Shadow Map Slice 3           |                  Shadow Map Slice 4                         |
 |                   ![](README_IMAGES/CSM/1.png)              |               ![](README_IMAGES/CSM/0.png)                  |
+
 |                                 Final Output                             |
 | :----------------------------------------------------------------------: |
 |                  ![](README_IMAGES/CSM/YvUQO8.png)                       |
