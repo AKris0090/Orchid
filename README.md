@@ -29,6 +29,14 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 
 Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
 
+### Cascaded Shadow Mapping - 06/17/2024
+
+|                                      Shadow Map                          |          Fragment Shader Output                                          |
+| :----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
+|                   ![](README_IMAGES/shadow/shadowmap-3.png)              |               ![](README_IMAGES/shadow/shadowmap-1.png)                  |
+
+Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
+
 ### Animations
 
 https://github.com/AKris0090/Orchid/assets/58652090/a1662d30-31e1-4b9d-9ecd-0a9f098e5afa
