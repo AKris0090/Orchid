@@ -41,7 +41,7 @@ Basic area light shadowmapping by rendering the scene from the light's perspecti
 | :----------------------------------------------------------------------: |
 |                  ![](README_IMAGES/CSM/YvUQO8.png)                       |
 
-Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
+One common downside to shadow maps is that they are notoriously bad for detailed shadows and they take up a lot of GPU memory. By splitting the large shadow map into pieces, only rendering what is in view from the camera, we can address both issues at once. This technique is called Cascaded Shadow Mapping, where you split the camera's view frustrum into smaller frustra, and for each frustra you render a shadow map with its respective center and extents. The subfrustra furthest will have the widest extent (meaning lower level of detail), and the one closer to the camera will have a smaller extent (meaning a higher level of detail).
 
 ### Animations
 
