@@ -1,33 +1,19 @@
 #pragma once
 
-#ifndef VULKANRENDERER_H
-#define VULKANRENDERER_H
-
-#include <Vulkan/vulkan.h>
-#include <cstdio>
-#include <array>
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_vulkan.h"
-#include <vector>
 #include <cstring>
 #include <optional>
 #include <set>
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include <fstream>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <unordered_map>
 #include <chrono>
 
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-
-// Forward declaration to model helper
-class ModelHelper;
-class TextureHelper;
+#include "GameObject.h"
+#include "AnimatedGameObject.h"
+#include "Camera.h"
 
 #ifdef NDEBUG
 const bool enableValLayers = false;
@@ -35,10 +21,11 @@ const bool enableValLayers = false;
 const bool enableValLayers = true;
 #endif
 
-struct UniformBufferObject {
-	alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
+const std::vector<const char*> validationLayers = {
+	"VK_LAYER_KHRONOS_validation"
+};
+const std::vector<const char*> deviceExts = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
 // Queue family struct
@@ -67,126 +54,109 @@ struct SWChainSuppDetails {
 class VulkanRenderer {
 
 private:
-	uint32_t imageIndex;
+	uint32_t imageIndex_;
 
 	// SDL Surface handle
-	VkSurfaceKHR surface;
+	VkSurfaceKHR surface_;
+
+	// Swap chain handles
+	VkSwapchainKHR swapChain_;
+	std::vector<VkImage> SWChainImages_;
+	VkFormat SWChainImageFormat_;
+	std::vector<VkImageView> SWChainImageViews_;
+
+	// Color image and mem handles
+	VkImage colorImage_;
+	VkDeviceMemory colorImageMemory_;
+	VkImageView colorImageView_;
+	// Depth image and mem handles
+	VkImage depthImage_;
+	VkDeviceMemory depthImageMemory_;
+	VkImageView depthImageView_;
+	// Handle to hold the frame buffers
+	std::vector<VkFramebuffer> SWChainFrameBuffers_;
+	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
+	// Uniform buffers handle
+	std::vector<VkBuffer> uniformBuffers_;
+	std::vector<void*> mappedBuffers_;
+	std::vector<VkDeviceMemory> uniformBuffersMemory_;
+	// Descriptor set handles
+	std::vector<VkDescriptorSet> descriptorSets_;
+	// Handles for the two semaphores - one for if the image is available and the other to present the image
+	std::vector<VkSemaphore> imageAcquiredSema_;
+	std::vector<VkSemaphore> renderedSema_;
+	// Handle for the in-flight-fence
+	std::vector<VkFence> inFlightFences_;
+	std::vector<VkFence> imagesInFlight_;
+
+	bool rendered = false;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
-
-	// Swap chain handles
-	VkSwapchainKHR swapChain;
-	std::vector<VkImage> SWChainImages;
-	VkFormat SWChainImageFormat;
-	VkExtent2D SWChainExtent;
-	std::vector<VkImageView> SWChainImageViews;
-
-	// Command Buffers - Command pool and command buffer handles
-	VkCommandPool commandPool;
-
-	// Color image and mem handles
-	VkImage colorImage;
-	VkDeviceMemory colorImageMemory;
-	VkImageView colorImageView;
-
-	// Depth image and mem handles
-	VkImage depthImage;
-	VkDeviceMemory depthImageMemory;
-	VkImageView depthImageView;
-
-	// Handle to hold the frame buffers
-	std::vector<VkFramebuffer> SWChainFrameBuffers;
-
-	// Uniform buffers handle
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
-
-	// Descriptor set handles
-	std::vector<VkDescriptorSet> descriptorSets;
-
-
-	// Handles for the two semaphores - one for if the image is available and the other to present the image
-	std::vector<VkSemaphore> imageAcquiredSema;
-	std::vector<VkSemaphore> renderedSema;
-
-	// Handle for the in-flight-fence
-	std::vector<VkFence> inFlightFences;
-	std::vector<VkFence> imagesInFlight;
-
-	// Private helper methods ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
-
 	SWChainSuppDetails getDetails(VkPhysicalDevice physicalDevice);
 	bool isSuitable(VkPhysicalDevice physicalDevice);
-
 	VkFormat findDepthFormat();
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
-
-	void recordCommandBuffer(std::vector<ModelHelper*> models, std::vector<TextureHelper*> textures, VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-	// Helper methods for the graphics pipeline
 	static std::vector<char> readFile(const std::string& fileName);
-
 	VkShaderModule createShaderModule(const std::vector<char>& binary);
-
-	// Additional swap chain methods
 	void cleanupSWChain();
-
+	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 public:
-	VkClearValue clearValue;
-	// Extension and validation arrays
-	const std::vector<const char*> validationLayers = {
-		"VK_LAYER_KHRONOS_validation"
-	};
-	const std::vector<const char*> deviceExts = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	};
+	int numModels_;
+	int numTextures_;
+	bool rotate_ = false;
+	bool frBuffResized_ = false;
+	glm::vec4* pLightPos_; // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
+	std::vector<glm::vec4> lights_;
+	FPSCam camera_;
+	float depthBias;
+	VkExtent2D SWChainExtent_;
 
-	float camX = 5.0f;
-	float camY = 0.0f;
-	float camZ = 0.0f;
+	std::vector<GameObject*> gameObjects;
+	std::vector<AnimatedGameObject*> animatedObjects;
 
-	bool rotate = false;
-
-	bool frBuffResized = false;
-
-	VkPhysicalDevice GPU = VK_NULL_HANDLE;
-	VkDevice device;
-
-	int numModels;
-	int numTextures;
-	size_t currentFrame = 0;
-
+	DeviceHelper* pDevHelper_;
+	Skybox* pSkyBox_;
+	VkCommandPool commandPool_;
+	VkClearValue clearValue_;
+	VkPhysicalDevice GPU_ = VK_NULL_HANDLE;
+	VkDevice device_;
+	size_t currentFrame_ = 0;
+	std::vector<GLTFObj*> pModels_;
+	uint32_t numMats_;
+	uint32_t numImages_;
 	// Handles for all variables, made public so they can be accessed by main and destroys
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debugMessenger;
+	VkInstance instance_;
+	VkDebugUtilsMessengerEXT debugMessenger_;
 	// Pipeline Layout for "gloabls" to change shaders
-	VkPipelineLayout pipeLineLayout;
-	// The graphics pipeline handle
-	VkPipeline graphicsPipeline;
+	VkPipelineLayout pipeLineLayout_;
+	VkPipelineLayout animatedPipelineLayout_;
 	// Render pass handles
-	VkRenderPass renderPass;
+	VkRenderPass renderPass_;
+	VkRenderPass skyboxRenderPass_;
 	// Handle for the list of command buffers
-	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> commandBuffers_;
 	// Descriptor pool handles
-	VkDescriptorPool descriptorPool;
+	VkDescriptorPool descriptorPool_;
 	// Device and queue handles
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
-
-	QueueFamilyIndices QFIndices;
-
-	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-
+	VkQueue graphicsQueue_;
+	VkQueue presentQueue_;
+	QueueFamilyIndices QFIndices_;
+	VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_8_BIT;
 	// Descriptor Set Layout Handle
-	VkDescriptorSetLayout uniformDescriptorSetLayout;
-	VkDescriptorSetLayout textureDescriptorSetLayout;
+	VkDescriptorSetLayout uniformDescriptorSetLayout_;
+	VkDescriptorSetLayout textureDescriptorSetLayout_;
+	VkDescriptorSetLayout animatedDescriptorSetLayout_;
+	BRDFLut* brdfLut;
+	IrradianceCube* irCube;
+	PrefilteredEnvMap* prefEMap;
+	DirectionalLight* shadowMap;
 
+	VulkanRenderer(int numModels);
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
 	// Check if the validation layers requested are supported
@@ -208,7 +178,9 @@ public:
 	// Create the descriptor set layout
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
-	void createGraphicsPipeline();
+	void createGraphicsPipeline(MeshHelper* m);
+	void createAnimatedGraphicsPipeline(MeshHelper* m);
+	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function
@@ -217,14 +189,6 @@ public:
 	void createDepthResources();
 	// Creating the all-important frame buffer
 	void createFrameBuffer();
-	// Texture image creation
-	void createTextureImage();
-	// Texture image's view
-	void createTextureImageView();
-	// Texture image's sampler
-	void createTextureImageSampler();
-	// Load all models
-	
 	// Creation of uniform buffers
 	void createUniformBuffers();
 	// Descriptor Pool creation
@@ -235,29 +199,22 @@ public:
 	void createCommandBuffers(int numFramesInFlight);
 	// Create the semaphores, signaling objects to allow asynchronous tasks to happen at the same time
 	void createSemaphores(const int maxFramesInFlight);
-
-
 	void recreateSwapChain(SDL_Window* window);
-
 	// Display methods - uniform buffer and fetching new frames
 	void updateUniformBuffer(uint32_t currentImage);
-	void drawNewFrame(SDL_Window* window, std::vector<ModelHelper*> models, std::vector<TextureHelper*> textures, int maxFramesInFlight);
-	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, std::vector<ModelHelper*> models, int maxFramesInFlight);
+	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
+	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
+	void freeEverything(int framesInFlight);
 
-	// For use from helper classes
-	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void updateGeneratedImageDescriptorSets();
 
-	void freeEverything(int framesInFlight, std::vector<ModelHelper*> models);
-
-	// HELPER METHODS
-
-	VkCommandBuffer beginSingleTimeCommands();
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+	struct UniformBufferObject {
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::vec4 lightPos;
+		glm::vec4 viewPos;
+		float cascadeSplits[4];
+		glm::mat4 cascadeViewProjMat[4];
+		float bias;
+	};
 };
-
-#endif

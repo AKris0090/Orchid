@@ -34,22 +34,40 @@
     <Filter Include="Header Files\imgui">
       <UniqueIdentifier>{3f57b2c3-6ef1-41ad-a678-34b7abc8ecf2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Helpers\Image Creation">
+      <UniqueIdentifier>{d91e581c-12c2-4bb0-8621-41e87a0c825b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Helpers\EXTERNAL">
+      <UniqueIdentifier>{e1634e47-7f3a-4322-a714-2e754a710c60}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Helpers\EXTERNAL">
+      <UniqueIdentifier>{8acb2d15-6491-4464-990e-12ae4791af21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Modules">
+      <UniqueIdentifier>{6c40bf7d-5b40-495a-bb13-b27c62a05ce8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Modules\Image Creation">
+      <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Engine\Physics">
+      <UniqueIdentifier>{f6cfcb86-6bcc-4a0b-8ee8-c3f55527c8ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Physics">
+      <UniqueIdentifier>{7c680fcc-13f1-402f-a1c6-76251d7978e5}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{20096a3a-bd4c-4266-8f77-83cbd3f09735}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Lights">
+      <UniqueIdentifier>{84fbb52a-ce22-41e5-9bbd-fc97ab3214df}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Lights">
+      <UniqueIdentifier>{69eecfc1-d13b-48ca-aef9-bf42b328e4f7}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SandBox.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="VulkanRenderer.cpp">
-      <Filter>Source Files\Engine\Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="ModelHelper.cpp">
-      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
-    </ClCompile>
-    <ClCompile Include="TextureHelper.cpp">
-      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="imgui\imgui_demo.cpp">
       <Filter>Source Files\imgui</Filter>
@@ -72,17 +90,65 @@
     <ClCompile Include="imgui\imgui_impl_sdl2.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphicsManager.cpp">
+      <Filter>Source Files\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="DeviceHelper.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshHelper.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureHelper.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="BRDFLut.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+    </ClCompile>
+    <ClCompile Include="IrradianceCube.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+    </ClCompile>
+    <ClCompile Include="PrefilteredEnvMap.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+    </ClCompile>
+    <ClCompile Include="mikktspace.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanRenderer.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Skybox.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="GLTFObject.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysicsManager.cpp">
+      <Filter>Source Files\Engine\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimatedGLTFObj.cpp">
+      <Filter>Source Files\Engine\Graphics\Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="PlayerObject.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanUtils.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="AreaLights.cpp">
+      <Filter>Source Files\Engine\Graphics\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="DirectionalLight.cpp">
+      <Filter>Source Files\Engine\Graphics\Lights</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="VulkanRenderer.h">
-      <Filter>Header Files\Engine\Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="ModelHelper.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
-    <ClInclude Include="TextureHelper.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
     <ClInclude Include="imgui\imstb_rectpack.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
@@ -106,6 +172,72 @@
     </ClInclude>
     <ClInclude Include="imgui\imgui_internal.h">
       <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanRenderer.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphicsManager.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshHelper.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceHelper.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureHelper.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="GLTFObject.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Skybox.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="BRDFLut.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="IrradianceCube.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="PrefilteredEnvMap.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\Image Creation</Filter>
+    </ClInclude>
+    <ClInclude Include="mikktspace.h">
+      <Filter>Header Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
+    </ClInclude>
+    <ClInclude Include="PointLight.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysicsManager.h">
+      <Filter>Header Files\Engine\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Input.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimatedGLTFObj.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerObject.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimatedGameObject.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanUtils.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="AreaLights.h">
+      <Filter>Header Files\Engine\Graphics\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectionalLight.h">
+      <Filter>Header Files\Engine\Graphics\Lights</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

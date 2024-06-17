@@ -1,57 +1,48 @@
 #pragma once
 
-#include <Vulkan/vulkan.h>
-#include <cstdio>
-#include <array>
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_vulkan.h"
-#include <vector>
-#include <cstring>
-#include <optional>
-#include <set>
-#include <string>
-#include <algorithm>
 #include <iostream>
-#include <fstream>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <unordered_map>
-#include <chrono>
+#include <vulkan/vulkan.hpp>
+#include "DeviceHelper.h"
 
-#include <glm/gtx/hash.hpp>
-
-class VulkanRenderer;
+#include <tiny_gltf.h>
 
 class TextureHelper {
 private:
-	uint32_t mipLevels;
+    tinygltf::Model* pInputModel_;
+    uint32_t mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
+    std::string texPath_; 
+    VkDevice device_;
+    DeviceHelper* pDevHelper_;
+    int index_;
+    VkImage textureImage_;
+    VkDeviceMemory textureImageMemory_;
+    VkDescriptorSet descriptorSet_;
 
-	// Texture image and mem handles
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-	VkImageView textureImageView;
-	VkSampler textureSampler;
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-	// Helpers
-	std::string texPath;
-	VulkanRenderer* vkR;
-
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-	void createTextureImage(const char* path);
-	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-	void createTextureImageView();
-	void createTextureImageSampler();
-
-	void createTextureDescriptorSet();
+    void createTextureImages();
+    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
 public:
-	VkDescriptorSet descriptorSet;
+    struct TextureIndexHolder {
+        uint32_t textureIndex;
+    };
 
-	TextureHelper(std::string path, VulkanRenderer* vkR);
+    VkFormat imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
+    VkImageView textureImageView_;
+    VkSampler textureSampler_;
 
-	void load();
-	void free();
-	void destroy();
+    TextureHelper() {};
+    TextureHelper(tinygltf::Model& in, int i, DeviceHelper* deviceHelper);
+
+    TextureHelper(std::string texPath, DeviceHelper* deviceHelper);
+
+    void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_SRGB);
+    void createTextureImageSampler();
+
+    VkDescriptorSet getDescriptorSet() { return this->descriptorSet_; };
+
+    void load();
+    void loadSkyBoxTex();
 };
