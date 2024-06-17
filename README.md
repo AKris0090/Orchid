@@ -55,4 +55,4 @@ GLTF files have the ability to store bone data and skinning information, and the
 I have set up a physics simulation that represents the actors in the scene, and by mapping the transform of the physics objects to the objects in my scene, I can represent physics interactions between them. I have also made use of the built-in character controller class, and plan to implement a third person camera.
 
 ## Current Venture
-Cascaded Shadow Mapping, based on the LearnOpenGL implementation.
+Third person camera using PhysX raycasting
