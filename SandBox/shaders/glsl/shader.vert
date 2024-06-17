@@ -1,8 +1,6 @@
 #version 450
 
-
 #define SHADOW_MAP_CASCADE_COUNT 4
-
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -50,7 +48,6 @@ void main() {
     fragNormal = mat3(pc.model) * inNormal;
     fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
 
-    //fragShadowCoord = (biasMat * ubo.depthVP * pc.model) * vec4(inPosition, 1.0);
     fragShadow = (ubo.view * vec4(fragPosition, 1.0f)).xyz;
 
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);

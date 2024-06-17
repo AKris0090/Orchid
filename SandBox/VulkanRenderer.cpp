@@ -528,30 +528,13 @@ void VulkanRenderer::createLogicalDevice() {
     // Specifying device features through another struct
     VkPhysicalDeviceFeatures gpuFeatures{};
     gpuFeatures.samplerAnisotropy = VK_TRUE;
+    gpuFeatures.depthClamp = VK_TRUE;
 
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{};
-    accelFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-    accelFeature.accelerationStructure = VK_TRUE;
-
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{};
-    rtPipelineFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-    rtPipelineFeature.rayTracingPipeline = VK_TRUE;
-    rtPipelineFeature.pNext = &accelFeature;
-
-    VkPhysicalDeviceBufferDeviceAddressFeaturesKHR BDAfeature{};
-    BDAfeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-    BDAfeature.bufferDeviceAddress = VK_TRUE;
-    BDAfeature.pNext = &rtPipelineFeature;
-
-    VkPhysicalDeviceHostQueryResetFeaturesEXT resetHQfeature{};
-    resetHQfeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
-    resetHQfeature.hostQueryReset = VK_TRUE;
-    resetHQfeature.pNext = &BDAfeature;
 
     // Create the logical device, filling in with the create info structs
     VkDeviceCreateInfo deviceCInfo{};
     deviceCInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCInfo.pNext = &resetHQfeature;
+    deviceCInfo.pNext = VK_NULL_HANDLE;
     deviceCInfo.queueCreateInfoCount = static_cast<uint32_t>(queuecInfos.size());
     deviceCInfo.pQueueCreateInfos = queuecInfos.data();
 
@@ -1829,10 +1812,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         for (int i = 0; i < gameObjects.size(); i++) {
             gameObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->sMPipelineLayout_, j, shadowMap->cascades[j].descriptorSet);
         }
-        //vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
-        //for (int i = 0; i < animatedObjects.size(); i++) {
-        //    animatedObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline);
-        //}
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
+        for (int i = 0; i < animatedObjects.size(); i++) {
+            animatedObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline, j, shadowMap->cascades[j].descriptorSet);
+        }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
     }
 
