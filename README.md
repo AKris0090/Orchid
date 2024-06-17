@@ -25,11 +25,11 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 ### Shadow Mapping
 |                                      Shadow Map Slice 1             |          Shadow Map Slice 2                             |
 | :---------------------------------------------------------: | :---------------------------------------------------------: |
-|                   ![](README_IMAGES/CSM captures/3.png)              |               ![](README_IMAGES/CSM captures/2.png)                  |
+|                   ![](README_IMAGES/CSM/3.png)              |               ![](README_IMAGES/CSM/2.png)                  |
 |                                      Shadow Map Slice 3             |          Shadow Map Slice 4                             |
-|                   ![](README_IMAGES/CSM captures/1.png)              |               ![](README_IMAGES/CSM captures/0.png)                  |
+|                   ![](README_IMAGES/CSM/1.png)              |               ![](README_IMAGES/CSM/0.png)                  |
 |                                 Final Output                                                                               |
-|                                                         ![](README_IMAGES/CSM captures/YvUQO8.png)                                            |
+|                                                         ![](README_IMAGES/CSM/YvUQO8.png)                                            |
 
 Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
 
