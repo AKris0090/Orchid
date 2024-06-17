@@ -475,25 +475,25 @@ void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDesc
 	viewportStateCInfo.viewportCount = 1;
 	viewportStateCInfo.scissorCount = 1;
 
-	/*	VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCInfo.pNext = nullptr;
 	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_FALSE;
+	rasterizerCInfo.depthClampEnable = VK_TRUE;
 	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizerCInfo.depthBiasEnable = VK_FALSE;
 	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
 	rasterizerCInfo.depthBiasClamp = 0.0f;
 	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
 	rasterizerCInfo.lineWidth = 1.0f;
-
+	
 	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
 	multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
+	
 	VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
 	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencilCInfo.pNext = nullptr;
@@ -506,40 +506,6 @@ void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDesc
 	depthStencilCInfo.front = {};
 	depthStencilCInfo.back = {};
 	depthStencilCInfo.minDepthBounds = 0.0f;
-	depthStencilCInfo.maxDepthBounds = 1.0f;*/
-
-VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizerCInfo.pNext = nullptr;
-	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_FALSE;
-	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
-	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizerCInfo.depthBiasEnable = VK_TRUE;
-	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
-	rasterizerCInfo.depthBiasClamp = 0.0f;
-	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
-	rasterizerCInfo.lineWidth = 1.0f;
-	
-	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-	multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	
-	VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencilCInfo.pNext = nullptr;
-	depthStencilCInfo.flags = 0;
-	depthStencilCInfo.depthTestEnable = VK_TRUE;
-	depthStencilCInfo.depthWriteEnable = VK_TRUE;
-	depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
-	depthStencilCInfo.stencilTestEnable = VK_FALSE;
-	depthStencilCInfo.front = {};
-	depthStencilCInfo.back = {};
-	depthStencilCInfo.minDepthBounds = 1.0f;
-	depthStencilCInfo.maxDepthBounds = 0.0f;
 
 	VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
 	colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -748,11 +714,6 @@ glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane,
 }
 
 void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio) {
-	//getLightSpaceMatrices(cameraProj, camView);
-	//for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-	//	uniShadow.cascadeMVP[i] = cascades[i].viewProjectionMatrix;
-	//}
-
 	float clipRange = cameraFarPlane - cameraNearPlane;
 
 	float minZ = cameraNearPlane;
@@ -772,23 +733,6 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		shadowCascadeLevels[i] = (d - cameraNearPlane) / clipRange;
 	}
 
-	//std::vector<glm::mat4> ret;
-	//for (size_t i = 0; i < shadowCascadeLevels.size(); i++)
-	//{
-	//	if (i == 0)
-	//	{
-	//		ret.push_back(getLightSpaceMatrix(cameraNearPlane, shadowCascadeLevels[i], camView, aspectRatio));
-	//	}
-	//	else if (i < shadowCascadeLevels.size() - 1)
-	//	{
-	//		ret.push_back(getLightSpaceMatrix(shadowCascadeLevels[i], shadowCascadeLevels[i + 1], camView, aspectRatio));
-	//	}
-	//	else
-	//	{
-	//		ret.push_back(getLightSpaceMatrix(shadowCascadeLevels[i], cameraFarPlane, camView, aspectRatio));
-	//	}
-	//}
-	// 
 	// Calculate orthographic projection matrix for each cascade
 	float lastSplitDist = 0.0;
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {

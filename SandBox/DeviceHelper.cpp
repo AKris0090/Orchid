@@ -204,7 +204,7 @@ void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
 
     VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
     memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-    memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+    memoryAllocateFlagsInfo.flags = 0;
 
     VkMemoryAllocateInfo allocateInfo{};
     allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

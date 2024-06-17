@@ -58,6 +58,11 @@ public:
 		glm::mat4 model;
 	} depthPushBlock_;
 
+	struct cascadeMVP {
+		glm::mat4 model;
+		uint32_t cascadeIndex;
+	} cascadeBlock;
+
 	MeshHelper* pSceneMesh_;
 
 	glm::mat4 modelTransform;
@@ -69,7 +74,7 @@ public:
 	void createDescriptors(VkDescriptorSetLayout descSetLayout);
 
 	void render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline);
+	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
@@ -97,7 +102,7 @@ private:
 	glm::mat4 getNodeMatrix(SceneNode* node);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes);
 	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* pNode);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
 };
