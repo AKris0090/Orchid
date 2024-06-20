@@ -37,7 +37,7 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
     // physx raycast to find position
     glm::vec3 originVec = PxVec3toGlmVec3(characterController->getFootPosition()) + glm::vec3(0.0f, capsuleHeight + 1.0f, 0.0f);
     physx::PxVec3 origin = GlmVec3tpPxVec3(originVec);
-    glm::vec3 desiredPos = glm::vec3(1.0f, 0.25f, 0.0f);//glm::normalize(glm::vec3(glm::cos(yaw_) * glm::sin(pitch_), glm::cos(pitch_), glm::sin(yaw_) * glm::cos(pitch_)));
+    glm::vec3 desiredPos = glm::vec3(cos(pitch_) * cos(yaw_), sin(pitch_), cos(pitch_) * sin(yaw_)); //glm::normalize(glm::vec3(glm::cos(yaw_) * glm::sin(pitch_), glm::cos(pitch_), glm::sin(yaw_) * glm::cos(pitch_)));
     physx::PxVec3 unitDir = GlmVec3tpPxVec3(glm::normalize(desiredPos));
     physx::PxReal maxDistance = distanceToPlayer;
     physx::PxRaycastBuffer hitPayload;
@@ -56,8 +56,8 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
 
 void FPSCam::processSDL(SDL_Event& event) {
     if (event.type == SDL_MOUSEMOTION) {
-        this->yaw_ += ((float)event.motion.xrel / 30.f) * PI / 180.0f;
-        this->pitch_ -= ((float)event.motion.yrel / 30.f) * PI / 180.0f;
+        this->yaw_ += ((float)event.motion.xrel / 30.f) * (PI / 180.0f);
+        this->pitch_ += ((float)event.motion.yrel / 30.f) * (PI / 180.0f);
     }
 }
 
