@@ -4,6 +4,7 @@ PlayerObject::PlayerObject(physx::PxMaterial* material, physx::PxScene* pScene) 
 	this->pScene_ = pScene;
 	this->pMaterial_ = material;
 	this->isWalking = false;
+	this->turnDamping = 10.0f;
 	this->setupPhysicsController();
 }
 
@@ -47,7 +48,7 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		isWalking = true;
 		glm::vec3 normalizedDisplacement = glm::normalize(localDisplacement);
 		localDisplacement = normalizedDisplacement * playerSpeed;
-		playerGameObject->transform.rotation.y = std::atan2(localDisplacement.x, localDisplacement.z);
+		playerGameObject->transform.rotation.y = Time::lerp(playerGameObject->transform.rotation.y, std::atan2(localDisplacement.x, localDisplacement.z), Time::getDeltaTime());
 	}
 	else {
 		isWalking = false;

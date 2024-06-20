@@ -134,8 +134,6 @@ void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vecto
 
 	playerAnimObject->transform.position = player->transform.position;
 	playerAnimObject->setTransform(playerAnimObject->transform.to_matrix());
-
-	cam->physicsUpdate(player->transform, pScene, player->characterController, player->cap_height);
 }
 
 void PhysicsManager::shutDown() {

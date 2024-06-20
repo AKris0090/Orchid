@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Input.h"
 #include "AnimatedGameObject.h"
+#include "Time.h"
 
 #define PLAYER_CAP_HEIGHT 0.85f;
 #define PLAYER_CAP_RADIUS 0.15f;
@@ -13,6 +14,7 @@ private:
 	physx::PxControllerManager* manager;
 	physx::PxCapsuleControllerDesc desc;
 
+	float turnDamping;
 	physx::PxScene* pScene_;
 	physx::PxMaterial* pMaterial_;
 

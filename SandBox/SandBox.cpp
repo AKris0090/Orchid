@@ -1,5 +1,6 @@
 #include "GraphicsManager.h"
 #include "PhysicsManager.h"
+#include "Time.h"
 #include <chrono>
 
 std::string pModelPaths[] = {
@@ -42,8 +43,6 @@ std::vector<std::string> skyboxTexturePath_ = {
 };
 
 int main(int argc, char* argv[]) {
-    float deltaTime = 1.0f / 144.0f;
-
     int numModels = 2; // num models IMPORTANT
 
     // CHANGE LAST 2 ARGUMENTS FOR DIFFERENT NUMBER OF MODELS/TEXTURES
@@ -128,21 +127,25 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // Time/frame update
+        Time::updateTime();
+        std::cout << "\r" << "time: " << Time::getDeltaTime();
+
         // player update
         player->loopUpdate(&(graphicsManager.pVkR_->camera_));
         //std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
 
         // update camera
-        //graphicsManager.pVkR_->camera_.update(player->transform);
+        graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
 
         // player animation -------------
         if (player->isWalking) {
-            graphicsManager.pVkR_->animatedObjects[0]->renderTarget->updateAnimation(deltaTime);
+            graphicsManager.pVkR_->animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
         }
         // update particles ---------------
         // 
         // update physics -------------------
-        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, player, &(graphicsManager.pVkR_->camera_), deltaTime);
+        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
         // 
         // update graphics -------------------
         graphicsManager.loopUpdate();
