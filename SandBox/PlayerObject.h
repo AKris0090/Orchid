@@ -14,7 +14,7 @@ private:
 	physx::PxControllerManager* manager;
 	physx::PxCapsuleControllerDesc desc;
 
-	float turnDamping;
+	float turnSpeed;
 	physx::PxScene* pScene_;
 	physx::PxMaterial* pMaterial_;
 
@@ -22,7 +22,7 @@ public:
 	float cap_height = PLAYER_CAP_HEIGHT;
 	float cap_radius = PLAYER_CAP_RADIUS;
 	physx::PxController* characterController;
-	float playerSpeed = 0.008f;
+	float playerSpeed = 0.02f;
 	bool isWalking;
 	AnimatedGameObject* playerGameObject;
 

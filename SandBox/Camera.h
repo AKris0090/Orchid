@@ -29,6 +29,7 @@ public:
 	glm::vec3 forward;
 	glm::vec3 up;
 	float distanceToPlayer;
+	bool isAttatched;
 
 	inline glm::vec3 PxVec3toGlmVec3(physx::PxVec3 vec) {
 		return { vec.x, vec.y, vec.z };
@@ -44,7 +45,7 @@ public:
 
 	Transform transform;
 
-	FPSCam() { distanceToPlayer = 1.75f;  };
+	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; };
 
 	void update(Transform playerTransform);
 	void baseUpdate();

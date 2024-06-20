@@ -4,7 +4,7 @@ PlayerObject::PlayerObject(physx::PxMaterial* material, physx::PxScene* pScene) 
 	this->pScene_ = pScene;
 	this->pMaterial_ = material;
 	this->isWalking = false;
-	this->turnDamping = 10.0f;
+	this->turnSpeed = 10.0f;
 	this->setupPhysicsController();
 }
 
@@ -48,7 +48,14 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		isWalking = true;
 		glm::vec3 normalizedDisplacement = glm::normalize(localDisplacement);
 		localDisplacement = normalizedDisplacement * playerSpeed;
-		playerGameObject->transform.rotation.y = Time::lerp(playerGameObject->transform.rotation.y, std::atan2(localDisplacement.x, localDisplacement.z), Time::getDeltaTime());
+		float theta = std::atan2(localDisplacement.x, localDisplacement.z);
+		if (theta - playerGameObject->transform.rotation.y > PI) {
+			theta -= 2.0f * PI;
+		}
+		else if (theta - playerGameObject->transform.rotation.y < -PI) {
+			theta += 2.0f * PI;
+		}
+		playerGameObject->transform.rotation.y = Time::lerp(playerGameObject->transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
 	}
 	else {
 		isWalking = false;
@@ -59,6 +66,6 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 	physx::PxControllerFilters data;
 	data.mFilterData = &filterData;
 
-	characterController->move(physx::PxVec3(localDisplacement.x, 0, localDisplacement.z), 0.001f, 1.0f / 60.0f, data);
+	characterController->move(physx::PxVec3(localDisplacement.x, 0, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
 	transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
 }
