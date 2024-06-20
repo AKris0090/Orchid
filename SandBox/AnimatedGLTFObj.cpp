@@ -229,7 +229,6 @@ void AnimatedGLTFObj::updateJoints(SceneNode* node)
         {
             jointMatrices[i] = getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i];
             jointMatrices[i] = inverseTransform * jointMatrices[i];
-            //jointMatrices[i] = glm::mat4(1.0f);
         }
 
         // Update ssbo

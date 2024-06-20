@@ -11,11 +11,14 @@ private:
 public:
 	Transform transform;
 	GLTFObj* renderTarget;
+	bool isDynamic;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	GameObject() {};
+	GameObject() {
+		isDynamic = false;
+	};
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);

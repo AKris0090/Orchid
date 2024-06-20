@@ -98,7 +98,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->camera_.setFarPlane(50.0f);
     pVkR_->camera_.setFOV(glm::radians(75.0f));
 
-    pVkR_->camera_.update();
+    pVkR_->camera_.update(pVkR_->camera_.transform);
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 

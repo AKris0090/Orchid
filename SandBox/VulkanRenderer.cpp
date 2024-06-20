@@ -15,9 +15,6 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    // Camera logic
-    this->camera_.update();
-
     if (rotate_) {
         // Animate the light source
         this->pLightPos_->x = 0.0f + (cos(glm::radians(time * 360.0f)) * 20.0f);

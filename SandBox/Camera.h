@@ -4,6 +4,8 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 #include "DeviceHelper.h"
+#include <physx/PxPhysicsAPI.h>
+#include <physx/PxPhysics.h>
 
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
@@ -21,10 +23,33 @@ private:
 public:
 	float moveSpeed_ = 0.005f; // slow is 0.0015;
 	glm::mat4 viewMatrix;
+	glm::mat4 inverseViewMatrix;
+	glm::mat4 rotationMatrix;
+	glm::vec3 right;
+	glm::vec3 forward;
+	glm::vec3 up;
+	float distanceToPlayer;
+
+	inline glm::vec3 PxVec3toGlmVec3(physx::PxVec3 vec) {
+		return { vec.x, vec.y, vec.z };
+	};
+
+	inline glm::vec3 PxVec3toGlmVec3(physx::PxExtendedVec3 vec) {
+		return { vec.x, vec.y, vec.z };
+	};
+
+	inline physx::PxVec3 GlmVec3tpPxVec3(glm::vec3 vec) {
+		return { vec.x, vec.y, vec.z };
+	};
 
 	Transform transform;
 
-	void update();
+	FPSCam() { distanceToPlayer = 1.75f;  };
+
+	void update(Transform playerTransform);
+	void baseUpdate();
+	void alterUpdate(Transform playerTransform, float capHeight);
+	void physicsUpdate(Transform playerTransform, physx::PxScene* scene, physx::PxController* characterController, float capsuleHeight);
 	void setVelocity(glm::vec3 vel);
 	void setPosition(glm::vec3 pos);
 	void processSDL(SDL_Event& e);

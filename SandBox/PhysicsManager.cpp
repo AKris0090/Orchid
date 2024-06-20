@@ -15,10 +15,7 @@ void PhysicsManager::setup() {
 	}
 	pPVirtDebug->connect(*transport, physx::PxPvdInstrumentationFlag::eALL);
 
-	pTolerancesScale_.length = 100;
-	pTolerancesScale_.speed = 981;	
-
-	pPhysics_ = PxCreatePhysics(PX_PHYSICS_VERSION, *pFoundation_, pTolerancesScale_, recordMemoryAllocations, pPVirtDebug);
+	pPhysics_ = PxCreatePhysics(PX_PHYSICS_VERSION, *pFoundation_, physx::PxTolerancesScale(), recordMemoryAllocations, pPVirtDebug);
 	if (!pPhysics_) {
 		std::cout << "physics instance failed" << std::endl;
 		std::_Xruntime_error("physics instance failed");
@@ -38,9 +35,7 @@ void PhysicsManager::setup() {
 		pvdSceneClient->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
 
-	pMaterial = pPhysics_->createMaterial(0.5f, 0.5f, 0.6f);
-
-	playerGlobalDisplacement = glm::vec3(0.0f);
+	pMaterial = pPhysics_->createMaterial(0.5f, 0.5f, 0.15f);
 }
 
 void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent) {
@@ -112,7 +107,7 @@ physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::P
 
 	physx::PxTriangleMesh* triMesh = NULL;
 
-		triMesh = PxCreateTriangleMesh(params, meshDescription, pPhysics_->getPhysicsInsertionCallback());
+	triMesh = PxCreateTriangleMesh(params, meshDescription, pPhysics_->getPhysicsInsertionCallback());
 
 	
 	physx::PxMeshGeometryFlags flags(~physx::PxMeshGeometryFlag::eDOUBLE_SIDED);
@@ -125,52 +120,22 @@ physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::P
 }
 
 
-void PhysicsManager::loopUpdate(std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
+void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
 	pScene->simulate(deltaTime);
-
-	playerGlobalDisplacement = glm::vec3(0.0f);
 
 	pScene->fetchResults(true);
 
 	for (GameObject* g : gameObjects) {
-		glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
-		g->renderTarget->modelTransform =  transform * g->transform.to_matrix();
+		if (g->isDynamic && g->physicsActor != nullptr) {
+			glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
+			g->renderTarget->modelTransform = transform * g->transform.to_matrix();
+		}
 	}
 
-	glm::mat4 inverseViewMatrix = glm::inverse(cam->viewMatrix);
-	glm::vec3 forward = (inverseViewMatrix[2]);
-	glm::vec3 right = (inverseViewMatrix[0]);
-	glm::vec3 movementVector = glm::normalize(glm::vec3(forward.x, 0.0f, forward.z));
+	playerAnimObject->transform.position = player->transform.position;
+	playerAnimObject->setTransform(playerAnimObject->transform.to_matrix());
 
-	if (Input::forwardKeyDown()) {
-		playerGlobalDisplacement -= movementVector * 0.5f;
-	}
-
-	if (Input::backwardKeyDown()) {
-		playerGlobalDisplacement += movementVector * 0.5f;
-	}
-
-	if (Input::rightKeyDown()) {
-		playerGlobalDisplacement += right * 0.5f;
-	}
-
-	if (Input::leftKeyDown()) {
-		playerGlobalDisplacement -= right * 0.5f;
-	}
-
-	float len = length(playerGlobalDisplacement);
-	if (len != 0.0) {
-		playerGlobalDisplacement = (playerGlobalDisplacement / len) * player->playerSpeed;
-	}
-
-	physx::PxFilterData filterData;
-	filterData.word0 = 0;
-	physx::PxControllerFilters data;
-	data.mFilterData = &filterData;
-	
-	player->characterController->move(physx::PxVec3(playerGlobalDisplacement.x, 0, playerGlobalDisplacement.z), 0.001f, 1.0f / 60.0f, data);
-
-	cam->transform.position = PxVec3toGlmVec3(player->characterController->getFootPosition()) + glm::vec3(0.0f, player->cap_height, 0.0f);
+	cam->physicsUpdate(player->transform, pScene, player->characterController, player->cap_height);
 }
 
 void PhysicsManager::shutDown() {

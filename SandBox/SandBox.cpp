@@ -43,39 +43,45 @@ std::vector<std::string> skyboxTexturePath_ = {
 
 int main(int argc, char* argv[]) {
     float deltaTime = 1.0f / 144.0f;
+
+    int numModels = 2; // num models IMPORTANT
+
     // CHANGE LAST 2 ARGUMENTS FOR DIFFERENT NUMBER OF MODELS/TEXTURES
     GraphicsManager graphicsManager = GraphicsManager(pModelPaths,
                                                       "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf",
                                                       skyboxTexturePath_,
-                                                      2, // num models IMPORTANT
+                                                      numModels,
                                                       0); // num textures
+    graphicsManager.pVkR_ = new VulkanRenderer(numModels);
 
     PhysicsManager physicsManager = PhysicsManager();
+
+    // Camera Setup
+    graphicsManager.pVkR_->camera_.setVelocity(glm::vec3(0.0f));
+    graphicsManager.pVkR_->camera_.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+    graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
 
     graphicsManager.setup();
     graphicsManager.pVkR_->gameObjects = graphicsManager.gameObjects;
     physicsManager.setup();
 
-    // Camera Setup
-    graphicsManager.pVkR_->camera_.setVelocity(glm::vec3(0.0f));
-    graphicsManager.pVkR_->camera_.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
-    graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
-
     // Scene objects
-    graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f);
+    graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f); //sponza
 
+    graphicsManager.gameObjects[0]->isDynamic = true; // helmet
     graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
 
-    physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(0, 40, 0), 0.85f);
+    //physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(0, 40, 0), 0.85f);
     physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.gameObjects[1]->transform.scale);
 
     for (GameObject* g : graphicsManager.gameObjects) {
         g->renderTarget->modelTransform = g->transform.to_matrix();
     }
 
+    // WOLF
     //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
-    graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
+    graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
     graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
@@ -85,7 +91,9 @@ int main(int argc, char* argv[]) {
 
     // Player setup
     PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
-    player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.5, 0.0));
+    player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
+    player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
+    player->playerGameObject = graphicsManager.animatedObjects[0];
 
     bool running = true;
     while (running) {
@@ -120,14 +128,21 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // player update
+        player->loopUpdate(&(graphicsManager.pVkR_->camera_));
+        //std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
+
+        // update camera
+        //graphicsManager.pVkR_->camera_.update(player->transform);
+
         // player animation -------------
-        if (Input::leftMouseDown()) {
+        if (player->isWalking) {
             graphicsManager.pVkR_->animatedObjects[0]->renderTarget->updateAnimation(deltaTime);
         }
         // update particles ---------------
         // 
         // update physics -------------------
-        physicsManager.loopUpdate(graphicsManager.gameObjects, player, &(graphicsManager.pVkR_->camera_), deltaTime);
+        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, player, &(graphicsManager.pVkR_->camera_), deltaTime);
         // 
         // update graphics -------------------
         graphicsManager.loopUpdate();
