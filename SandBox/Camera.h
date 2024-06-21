@@ -6,6 +6,7 @@
 #include "DeviceHelper.h"
 #include <physx/PxPhysicsAPI.h>
 #include <physx/PxPhysics.h>
+#include "Input.h"
 
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
@@ -27,6 +28,7 @@ public:
 	glm::mat4 rotationMatrix;
 	glm::vec3 right;
 	glm::vec3 forward;
+	glm::vec3 trueForward;
 	glm::vec3 up;
 	float distanceToPlayer;
 	bool isAttatched;

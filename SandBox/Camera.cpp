@@ -4,7 +4,7 @@ void FPSCam::baseUpdate() {
     // to have a real camera matrix, you dont rotate/move the camera, but you move/rotate the world in the opposite direction of camera motion. Matrices are accumulated by shaders (VKGuide)
     glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), transform.position);
 
-    glm::quat pitchRotation = glm::angleAxis(this->pitch_, glm::vec3{ 1.0f, 0.0f, 0.0f });
+    glm::quat pitchRotation = glm::angleAxis(this->pitch_, glm::vec3{ -1.0f, 0.0f, 0.0f });
     // inverse left-right, since left is negative x
     glm::quat yawRotation = glm::angleAxis(this->yaw_, glm::vec3{ 0.0f, -1.0f, 0.0f });
     this->rotationMatrix = (glm::toMat4(yawRotation) * glm::toMat4(pitchRotation));
@@ -13,12 +13,37 @@ void FPSCam::baseUpdate() {
 
     this->viewMatrix = glm::inverse(this->inverseViewMatrix);
 
-    this->forward = inverseViewMatrix[2];
+    this->trueForward = inverseViewMatrix[2];
     this->right = inverseViewMatrix[0];
+    this->up = inverseViewMatrix[1];
 }
 
 void FPSCam::update(Transform playerTransform) {
-    setPosition(playerTransform.position);
+    glm::vec3 localDisplacement{ 0.0f, 0.0f, 0.0f };
+    if (Input::forwardKeyDown()) {
+        localDisplacement -= trueForward * 0.085f;
+    }
+
+    if (Input::backwardKeyDown()) {
+        localDisplacement += trueForward * 0.085f;
+    }
+
+    if (Input::rightKeyDown()) {
+        localDisplacement += right * 0.085f;
+    }
+
+    if (Input::leftKeyDown()) {
+        localDisplacement -= right * 0.085f;
+    }
+
+    if (Input::upKeyDown()) {
+        localDisplacement += up * 0.085f;
+    }
+
+    if (Input::downKeyDown()) {
+        localDisplacement -= up * 0.085f;
+    }
+    setPosition(transform.position + localDisplacement);
 
     baseUpdate();
 }
@@ -27,10 +52,10 @@ void FPSCam::alterUpdate(Transform playerTransform, float capHeight) {
     this->viewMatrix = glm::lookAt(transform.position, (playerTransform.position + glm::vec3(0.0f, capHeight, 0.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
     this->inverseViewMatrix = glm::inverse(this->viewMatrix);
 
-    glm::vec3 trueForward = inverseViewMatrix[2];
-    trueForward.y = 0.0f;
-    this->forward = glm::normalize(trueForward);
+    this->trueForward = inverseViewMatrix[2];
+    this->forward = glm::normalize(glm::vec3(trueForward.x, 0.0f, trueForward.z));
     this->right = inverseViewMatrix[0];
+    this->up = inverseViewMatrix[1];
 }
 
 void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, physx::PxController* characterController, float capsuleHeight) {
@@ -45,7 +70,7 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
     bool status = scene->raycast(origin, unitDir, maxDistance, hitPayload);
 
     if (status) {
-        setPosition(PxVec3toGlmVec3(hitPayload.block.position));
+        setPosition(PxVec3toGlmVec3(hitPayload.block.position + hitPayload.block.normal * 0.1f));
     }
     else {
         setPosition(PxVec3toGlmVec3(origin + (unitDir * distanceToPlayer)));
