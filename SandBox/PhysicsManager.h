@@ -30,7 +30,6 @@ public:
 	physx::PxShape* createPhysicsFromMesh(MeshHelper* mesh, physx::PxMaterial* material, glm::vec3 scale);
 	void addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent);
 	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale);
-	void createCharacterController(PlayerObject* player);
 
 	void setup();
 	void loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime);

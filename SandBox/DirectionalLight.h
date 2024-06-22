@@ -23,7 +23,7 @@ private:
 	uint32_t mipLevels_;
 	VkFormat imageFormat_ = VK_FORMAT_D16_UNORM;
 
-	uint32_t width_ = 1024, height_ = 1024;
+	uint32_t width_, height_;
 
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
@@ -39,11 +39,6 @@ private:
 
 	VkQueue* pGraphicsQueue_;
 	VkCommandPool* pCommandPool_;
-
-	uint32_t numModels_;
-	std::vector<GLTFObj*> pModels_;
-
-	glm::vec4* lightPos;
 
 	void findDepthFormat(VkPhysicalDevice GPU_);
 	VkFormat findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -75,6 +70,8 @@ public:
 	float zNear;
 	float zFar;
 
+	Transform transform;
+
 	VkPipelineLayout sMPipelineLayout_;
 	VkPipelineLayout animatedSmPipelineLayout;
 
@@ -102,10 +99,10 @@ public:
 	float swapChainWidth;
 	float swapChainHeight;
 
-	DirectionalLight(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_, float swapChainWidth, float swapChainHeight);
+	DirectionalLight(glm::vec3 lPos);
 
+	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
 	void createAnimatedPipeline(VkDescriptorSetLayout descLayout);
-
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
 	void genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio);
 	void updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio);

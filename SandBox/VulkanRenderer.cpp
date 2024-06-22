@@ -3,11 +3,7 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-VulkanRenderer::VulkanRenderer(int numModels) {
-    this->numModels_ = numModels;
-    lights_.push_back(glm::vec4(0.0f, 4.5f, 0.0f, 1.0f));
-    lights_.push_back(glm::vec4(0.0f, 4.5f, 0.0f, 1.0f));
-}
+VulkanRenderer::VulkanRenderer() {}
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
@@ -17,9 +13,9 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     if (rotate_) {
         // Animate the light source
-        this->pLightPos_->x = 0.0f + (cos(glm::radians(time * 360.0f)) * 20.0f);
+        this->pDirectionalLight->transform.position.x = 0.0f + (cos(glm::radians(time * 360.0f)) * 20.0f);
         //this->pLightPos_->y = 17.5f + (sin(glm::radians(time * 360.0f)) * 5.0f);
-        this->pLightPos_->z = 0.0f + (sin(glm::radians(time * 360.0f)) * 8.0f);
+        this->pDirectionalLight->transform.position.z = 0.0f + (sin(glm::radians(time * 360.0f)) * 8.0f);
     }
 
     UniformBufferObject ubo;
@@ -28,11 +24,11 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     ubo.proj = glm::perspective(camera_.getFOV(), camera_.getAspectRatio(), camera_.getNearPlane(), camera_.getFarPlane());
     ubo.proj[1][1] *= -1;
     ubo.viewPos = glm::vec4(this->camera_.transform.position, 0.0f);
-    ubo.lightPos = *(this->pLightPos_);
-    shadowMap->updateUniBuffers(ubo.proj, ubo.view, camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
+    ubo.lightPos = glm::vec4(pDirectionalLight->transform.position, 1.0f);
+    pDirectionalLight->updateUniBuffers(ubo.proj, ubo.view, camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
     for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-        ubo.cascadeSplits[i] = shadowMap->cascades[i].splitDepth;
-        ubo.cascadeViewProjMat[i] = shadowMap->cascades[i].viewProjectionMatrix;
+        ubo.cascadeSplits[i] = pDirectionalLight->cascades[i].splitDepth;
+        ubo.cascadeViewProjMat[i] = pDirectionalLight->cascades[i].viewProjectionMatrix;
     }
     ubo.bias = this->depthBias;
 
@@ -1548,129 +1544,77 @@ void VulkanRenderer::createDescriptorSets() {
     }
 }
 
+void VulkanRenderer::updateIndividualDescriptorSet(MeshHelper::Material& m) {
+    VkDescriptorImageInfo BRDFLutImageInfo{};
+    BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
+    BRDFLutImageInfo.sampler = brdfLut->brdfLUTImageSampler_;
+
+    VkDescriptorImageInfo IrradianceImageInfo{};
+    IrradianceImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    IrradianceImageInfo.imageView = irCube->iRCubeImageView_;
+    IrradianceImageInfo.sampler = irCube->iRCubeImageSampler_;
+
+    VkDescriptorImageInfo PrefilteredEnvMapInfo{};
+    PrefilteredEnvMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    PrefilteredEnvMapInfo.imageView = prefEMap->prefEMapImageView_;
+    PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
+
+    VkDescriptorImageInfo shadowMpaInfo{};
+    shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    shadowMpaInfo.imageView = pDirectionalLight->sMImageView_;
+    shadowMpaInfo.sampler = pDirectionalLight->sMImageSampler_;
+
+    VkWriteDescriptorSet BRDFLutWrite{};
+    BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    BRDFLutWrite.dstSet = m.descriptorSet;
+    BRDFLutWrite.dstBinding = 5;
+    BRDFLutWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    BRDFLutWrite.descriptorCount = 1;
+    BRDFLutWrite.pImageInfo = &BRDFLutImageInfo;
+
+    VkWriteDescriptorSet IrradianceWrite{};
+    IrradianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    IrradianceWrite.dstSet = m.descriptorSet;
+    IrradianceWrite.dstBinding = 6;
+    IrradianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    IrradianceWrite.descriptorCount = 1;
+    IrradianceWrite.pImageInfo = &IrradianceImageInfo;
+
+    VkWriteDescriptorSet prefilteredWrite{};
+    prefilteredWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    prefilteredWrite.dstSet = m.descriptorSet;
+    prefilteredWrite.dstBinding = 7;
+    prefilteredWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    prefilteredWrite.descriptorCount = 1;
+    prefilteredWrite.pImageInfo = &PrefilteredEnvMapInfo;
+
+    VkWriteDescriptorSet shadowWrite{};
+    shadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    shadowWrite.dstSet = m.descriptorSet;
+    shadowWrite.dstBinding = 8;
+    shadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    shadowWrite.descriptorCount = 1;
+    shadowWrite.pImageInfo = &shadowMpaInfo;
+
+    std::vector<VkWriteDescriptorSet> descriptorWriteSets;
+    descriptorWriteSets.push_back(BRDFLutWrite);
+    descriptorWriteSets.push_back(IrradianceWrite);
+    descriptorWriteSets.push_back(prefilteredWrite);
+    descriptorWriteSets.push_back(shadowWrite);
+
+    vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+}
+
 void VulkanRenderer::updateGeneratedImageDescriptorSets() {
-    for (GLTFObj* model : pModels_) {
-        for (MeshHelper::Material& m : model->pSceneMesh_->mats_) {
-
-            VkDescriptorImageInfo BRDFLutImageInfo{};
-            BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
-            BRDFLutImageInfo.sampler = brdfLut->brdfLUTImageSampler_;
-
-            VkDescriptorImageInfo IrradianceImageInfo{};
-            IrradianceImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            IrradianceImageInfo.imageView = irCube->iRCubeImageView_;
-            IrradianceImageInfo.sampler = irCube->iRCubeImageSampler_;
-
-            VkDescriptorImageInfo PrefilteredEnvMapInfo{};
-            PrefilteredEnvMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            PrefilteredEnvMapInfo.imageView = prefEMap->prefEMapImageView_;
-            PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
-
-            VkDescriptorImageInfo shadowMpaInfo{};
-            shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-            shadowMpaInfo.imageView = shadowMap->sMImageView_;
-            shadowMpaInfo.sampler = shadowMap->sMImageSampler_;
-
-            VkWriteDescriptorSet BRDFLutWrite{};
-            BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            BRDFLutWrite.dstSet = m.descriptorSet;
-            BRDFLutWrite.dstBinding = 5;
-            BRDFLutWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            BRDFLutWrite.descriptorCount = 1;
-            BRDFLutWrite.pImageInfo = &BRDFLutImageInfo;
-
-            VkWriteDescriptorSet IrradianceWrite{};
-            IrradianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            IrradianceWrite.dstSet = m.descriptorSet;
-            IrradianceWrite.dstBinding = 6;
-            IrradianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            IrradianceWrite.descriptorCount = 1;
-            IrradianceWrite.pImageInfo = &IrradianceImageInfo;
-
-            VkWriteDescriptorSet prefilteredWrite{};
-            prefilteredWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            prefilteredWrite.dstSet = m.descriptorSet;
-            prefilteredWrite.dstBinding = 7;
-            prefilteredWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            prefilteredWrite.descriptorCount = 1;
-            prefilteredWrite.pImageInfo = &PrefilteredEnvMapInfo;
-
-            VkWriteDescriptorSet shadowWrite{};
-            shadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            shadowWrite.dstSet = m.descriptorSet;
-            shadowWrite.dstBinding = 8;
-            shadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            shadowWrite.descriptorCount = 1;
-            shadowWrite.pImageInfo = &shadowMpaInfo;
-
-            std::vector<VkWriteDescriptorSet> descriptorWriteSets;
-            descriptorWriteSets.push_back(BRDFLutWrite); //= { BRDFLutWrite, IrradianceWrite, prefilteredWrite, shadowWrite };
-            descriptorWriteSets.push_back(IrradianceWrite);
-            descriptorWriteSets.push_back(prefilteredWrite);
-            descriptorWriteSets.push_back(shadowWrite);
-
-            vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+    for (GameObject* gO : *gameObjects) {
+        for (MeshHelper::Material& m : gO->renderTarget->pSceneMesh_->mats_) {
+            updateIndividualDescriptorSet(m);
         }
     }
-    for (AnimatedGameObject* model : animatedObjects) {
-        for (MeshHelper::Material& m : model->renderTarget->pSceneMesh_->mats_) {
-
-            VkDescriptorImageInfo BRDFLutImageInfo{};
-            BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
-            BRDFLutImageInfo.sampler = brdfLut->brdfLUTImageSampler_;
-
-            VkDescriptorImageInfo IrradianceImageInfo{};
-            IrradianceImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            IrradianceImageInfo.imageView = irCube->iRCubeImageView_;
-            IrradianceImageInfo.sampler = irCube->iRCubeImageSampler_;
-
-            VkDescriptorImageInfo PrefilteredEnvMapInfo{};
-            PrefilteredEnvMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            PrefilteredEnvMapInfo.imageView = prefEMap->prefEMapImageView_;
-            PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
-
-            VkDescriptorImageInfo shadowMpaInfo{};
-            shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-            shadowMpaInfo.imageView = shadowMap->sMImageView_;
-            shadowMpaInfo.sampler = shadowMap->sMImageSampler_;
-
-            VkWriteDescriptorSet BRDFLutWrite{};
-            BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            BRDFLutWrite.dstSet = m.descriptorSet;
-            BRDFLutWrite.dstBinding = 5;
-            BRDFLutWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            BRDFLutWrite.descriptorCount = 1;
-            BRDFLutWrite.pImageInfo = &BRDFLutImageInfo;
-
-            VkWriteDescriptorSet IrradianceWrite{};
-            IrradianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            IrradianceWrite.dstSet = m.descriptorSet;
-            IrradianceWrite.dstBinding = 6;
-            IrradianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            IrradianceWrite.descriptorCount = 1;
-            IrradianceWrite.pImageInfo = &IrradianceImageInfo;
-
-            VkWriteDescriptorSet prefilteredWrite{};
-            prefilteredWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            prefilteredWrite.dstSet = m.descriptorSet;
-            prefilteredWrite.dstBinding = 7;
-            prefilteredWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            prefilteredWrite.descriptorCount = 1;
-            prefilteredWrite.pImageInfo = &PrefilteredEnvMapInfo;
-
-            VkWriteDescriptorSet shadowWrite{};
-            shadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            shadowWrite.dstSet = m.descriptorSet;
-            shadowWrite.dstBinding = 8;
-            shadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            shadowWrite.descriptorCount = 1;
-            shadowWrite.pImageInfo = &shadowMpaInfo;
-
-            std::vector<VkWriteDescriptorSet> descriptorWriteSets = { BRDFLutWrite, IrradianceWrite, prefilteredWrite, shadowWrite };
-
-            vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+    for (AnimatedGameObject* aGO : *animatedObjects) {
+        for (MeshHelper::Material& m : aGO->renderTarget->pSceneMesh_->mats_) {
+            updateIndividualDescriptorSet(m);
         }
     }
 }
@@ -1805,13 +1749,13 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-        DirectionalLight::PostRenderPacket cmdBuf = shadowMap->render(commandBuffer, j);
-        for (int i = 0; i < gameObjects.size(); i++) {
-            gameObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->sMPipelineLayout_, j, shadowMap->cascades[j].descriptorSet);
+        DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
+        for (GameObject* gO : *(gameObjects)) {
+            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
-        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap->animatedSMPipeline);
-        for (int i = 0; i < animatedObjects.size(); i++) {
-            animatedObjects[i]->renderTarget->renderShadow(cmdBuf.commandBuffer, shadowMap->animatedSmPipelineLayout, shadowMap->animatedSMPipeline, j, shadowMap->cascades[j].descriptorSet);
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
+        for (AnimatedGameObject* animGO : *(animatedObjects)) {
+            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
         }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
     }
@@ -1854,11 +1798,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (int i = 0; i < gameObjects.size(); i++) {
-        gameObjects[i]->renderTarget->render(commandBuffer, pipeLineLayout_);
+    for (GameObject* gO : *(gameObjects)) {
+        gO->renderTarget->render(commandBuffer, pipeLineLayout_);
     }
-    for (int i = 0; i < animatedObjects.size(); i++) {
-        animatedObjects[i]->renderTarget->render(commandBuffer, animatedPipelineLayout_);
+    for (AnimatedGameObject* animGO : *(animatedObjects)) {
+        animGO->renderTarget->render(commandBuffer, animatedPipelineLayout_);
     }
 }
 
@@ -2019,11 +1963,6 @@ void VulkanRenderer::freeEverything(int framesInFlight) {
     }
 
     vkDestroyDescriptorPool(device_, descriptorPool_, nullptr);
-
-    for (int i = 0; i < numModels_; i++) {
-        // TODO: models[i]->destroy();
-        delete pModels_[i];
-    }
 
     for (size_t i = 0; i < framesInFlight; i++) {
         vkDestroySemaphore(device_, renderedSema_[i], nullptr);

@@ -36,7 +36,7 @@ void GraphicsManager::startSDL() {
     SDL_Init(SDL_INIT_VIDEO);
 
     // Create the SDL Window and open
-    pWindow_ = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    pWindow_ = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     // Create the renderer for the window
     pRenderer_ = SDL_CreateRenderer(pWindow_, -1, SDL_RENDERER_ACCELERATED);
@@ -66,19 +66,20 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::NewFrame();
 
     ImGui::Begin("Var Editor");
-    ImGui::DragFloat("lightX", &pVkR_->pLightPos_->x);
-    ImGui::DragFloat("lightY", &pVkR_->pLightPos_->y);
-    ImGui::DragFloat("lightZ", &pVkR_->pLightPos_->z);
-    ImGui::DragFloat("near plane", &pVkR_->shadowMap->zNear);
-    ImGui::DragFloat("far plane", &pVkR_->shadowMap->zFar);
+    ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight->transform.position.x);
+    ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight->transform.position.y);
+    ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight->transform.position.z);
+    ImGui::DragFloat("near plane", &pVkR_->pDirectionalLight->zNear);
+    ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight->zFar);
     ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
-    ImGui::DragFloat("depthBias", &pVkR_->depthBias);
+    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
 
+    // Shadow Map - need to allocate extra descriptor set
     //ImGui::Begin("Viewport");
     //ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
     //ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
@@ -86,18 +87,7 @@ void GraphicsManager::imGUIUpdate() {
 }
 
 void GraphicsManager::startVulkan() {
-    for (int i = 0; i < numModels_; i++) {
-        gameObjects.push_back(new GameObject());
-    }
-
-    pVkR_ = new VulkanRenderer(numModels_);
     pVkR_->pDevHelper_ = new DeviceHelper();
-    pVkR_->pLightPos_ = new glm::vec4(20.0f, 40.0f, 8.0f, 1.0f);
-    pVkR_->depthBias = 0.0003f;
-    pVkR_->camera_.setNearPlane(0.01f);
-    pVkR_->camera_.setFarPlane(50.0f);
-    pVkR_->camera_.setFOV(glm::radians(75.0f));
-
     pVkR_->camera_.update(pVkR_->camera_.transform);
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
@@ -120,8 +110,6 @@ void GraphicsManager::startVulkan() {
     pVkR_->createSWChain(pWindow_);
     std::cout << "chreated swap chain" << std::endl;
 
-    pVkR_->camera_.setAspectRatio((float)pVkR_->SWChainExtent_.width / (float)pVkR_->SWChainExtent_.height);
-
     pVkR_->createImageViews();
     std::cout << "created swap chain image views" << std::endl;
 
@@ -142,36 +130,46 @@ void GraphicsManager::startVulkan() {
     std::cout << "created frame buffers" << std::endl;
 
     std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
-    for (int i = 0; i < numModels_; i++) {
-        std::string s = *(pModelPaths_ + i);
+
+    for (std::string s : pStaticModelPaths_) {
+        GameObject* newGO = new GameObject();
         GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
-        pVkR_->pModels_.push_back(mod);
         mod->loadGLTF();
+        newGO->setGLTFObj(mod);
+        gameObjects.push_back(newGO);
 
         pVkR_->numMats_ += static_cast<uint32_t>(mod->getMeshHelper()->mats_.size());
-        pVkR_->numImages_ = static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
+        pVkR_->numImages_ += static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
-
-        gameObjects[i]->setGLTFObj(mod);
     }
 
-    animatedObjects.push_back(new AnimatedGameObject());
-    animatedObjects[0]->setAnimatedGLTFObj(new AnimatedGLTFObj("C://Users//arjoo//OneDrive//Documents//GameProjects//SndBx//SandBox//emily//Emily_Walk.glb", pVkR_->pDevHelper_));
-    animatedObjects[0]->renderTarget->loadGLTF();
-    numAnimated = 1;
-    pVkR_->animatedObjects = animatedObjects;
+    for (std::string s : pAnimatedModelPaths_) {
+        AnimatedGameObject* newAnimGO = new AnimatedGameObject();
+        AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_);
+        mod->loadGLTF();
+        newAnimGO->setAnimatedGLTFObj(mod);
+        animatedObjects.push_back(newAnimGO);
+
+        pVkR_->numMats_ += static_cast<uint32_t>(mod->getMeshHelper()->mats_.size());
+        pVkR_->numImages_ += static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
+
+        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+    }
+
+    // link renderable objects to member game objects
+    pVkR_->gameObjects = &gameObjects;
+    pVkR_->animatedObjects = &animatedObjects;
 
     pVkR_->createDescriptorPool();
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
 
-    pVkR_->shadowMap = new DirectionalLight(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pLightPos_, pVkR_->pModels_, pVkR_->numModels_, pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
+    pVkR_->pDirectionalLight->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     glm::mat4 proj = glm::perspective(pVkR_->camera_.getFOV(), pVkR_->camera_.getAspectRatio(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane());
     proj[1][1] *= -1;
-    glm::mat4 view = pVkR_->camera_.getViewMatrix();
-    pVkR_->shadowMap->genShadowMap(proj, pVkR_->camera_.getViewMatrix(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane(), pVkR_->camera_.getAspectRatio());
+    pVkR_->pDirectionalLight->genShadowMap(proj, pVkR_->camera_.getViewMatrix(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane(), pVkR_->camera_.getAspectRatio());
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 
@@ -209,25 +207,28 @@ void GraphicsManager::startVulkan() {
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
 
-    for (int i = 0; i < numModels_; i++) {
-        GLTFObj* gltfO = pVkR_->pModels_[i];
-        gltfO->createDescriptors();
-        std::cout << "created material graphics pipeline" << std::endl;
+    for (GameObject* gO : gameObjects) {
+        gO->renderTarget->createDescriptors();
     }
 
-    pVkR_->animatedObjects[0]->renderTarget->createDescriptors(pVkR_->animatedDescriptorSetLayout_);
+    for (AnimatedGameObject* gO : animatedObjects) {
+        gO->renderTarget->createDescriptors(pVkR_->animatedDescriptorSetLayout_);
+    }
+
     pVkR_->updateGeneratedImageDescriptorSets();
 
-    pVkR_->shadowMap->createAnimatedPipeline(pVkR_->animatedDescriptorSetLayout_);
+    pVkR_->pDirectionalLight->createAnimatedPipeline(pVkR_->animatedDescriptorSetLayout_);
 
 
-    for (int i = 0; i < numModels_; i++) {
-        GLTFObj* gltfO = pVkR_->pModels_[i];
-        pVkR_->createGraphicsPipeline(gltfO->getMeshHelper());
+    for(GameObject* gO : gameObjects) {
+        pVkR_->createGraphicsPipeline(gO->renderTarget->getMeshHelper());
         std::cout << "created material graphics pipeline" << std::endl;
     }
 
-    pVkR_->createAnimatedGraphicsPipeline(pVkR_->animatedObjects[0]->renderTarget->getMeshHelper());
+    for (AnimatedGameObject* animGO : animatedObjects) {
+        pVkR_->createAnimatedGraphicsPipeline(animGO->renderTarget->getMeshHelper());
+        std::cout << "created animated material graphics pipeline" << std::endl;
+    }
 
     std::cout << "\ncreated descriptor sets" << std::endl;
 
@@ -256,12 +257,17 @@ void GraphicsManager::loopUpdate() {
     vkDeviceWaitIdle(pVkR_->device_);
 }
 
-GraphicsManager::GraphicsManager(std::string modelStr[], std::string skyBoxModelPath, std::vector<std::string> skyBoxPaths, int numModels, int numTextures) {
-    this->pModelPaths_ = modelStr;
-    this->skyboxModelPath_ = skyBoxModelPath;
-    this->skyboxTexturePaths_ = skyBoxPaths;
-    this->numModels_ = numModels;
+GraphicsManager::GraphicsManager(std::vector<std::string> staticModelPaths, std::vector<std::string> animatedModelPaths, std::string skyboxModelPath, std::vector<std::string> skyboxTexturePaths, float windowWidth, float windowHeight) {
+    this->pStaticModelPaths_ = staticModelPaths;
+    this->pAnimatedModelPaths_ = animatedModelPaths;
+    this->skyboxTexturePaths_ = skyboxTexturePaths;
+    this->skyboxModelPath_ = skyboxModelPath;
+    this->numModels_ = staticModelPaths.size();
+    this->numAnimatedModels_ = animatedModelPaths.size();
+    this->numTextures_ = 0;
     this->pRenderer_ = nullptr;
     this->pWindow_ = nullptr;
     this->pVkR_ = nullptr;
+    this->windowWidth = windowWidth;
+    this->windowHeight = windowHeight;
 }

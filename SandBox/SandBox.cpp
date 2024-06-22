@@ -3,7 +3,10 @@
 #include "Time.h"
 #include <chrono>
 
-std::string pModelPaths[] = {
+#define WINDOW_WIDTH 1280.0f
+#define WINDOW_HEIGHT 720.0f
+
+std::vector<std::string> staticModelPaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
@@ -12,7 +15,11 @@ std::string pModelPaths[] = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
 };
 
-std::vector<std::string> skyboxTexturePath_ = {
+std::vector<std::string> animatedModelPaths = {
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb"
+};
+
+std::vector<std::string> skyboxTexturePaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/right.jpg",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/left.jpg",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/top.jpg",
@@ -42,16 +49,18 @@ std::vector<std::string> skyboxTexturePath_ = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
 };
 
-int main(int argc, char* argv[]) {
-    int numModels = 2; // num models IMPORTANT
+std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf";
 
-    // CHANGE LAST 2 ARGUMENTS FOR DIFFERENT NUMBER OF MODELS/TEXTURES
-    GraphicsManager graphicsManager = GraphicsManager(pModelPaths,
-                                                      "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf",
-                                                      skyboxTexturePath_,
-                                                      numModels,
-                                                      0); // num textures
-    graphicsManager.pVkR_ = new VulkanRenderer(numModels);
+int main(int argc, char* argv[]) {
+    GraphicsManager graphicsManager = GraphicsManager(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths, WINDOW_WIDTH, WINDOW_HEIGHT);
+    graphicsManager.pVkR_ = new VulkanRenderer();
+
+    graphicsManager.pVkR_->pDirectionalLight = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
+    graphicsManager.pVkR_->depthBias = 0.0003f;
+    graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
+    graphicsManager.pVkR_->camera_.setFarPlane(50.0f);
+    graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
+    graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
 
     PhysicsManager physicsManager = PhysicsManager();
 
@@ -61,7 +70,6 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
 
     graphicsManager.setup();
-    graphicsManager.pVkR_->gameObjects = graphicsManager.gameObjects;
     physicsManager.setup();
 
     // Scene objects
@@ -150,7 +158,7 @@ int main(int argc, char* argv[]) {
 
         // player animation -------------
         if (player->isWalking) {
-            graphicsManager.pVkR_->animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
+            graphicsManager.animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
         }
         // update particles ---------------
         // 

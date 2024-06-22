@@ -670,7 +670,7 @@ glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane,
 	}
 	center /= corners.size();
 
-	const auto lightView = glm::lookAt(center + glm::vec3(*lightPos), center, glm::vec3(0.0f, 1.0f, 0.0f));
+	const auto lightView = glm::lookAt(center + transform.position, center, glm::vec3(0.0f, 1.0f, 0.0f));
 
 	float minX = std::numeric_limits<float>::max();
 	float maxX = std::numeric_limits<float>::lowest();
@@ -779,7 +779,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		glm::vec3 maxExtents = glm::vec3(radius);
 		glm::vec3 minExtents = -maxExtents;
 
-		glm::vec3 lightDir = normalize(-(*lightPos));
+		glm::vec3 lightDir = normalize(-(transform.position));
 		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
@@ -814,14 +814,15 @@ void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float 
 	createPipeline();
 }
 
-DirectionalLight::DirectionalLight(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_, float swapChainWidth, float swapChainHeight) {
+DirectionalLight::DirectionalLight(glm::vec3 lPos) {
+	this->transform.position = lPos;
+}
+
+void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight) {
 	this->pDevHelper_ = devHelper;
 	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
 	this->pCommandPool_ = cmdPool;
-	this->lightPos = lPos;
-	this->numModels_ = numModels_;
-	this->pModels_ = pModels_;
 	this->imageFormat_ = VK_FORMAT_D16_UNORM;
 	this->swapChainHeight = swapChainHeight;
 	this->swapChainWidth = swapChainWidth;

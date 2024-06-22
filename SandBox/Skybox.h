@@ -41,7 +41,7 @@ public:
 	VkSampler skyBoxImageSampler_;
 
 	Skybox() {};
-	Skybox(std::string modPath, std::vector<std::string> stringPaths, DeviceHelper* devHelper);
+	Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHelper* devHelper);
 
 	VkImageView getImageView() { return this->skyBoxImageView_; };
 

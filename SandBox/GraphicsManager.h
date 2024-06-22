@@ -8,20 +8,24 @@
 class GraphicsManager {
 private:
 	int MAX_FRAMES_IN_FLIGHT = 3;
+	float windowWidth;
+	float windowHeight;
 
 	int numModels_;
-	int numAnimated;
+	int numAnimatedModels_;
 	int numTextures_;
-	std::string* pModelPaths_;
+	std::vector<std::string> pStaticModelPaths_;
+	std::vector<std::string> pAnimatedModelPaths_;
     std::vector<std::string> skyboxTexturePaths_;
 	std::string skyboxModelPath_;
 
-	static void check_vk_result(VkResult err);
 	void imGUIUpdate();
+	static void check_vk_result(VkResult err);
 
 	void setupImGUI();
 	void startVulkan();
 	void startSDL();
+
 public:
 	VulkanRenderer* pVkR_;
 	SDL_Window* pWindow_;
@@ -32,7 +36,7 @@ public:
 
 	bool mousemode_ = true;
 
-	GraphicsManager(std::string modelStr[], std::string skyBoxModelPath, std::vector<std::string> skyBoxPaths, int numModels, int numTextures);
+	GraphicsManager(std::vector<std::string> staticModelPaths, std::vector<std::string> animatedModelPaths, std::string skyboxModelPath, std::vector<std::string> skyboxTexturePaths, float windowWidth, float windowHeight);
 
 	void setup();
 	void loopUpdate();

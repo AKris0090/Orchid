@@ -92,6 +92,7 @@ private:
 	bool rendered = false;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
+	void updateIndividualDescriptorSet(MeshHelper::Material& m);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
@@ -110,14 +111,13 @@ public:
 	int numTextures_;
 	bool rotate_ = false;
 	bool frBuffResized_ = false;
-	glm::vec4* pLightPos_; // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
-	std::vector<glm::vec4> lights_;
+	DirectionalLight* pDirectionalLight;
 	FPSCam camera_;
 	float depthBias;
 	VkExtent2D SWChainExtent_;
 
-	std::vector<GameObject*> gameObjects;
-	std::vector<AnimatedGameObject*> animatedObjects;
+	std::vector<GameObject*>* gameObjects;
+	std::vector<AnimatedGameObject*>* animatedObjects;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
@@ -126,7 +126,6 @@ public:
 	VkPhysicalDevice GPU_ = VK_NULL_HANDLE;
 	VkDevice device_;
 	size_t currentFrame_ = 0;
-	std::vector<GLTFObj*> pModels_;
 	uint32_t numMats_;
 	uint32_t numImages_;
 	// Handles for all variables, made public so they can be accessed by main and destroys
@@ -154,9 +153,8 @@ public:
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
-	DirectionalLight* shadowMap;
 
-	VulkanRenderer(int numModels);
+	VulkanRenderer();
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
 	// Check if the validation layers requested are supported

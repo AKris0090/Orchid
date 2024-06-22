@@ -121,9 +121,11 @@ physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::P
 
 
 void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
-	pScene->simulate(deltaTime);
+	if (deltaTime > 0) {
+		pScene->simulate(deltaTime);
 
-	pScene->fetchResults(true);
+		pScene->fetchResults(true);
+	}
 
 	for (GameObject* g : gameObjects) {
 		if (g->isDynamic && g->physicsActor != nullptr) {
