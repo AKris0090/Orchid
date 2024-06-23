@@ -12,6 +12,11 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float bias;
 } ubo;
 
+layout(push_constant) uniform pushConstant {
+    layout(offset = 64) int alphaMask;
+    layout(offset = 68) float alphaCutoff;
+} pc;
+
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
 	0.0, 0.5, 0.0, 0.0,
@@ -40,12 +45,11 @@ layout(location = 6) in vec3 fragShadow;
 
 layout(location = 0) out vec4 outColor;
 
-layout (constant_id = 0) const bool ALPHA_MASK = false;
-layout (constant_id = 1) const float ALPHA_MASK_CUTOFF = 0.0f;
+vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
 
 #define PI 3.1415926535897932384626433832795
-#define ALBEDO texture(colorSampler, fragTexCoord).rgb
-#define ALPHA texture(colorSampler, fragTexCoord).a
+#define ALBEDO albedoAlpha.rgb
+#define ALPHA albedoAlpha.a
 #define AMBIENT 0.1
 
 // From http://filmicgames.com/archives/75
@@ -171,9 +175,10 @@ float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 	return shadow;
 }
 
+ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
+
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
 {
-    	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
 	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -196,8 +201,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 void main()
 {		
-	if (ALPHA_MASK) {
-        	if (ALPHA < ALPHA_MASK_CUTOFF) {
+	if (pc.alphaMask > 0) {
+        	if (ALPHA < pc.alphaCutoff) {
             		discard;
         	}
    	}
@@ -207,8 +212,10 @@ void main()
 	vec3 V = normalize(fragViewPos - fragPosition);
 	vec3 R = -normalize(reflect(V, N)); 
 
-	float metallic = texture(metallicRoughnessSampler, fragTexCoord).b;
-	float roughness = texture(metallicRoughnessSampler, fragTexCoord).g;
+	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
+
+	float metallic = metallicRoughness.b;
+	float roughness = metallicRoughness.g;
 
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, ALBEDO, metallic);
@@ -238,9 +245,8 @@ void main()
 
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
-	vec3 fragShadowViewPos = fragShadow;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-		if(fragShadowViewPos.z < ubo.cascadeSplits[i]) {	
+		if(fragShadow.z < ubo.cascadeSplits[i]) {	
 			cascadeIndex = i + 1;
 		}
 	}
@@ -265,5 +271,6 @@ void main()
 	// Gamma correction
 	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-        outColor = vec4(color, ALPHA);
+        //outColor = fragShadowCoord;
+	outColor = vec4(color, ALPHA);
 }

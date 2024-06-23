@@ -32,6 +32,6 @@ public:
 	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale);
 
 	void setup();
-	void loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime);
+	void loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, std::vector<AnimatedGameObject*> animatedGameObjects, PlayerObject* player, FPSCam* cam, float deltaTime);
 	void shutDown();
 };

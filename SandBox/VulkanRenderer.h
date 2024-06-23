@@ -134,6 +134,13 @@ public:
 	// Pipeline Layout for "gloabls" to change shaders
 	VkPipelineLayout pipeLineLayout_;
 	VkPipelineLayout animatedPipelineLayout_;
+
+	// OPAQUE AND TRANSPARENT PIPELINES
+	VkPipeline opaquePipeline;
+	VkPipeline transparentPipeline;
+	VkPipeline animatedOpaquePipeline;
+	VkPipeline animatedTransparentPipeline;
+
 	// Render pass handles
 	VkRenderPass renderPass_;
 	VkRenderPass skyboxRenderPass_;

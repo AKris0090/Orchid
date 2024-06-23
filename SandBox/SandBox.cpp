@@ -16,7 +16,8 @@ std::vector<std::string> staticModelPaths = {
 };
 
 std::vector<std::string> animatedModelPaths = {
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
 std::vector<std::string> skyboxTexturePaths = {
@@ -85,6 +86,12 @@ int main(int argc, char* argv[]) {
         g->renderTarget->modelTransform = g->transform.to_matrix();
     }
 
+    // second helmet
+    //graphicsManager.animatedObjects[1]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+    //graphicsManager.animatedObjects[1]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
+
+    graphicsManager.animatedObjects[0]->isPlayerObj = true;
+
     // WOLF
     //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
@@ -98,6 +105,7 @@ int main(int argc, char* argv[]) {
 
     // Player setup
     PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
+    player->playerGameObject = graphicsManager.animatedObjects[0];
     player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
     player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
     player->playerGameObject = graphicsManager.animatedObjects[0];
@@ -140,15 +148,15 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Time/frame update
+        // Time/frame update ---------
         Time::updateTime();
         std::cout << "\r" << "time: " << Time::getDeltaTime();
 
-        // player update
+        // player update -----------
         player->loopUpdate(&(graphicsManager.pVkR_->camera_));
         //std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
 
-        // update camera
+        // update camera ------------
         if (graphicsManager.pVkR_->camera_.isAttatched) {
             graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
         }
@@ -160,11 +168,11 @@ int main(int argc, char* argv[]) {
         if (player->isWalking) {
             graphicsManager.animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
         }
-        // update particles ---------------
-        // 
+
         // update physics -------------------
-        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
-        // 
+        // includes game object position updates
+        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
+        
         // update graphics -------------------
         graphicsManager.loopUpdate();
     }

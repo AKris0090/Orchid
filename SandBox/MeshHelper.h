@@ -19,8 +19,6 @@ public:
 		float alphaCutOff;
 		bool doubleSides = false;
 		VkDescriptorSet descriptorSet;
-		VkPipeline pipeline;
-		VkPipeline animatedPipeline;
 	};
 
 	// Structs from gltfloading example by Sascha Willems

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PrefilteredEnvMap.h"
+#include "Camera.h"
 
 class DirectionalLight {
 private:
@@ -33,7 +34,6 @@ private:
 	VkDescriptorSetLayout cascadeSetLayout;
 	VkDescriptorPool sMDescriptorPool_;
 
-	VkPipeline sMPipeline_;
 	VkAttachmentDescription sMAttachment;
 	VkDescriptorImageInfo sMImageInfo;
 
@@ -43,7 +43,7 @@ private:
 	void findDepthFormat(VkPhysicalDevice GPU_);
 	VkFormat findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	void createSMDescriptors(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio);
+	void createSMDescriptors(FPSCam* camera);
 
 	void createRenderPass();
 	void createFrameBuffer();
@@ -71,7 +71,7 @@ public:
 	float zFar;
 
 	Transform transform;
-
+	VkPipeline sMPipeline_;
 	VkPipelineLayout sMPipelineLayout_;
 	VkPipelineLayout animatedSmPipelineLayout;
 
@@ -104,7 +104,7 @@ public:
 	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
 	void createAnimatedPipeline(VkDescriptorSetLayout descLayout);
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
-	void genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio);
-	void updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio);
+	void genShadowMap(FPSCam* camera);
+	void updateUniBuffers(FPSCam* camera);
 	glm::mat4 getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio);
 };

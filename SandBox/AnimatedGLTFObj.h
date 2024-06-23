@@ -8,6 +8,8 @@
 
 class AnimatedGLTFObj {
 public:
+	bool transparentCurrentBound = false;
+
 	struct SceneNode {
 		SceneNode* parent;
 		uint32_t index;
@@ -63,6 +65,11 @@ public:
 		uint32_t cascadeIndex;
 	} cascadeBlock;
 
+	struct pcBlock {
+		int alphaMask;
+		float alphaCutoff;
+	} pushConstantBlock;
+
 	MeshHelper* pSceneMesh_;
 
 	glm::mat4 modelTransform;
@@ -73,7 +80,7 @@ public:
 
 	void createDescriptors(VkDescriptorSetLayout descSetLayout);
 
-	void render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
+	void render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, VkPipeline opaquePipeline, VkPipeline transparentPipeline);
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
@@ -101,8 +108,8 @@ private:
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes);
-	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* pNode);
+	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* pNode, VkPipeline opaquePipeline, VkPipeline transparentPipeline);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
-};
+};;

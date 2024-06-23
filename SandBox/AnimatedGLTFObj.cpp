@@ -58,16 +58,9 @@ static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void AnimatedGLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* node) {
+void AnimatedGLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, SceneNode* node, VkPipeline opaquePipeline, VkPipeline transparentPipeline) {
     if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = modelTransform;
-        //nodeTransform *= node->transform;
-        //SceneNode* curParent = node->parent;
-        //while (curParent) {
-        //    nodeTransform = curParent->transform * nodeTransform;
-        //    curParent = curParent->parent;
-        //}
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(nodeTransform));
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(modelTransform));
         // Bind SSBO with skin data
         if (node->skin >= 0) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &skins_[node->skin].descriptorSet, 0, nullptr);
@@ -75,37 +68,39 @@ void AnimatedGLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayou
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 MeshHelper::Material mat = pSceneMesh_->mats_[p.materialIndex];
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mat.animatedPipeline);
+                pushConstantBlock.alphaMask = mat.alphaMode == "MASK";
+                pushConstantBlock.alphaCutoff = mat.alphaCutOff;
+                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(pushConstantBlock));
+                if (mat.alphaMode == "MASK" && !transparentCurrentBound) {
+                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
+                }
+                else if (mat.alphaMode != "MASK" && transparentCurrentBound) {
+                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
+                }
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.descriptorSet), 0, nullptr);
                 vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
             }
         }
     }
     for (auto& child : node->children) {
-        drawIndexed(commandBuffer, pipelineLayout, child);
+        drawIndexed(commandBuffer, pipelineLayout, child, opaquePipeline, transparentPipeline);
     }
 }
 
-void AnimatedGLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout) {
+void AnimatedGLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout, VkPipeline opaquePipeline, VkPipeline transparentPipeline) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     for (auto& node : pNodes_) {
-        drawIndexed(commandBuffer, pipelineLayout, node);
+        drawIndexed(commandBuffer, pipelineLayout, node, opaquePipeline, transparentPipeline);
     }
 }
 
 void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
         glm::mat4 nodeTransform = modelTransform;
-        //nodeTransform *= node->transform;
-        //SceneNode* curParent = node->parent;
-        //while (curParent) {
-        //    nodeTransform = curParent->transform * nodeTransform;
-        //    curParent = curParent->parent;
-        //}
         cascadeBlock.model = nodeTransform;
         if (node->skin >= 0) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(skins_[node->skin].descriptorSet), 0, nullptr);
@@ -227,8 +222,7 @@ void AnimatedGLTFObj::updateJoints(SceneNode* node)
         std::vector<glm::mat4> jointMatrices(numJoints);
         for (size_t i = 0; i < numJoints; i++)
         {
-            jointMatrices[i] = getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i];
-            jointMatrices[i] = inverseTransform * jointMatrices[i];
+            jointMatrices[i] = inverseTransform * (getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i]);
         }
 
         // Update ssbo
@@ -261,7 +255,7 @@ void AnimatedGLTFObj::loadImages(tinygltf::Model& in, std::vector<TextureHelper*
     pSceneMesh_->images_.push_back(dummyAO);
     pSceneMesh_->images_.push_back(dummyEmission);
 
-    std::cout << std::endl << "loaded: " << in.images.size() << " materials" << std::endl;
+    std::cout << std::endl << "loaded: " << in.images.size() << "  images" << std::endl;
 }
 
 void AnimatedGLTFObj::loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures) {
@@ -866,4 +860,5 @@ AnimatedGLTFObj::AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelpe
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
     pSceneMesh_ = new MeshHelper(deviceHelper);
+    transparentCurrentBound = false;
 }

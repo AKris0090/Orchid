@@ -197,7 +197,7 @@ void DirectionalLight::createFrameBuffer() {
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void DirectionalLight::createSMDescriptors(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	VkDeviceSize bufferSize = sizeof(UBO);
 
 	uniformBuffer.resize(1);
@@ -207,7 +207,7 @@ void DirectionalLight::createSMDescriptors(glm::mat4 camProj, glm::mat4 camView,
 	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[0], uniformMemory[0]);
 	VkResult res1 = vkMapMemory(pDevHelper_->getDevice(), uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
 	
-	updateUniBuffers(camProj, camView, camNear, camFar, aspectRatio);
+	updateUniBuffers(camera);
 
 	VkDescriptorSetLayoutBinding UBOLayoutBinding{};
 	UBOLayoutBinding.binding = 0;
@@ -628,8 +628,6 @@ DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdB
 
 	vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipeline_);
-
 	return { renderPassBeginInfo, sMPipeline_, sMPipelineLayout_, cmdBuf };
 }
 
@@ -713,11 +711,11 @@ glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane,
 	return lightProjection * lightView;
 }
 
-void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio) {
-	float clipRange = cameraFarPlane - cameraNearPlane;
+void DirectionalLight::updateUniBuffers(FPSCam* camera) {
+	float clipRange = camera->getFarPlane() - camera->getNearPlane();
 
-	float minZ = cameraNearPlane;
-	float maxZ = cameraNearPlane + clipRange;
+	float minZ = camera->getNearPlane();
+	float maxZ = minZ + clipRange;
 
 	float range = maxZ - minZ;
 	float ratio = maxZ / minZ;
@@ -730,7 +728,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		float log = minZ * std::pow(ratio, p);
 		float uniform = minZ + range * p;
 		float d = cascadeSplitLambda * (log - uniform) + uniform;
-		shadowCascadeLevels[i] = (d - cameraNearPlane) / clipRange;
+		shadowCascadeLevels[i] = (d - minZ) / clipRange;
 	}
 
 	// Calculate orthographic projection matrix for each cascade
@@ -750,7 +748,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		};
 
 		// Project frustum corners into world space
-		glm::mat4 invCam = glm::inverse(cameraProj * camView);
+		glm::mat4 invCam = glm::inverse(camera->getProjectionMatrix() * camera->getViewMatrix());
 		for (uint32_t j = 0; j < 8; j++) {
 			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
 			frustumCorners[j] = invCorner / invCorner.w;
@@ -784,7 +782,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
 		// Store split distance and matrix in cascade
-		cascades[i].splitDepth = (cameraNearPlane + splitDist * clipRange) * -1.0f;
+		cascades[i].splitDepth = (minZ + splitDist * clipRange) * -1.0f;
 		lightOrthoMatrix[1][1] *= -1.0f;
 		cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
 
@@ -799,7 +797,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));
 }
 
-void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+void DirectionalLight::genShadowMap(FPSCam* camera) {
 	width_ = 4096;
 	height_ = 4096;
 	zNear = 1.f;
@@ -809,7 +807,7 @@ void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float 
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 
-	createSMDescriptors(camProj, camView, camNear, camFar, aspectRatio);
+	createSMDescriptors(camera);
 
 	createPipeline();
 }

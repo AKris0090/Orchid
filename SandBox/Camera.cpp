@@ -5,9 +5,9 @@ void FPSCam::baseUpdate() {
     glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), transform.position);
 
     glm::quat pitchRotation = glm::angleAxis(this->pitch_, glm::vec3{ -1.0f, 0.0f, 0.0f });
-    // inverse left-right, since left is negative x
     glm::quat yawRotation = glm::angleAxis(this->yaw_, glm::vec3{ 0.0f, -1.0f, 0.0f });
-    this->rotationMatrix = (glm::toMat4(yawRotation) * glm::toMat4(pitchRotation));
+
+    glm::mat4 rotationMatrix = (glm::toMat4(yawRotation) * glm::toMat4(pitchRotation));
 
     this->inverseViewMatrix = camTranslation * rotationMatrix;
 
@@ -21,29 +21,32 @@ void FPSCam::baseUpdate() {
 void FPSCam::update(Transform playerTransform) {
     glm::vec3 localDisplacement{ 0.0f, 0.0f, 0.0f };
     if (Input::forwardKeyDown()) {
-        localDisplacement -= trueForward * 0.085f;
+        localDisplacement -= trueForward;
     }
 
     if (Input::backwardKeyDown()) {
-        localDisplacement += trueForward * 0.085f;
+        localDisplacement += trueForward;
     }
 
     if (Input::rightKeyDown()) {
-        localDisplacement += right * 0.085f;
+        localDisplacement += right;
     }
 
     if (Input::leftKeyDown()) {
-        localDisplacement -= right * 0.085f;
+        localDisplacement -= right;
     }
 
     if (Input::upKeyDown()) {
-        localDisplacement += up * 0.085f;
+        localDisplacement += up;
     }
 
     if (Input::downKeyDown()) {
-        localDisplacement -= up * 0.085f;
+        localDisplacement -= up;
     }
-    setPosition(transform.position + localDisplacement);
+
+    if (glm::length(localDisplacement) > 0) {
+        setPosition(transform.position + (glm::normalize(localDisplacement) * this->moveSpeed_));
+    }
 
     baseUpdate();
 }
@@ -62,7 +65,7 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
     // physx raycast to find position
     glm::vec3 originVec = PxVec3toGlmVec3(characterController->getFootPosition()) + glm::vec3(0.0f, capsuleHeight + 1.0f, 0.0f);
     physx::PxVec3 origin = GlmVec3tpPxVec3(originVec);
-    glm::vec3 desiredPos = glm::vec3(cos(pitch_) * cos(yaw_), sin(pitch_), cos(pitch_) * sin(yaw_)); //glm::normalize(glm::vec3(glm::cos(yaw_) * glm::sin(pitch_), glm::cos(pitch_), glm::sin(yaw_) * glm::cos(pitch_)));
+    glm::vec3 desiredPos = glm::vec3(cos(pitch_) * cos(yaw_), sin(pitch_), cos(pitch_) * sin(yaw_));
     physx::PxVec3 unitDir = GlmVec3tpPxVec3(glm::normalize(desiredPos));
     physx::PxReal maxDistance = distanceToPlayer;
     physx::PxRaycastBuffer hitPayload;
@@ -86,12 +89,17 @@ void FPSCam::processSDL(SDL_Event& event) {
     }
 }
 
-glm::mat4 FPSCam::getViewMatrix() {
-    return this->viewMatrix;
+void FPSCam::setProjectionMatrix() {
+    this->projectionMatrix = glm::perspective(FOV, aspectRatio, nearPlane, farPlane);
+    this->projectionMatrix[1][1] *= -1.0f;
 }
 
-glm::mat4 FPSCam::getRotationMatrix() {
-    return this->rotationMatrix;
+glm::mat4 FPSCam::getProjectionMatrix() {
+    return this->projectionMatrix;
+}
+
+glm::mat4 FPSCam::getViewMatrix() {
+    return this->viewMatrix;
 }
 
 void FPSCam::setPosition(glm::vec3 pos) {

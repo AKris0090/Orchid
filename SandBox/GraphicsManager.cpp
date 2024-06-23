@@ -167,9 +167,8 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->pDirectionalLight->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
-    glm::mat4 proj = glm::perspective(pVkR_->camera_.getFOV(), pVkR_->camera_.getAspectRatio(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane());
-    proj[1][1] *= -1;
-    pVkR_->pDirectionalLight->genShadowMap(proj, pVkR_->camera_.getViewMatrix(), pVkR_->camera_.getNearPlane(), pVkR_->camera_.getFarPlane(), pVkR_->camera_.getAspectRatio());
+    pVkR_->camera_.setProjectionMatrix();
+    pVkR_->pDirectionalLight->genShadowMap(&(pVkR_->camera_));
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 

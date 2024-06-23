@@ -22,10 +22,10 @@ private:
 	float FOV;
 
 public:
-	float moveSpeed_ = 0.005f; // slow is 0.0015;
+	float moveSpeed_; // slow is 0.0015;
 	glm::mat4 viewMatrix;
 	glm::mat4 inverseViewMatrix;
-	glm::mat4 rotationMatrix;
+	glm::mat4 projectionMatrix;
 	glm::vec3 right;
 	glm::vec3 forward;
 	glm::vec3 trueForward;
@@ -47,9 +47,10 @@ public:
 
 	Transform transform;
 
-	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; };
+	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; moveSpeed_ = 0.085; };
 
 	void update(Transform playerTransform);
+	void setProjectionMatrix();
 	void baseUpdate();
 	void alterUpdate(Transform playerTransform, float capHeight);
 	void physicsUpdate(Transform playerTransform, physx::PxScene* scene, physx::PxController* characterController, float capsuleHeight);
@@ -58,6 +59,7 @@ public:
 	void processSDL(SDL_Event& e);
 	void setPitchYaw(float nPitch, float nYaw);
 	glm::mat4 getViewMatrix();
+	glm::mat4 getProjectionMatrix();
 	void setNearPlane(float nearP);
 	void setFarPlane(float farP);
 	void setAspectRatio(float aspect);

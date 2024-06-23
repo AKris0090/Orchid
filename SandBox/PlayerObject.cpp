@@ -26,29 +26,28 @@ void PlayerObject::setupPhysicsController() {
 
 void PlayerObject::loopUpdate(FPSCam* camera) {
 	if (camera->isAttatched) {
-		glm::vec3 movementVector = glm::normalize(glm::vec3(camera->forward.x, 0.0f, camera->forward.z));
 		glm::vec3 localDisplacement = glm::vec3(0.0f);
 
 		if (Input::forwardKeyDown()) {
-			localDisplacement -= movementVector * 0.5f;
+			localDisplacement -= camera->forward;
 		}
 
 		if (Input::backwardKeyDown()) {
-			localDisplacement += movementVector * 0.5f;
+			localDisplacement += camera->forward;
 		}
 
 		if (Input::rightKeyDown()) {
-			localDisplacement += camera->right * 0.5f;
+			localDisplacement += camera->right;
 		}
 
 		if (Input::leftKeyDown()) {
-			localDisplacement -= camera->right * 0.5f;
+			localDisplacement -= camera->right;
 		}
 
 		if (glm::length(localDisplacement) != 0.0f) {
 			isWalking = true;
-			glm::vec3 normalizedDisplacement = glm::normalize(localDisplacement);
-			localDisplacement = normalizedDisplacement * playerSpeed;
+			localDisplacement = glm::normalize(localDisplacement);
+			localDisplacement *= playerSpeed;
 			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
 			if (theta - playerGameObject->transform.rotation.y > PI) {
 				theta -= 2.0f * PI;
@@ -68,6 +67,7 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		data.mFilterData = &filterData;
 
 		characterController->move(physx::PxVec3(localDisplacement.x, 0, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
-		transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
+		playerGameObject->transform.position = transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
+		playerGameObject->setTransform(playerGameObject->transform.to_matrix());
 	}
 }

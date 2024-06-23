@@ -6,26 +6,14 @@
 VulkanRenderer::VulkanRenderer() {}
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-    if (rotate_) {
-        // Animate the light source
-        this->pDirectionalLight->transform.position.x = 0.0f + (cos(glm::radians(time * 360.0f)) * 20.0f);
-        //this->pLightPos_->y = 17.5f + (sin(glm::radians(time * 360.0f)) * 5.0f);
-        this->pDirectionalLight->transform.position.z = 0.0f + (sin(glm::radians(time * 360.0f)) * 8.0f);
-    }
-
     UniformBufferObject ubo;
 
+    this->camera_.setProjectionMatrix();
     ubo.view = this->camera_.getViewMatrix();
-    ubo.proj = glm::perspective(camera_.getFOV(), camera_.getAspectRatio(), camera_.getNearPlane(), camera_.getFarPlane());
-    ubo.proj[1][1] *= -1;
+    ubo.proj = this->camera_.getProjectionMatrix();
     ubo.viewPos = glm::vec4(this->camera_.transform.position, 0.0f);
     ubo.lightPos = glm::vec4(pDirectionalLight->transform.position, 1.0f);
-    pDirectionalLight->updateUniBuffers(ubo.proj, ubo.view, camera_.getNearPlane(), camera_.getFarPlane(), camera_.getAspectRatio());
+    pDirectionalLight->updateUniBuffers(&(this->camera_));
     for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
         ubo.cascadeSplits[i] = pDirectionalLight->cascades[i].splitDepth;
         ubo.cascadeViewProjMat[i] = pDirectionalLight->cascades[i].viewProjectionMatrix;
@@ -887,6 +875,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     depthStencilCInfo.depthTestEnable = VK_TRUE;
     depthStencilCInfo.depthWriteEnable = VK_TRUE;
     depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilCInfo.stencilTestEnable = VK_FALSE;
 
     // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
@@ -932,14 +921,21 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     pcRange.size = sizeof(glm::mat4);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+    VkPushConstantRange fragRange{};
+    fragRange.offset = sizeof(glm::mat4);
+    fragRange.size = sizeof(int) + sizeof(float);
+    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange pcRanges[] = { pcRange, fragRange };
+
     // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
     // Initialize the pipeline layout with another create info struct
     VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeLineLayoutCInfo.setLayoutCount = 2;
     pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pPushConstantRanges = pcRanges;
 
     if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &pipeLineLayout_) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
@@ -971,48 +967,18 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
 
     graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    // POI: Instead if using a few fixed pipelines, we create one pipeline for each material using the properties of that material
-    for (auto& material : m->mats_) {
+    // Create the object
+    VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(opaquePipeline));
+    if (res3 != VK_SUCCESS) {
+        std::cout << "failed to create opaque graphics pipeline" << std::endl;
+        std::_Xruntime_error("Failed to create the graphics pipeline!");
+    }
 
-        struct MaterialSpecializationData {
-            VkBool32 alphaMask;
-            float alphaMaskCutoff;
-        } materialSpecializationData;
-
-        materialSpecializationData.alphaMask = material.alphaMode == "MASK";
-        materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
-
-        // POI: Constant fragment shader material parameters will be set using specialization constants
-        VkSpecializationMapEntry me{};
-        me.constantID = 0;
-        me.offset = offsetof(MaterialSpecializationData, alphaMask);
-        me.size = sizeof(MaterialSpecializationData::alphaMask);
-
-        VkSpecializationMapEntry metoo{};
-        metoo.constantID = 1;
-        metoo.offset = offsetof(MaterialSpecializationData, alphaMaskCutoff);
-        metoo.size = sizeof(MaterialSpecializationData::alphaMaskCutoff);
-
-        std::vector<VkSpecializationMapEntry> specializationMapEntries = { me, metoo };
-
-        VkSpecializationInfo specializationInfo{};
-        specializationInfo.dataSize = sizeof(materialSpecializationData);
-        specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
-        specializationInfo.pData = &materialSpecializationData;
-        specializationInfo.pMapEntries = specializationMapEntries.data();
-
-        stages[1].pSpecializationInfo = &specializationInfo;
-
-        // For double sided materials, culling will be disabled
-        rasterizerCInfo.cullMode = material.doubleSides ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-        //rasterizerCInfo.cullMode = VK_CULL_MODE_NONE;
-
-        // Create the object
-        VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(material.pipeline));
-        if (res3 != VK_SUCCESS) {
-            std::cout << "failed to create graphics pipeline" << std::endl;
-            std::_Xruntime_error("Failed to create the graphics pipeline!");
-        }
+    // Create the object
+    VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(transparentPipeline));
+    if (res4 != VK_SUCCESS) {
+        std::cout << "failed to create transparent graphics pipeline" << std::endl;
+        std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
 }
 
@@ -1141,14 +1107,21 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     pcRange.size = sizeof(glm::mat4);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+    VkPushConstantRange fragRange{};
+    fragRange.offset = sizeof(glm::mat4);
+    fragRange.size = sizeof(int) + sizeof(float);
+    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange pcRanges[] = { pcRange, fragRange };
+
     // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
     // Initialize the pipeline layout with another create info struct
     VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeLineLayoutCInfo.setLayoutCount = 3;
     pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pPushConstantRanges = pcRanges;
 
     if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &animatedPipelineLayout_) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
@@ -1180,47 +1153,18 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
 
     graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    // POI: Instead if using a few fixed pipelines, we create one pipeline for each material using the properties of that material
-    for (auto& material : m->mats_) {
+    // Create the object
+    VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(animatedOpaquePipeline));
+    if (res3 != VK_SUCCESS) {
+        std::cout << "failed to create animated opaque graphics pipeline" << std::endl;
+        std::_Xruntime_error("Failed to create the graphics pipeline!");
+    }
 
-        struct MaterialSpecializationData {
-            VkBool32 alphaMask;
-            float alphaMaskCutoff;
-        } materialSpecializationData;
-
-        materialSpecializationData.alphaMask = material.alphaMode == "MASK";
-        materialSpecializationData.alphaMaskCutoff = material.alphaCutOff;
-
-        // POI: Constant fragment shader material parameters will be set using specialization constants
-        VkSpecializationMapEntry me{};
-        me.constantID = 0;
-        me.offset = offsetof(MaterialSpecializationData, alphaMask);
-        me.size = sizeof(MaterialSpecializationData::alphaMask);
-
-        VkSpecializationMapEntry metoo{};
-        metoo.constantID = 1;
-        metoo.offset = offsetof(MaterialSpecializationData, alphaMaskCutoff);
-        metoo.size = sizeof(MaterialSpecializationData::alphaMaskCutoff);
-
-        std::vector<VkSpecializationMapEntry> specializationMapEntries = { me, metoo };
-
-        VkSpecializationInfo specializationInfo{};
-        specializationInfo.dataSize = sizeof(materialSpecializationData);
-        specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
-        specializationInfo.pData = &materialSpecializationData;
-        specializationInfo.pMapEntries = specializationMapEntries.data();
-
-        stages[1].pSpecializationInfo = &specializationInfo;
-
-        // For double sided materials, culling will be disabled
-        rasterizerCInfo.cullMode = material.doubleSides ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
-
-        // Create the object
-        VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(material.animatedPipeline));
-        if (res3 != VK_SUCCESS) {
-            std::cout << "failed to create graphics pipeline" << std::endl;
-            std::_Xruntime_error("Failed to create the graphics pipeline!");
-        }
+    // Create the object
+    VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(animatedTransparentPipeline));
+    if (res4 != VK_SUCCESS) {
+        std::cout << "failed to create animated transparent graphics pipeline" << std::endl;
+        std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
 }
 
@@ -1750,6 +1694,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
         for (GameObject* gO : *(gameObjects)) {
             gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
@@ -1798,11 +1743,15 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
     for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->render(commandBuffer, pipeLineLayout_);
+        gO->renderTarget->transparentCurrentBound = false;
+        gO->renderTarget->render(commandBuffer, pipeLineLayout_, opaquePipeline, transparentPipeline);
     }
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
     for (AnimatedGameObject* animGO : *(animatedObjects)) {
-        animGO->renderTarget->render(commandBuffer, animatedPipelineLayout_);
+        animGO->renderTarget->transparentCurrentBound = false;
+        animGO->renderTarget->render(commandBuffer, animatedPipelineLayout_, animatedOpaquePipeline, animatedTransparentPipeline);
     }
 }
 

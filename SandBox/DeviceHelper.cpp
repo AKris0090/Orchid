@@ -143,27 +143,6 @@ std::vector<char> DeviceHelper::readFile(const std::string& filename) {
     return buffer;
 }
 
-void DeviceHelper::endSingleTimeCommandsFenced(VkDevice device_, VkCommandBuffer cmdBuff) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(this->graphicsQueue_, 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-
-    vkFreeCommandBuffers(device_, this->commandPool_, 1, &cmdBuff);
-}
-
 void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 

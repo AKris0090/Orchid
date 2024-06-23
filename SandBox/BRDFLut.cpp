@@ -337,7 +337,7 @@ void BRDFLut::render() {
     vkCmdDraw(cmdBuf, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmdBuf);
 
-    pDevHelper_->endSingleTimeCommandsFenced(device_, cmdBuf);
+    pDevHelper_->endSingleTimeCommands(cmdBuf);
 }
 
 void BRDFLut::genBRDFLUT() {
