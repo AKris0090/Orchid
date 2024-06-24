@@ -1440,6 +1440,12 @@ void VulkanRenderer::createSkyBoxPipeline() {
 
     std::cout << "pipeline layout created" << std::endl;
 
+    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
+    depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilCInfo.depthTestEnable = VK_FALSE;
+    depthStencilCInfo.depthWriteEnable = VK_FALSE;
+    depthStencilCInfo.stencilTestEnable = VK_FALSE;
+
     VkPipelineShaderStageCreateInfo skyBoxVertexStageCInfo{};
     skyBoxVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     skyBoxVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -1466,16 +1472,14 @@ void VulkanRenderer::createSkyBoxPipeline() {
     skyBoxGraphicsPipelineCInfo.pViewportState = &viewportStateCInfo;
     skyBoxGraphicsPipelineCInfo.pRasterizationState = &rasterizerCInfo;
     skyBoxGraphicsPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    skyBoxGraphicsPipelineCInfo.pDepthStencilState = nullptr;
+    skyBoxGraphicsPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
     skyBoxGraphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
     skyBoxGraphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
 
     skyBoxGraphicsPipelineCInfo.layout = pSkyBox_->skyBoxPipelineLayout_;
 
-    skyBoxGraphicsPipelineCInfo.renderPass = skyboxRenderPass_;
+    skyBoxGraphicsPipelineCInfo.renderPass = renderPass_;
     skyBoxGraphicsPipelineCInfo.subpass = 0;
-
-    skyBoxGraphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
     VkPipelineShaderStageCreateInfo skyBoxStages[] = { skyBoxVertexStageCInfo, skyBoxFragmentStageCInfo };
 
@@ -1800,45 +1804,11 @@ void VulkanRenderer::createCommandBuffers(int numFramesInFlight) {
 }
 
 void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-    VkRenderPassBeginInfo sbRPBeginInfo{};
-    // Create the render pass
-    sbRPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    sbRPBeginInfo.renderPass = skyboxRenderPass_;
-    sbRPBeginInfo.framebuffer = skyBoxFrameBuffers_[imageIndex];
-    // Define the size of the render area
-    sbRPBeginInfo.renderArea.offset = { 0, 0 };
-    sbRPBeginInfo.renderArea.extent = SWChainExtent_;
-
-    std::array<VkClearValue, 1> clearValues{};
-    clearValues[0].color = clearValue_.color;
-
-    // Define the clear values to use
-    sbRPBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
-    sbRPBeginInfo.pClearValues = clearValues.data();
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)SWChainExtent_.width;
-    viewport.height = (float)SWChainExtent_.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = SWChainExtent_;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    // Finally, begin the render pass
-    vkCmdBeginRenderPass(commandBuffer, &sbRPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     // Draw skybox
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyboxPipeline_);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
     pSkyBox_->pSkyBoxModel_->renderSkyBox(commandBuffer, pSkyBox_->skyboxPipeline_, pSkyBox_->skyBoxDescriptorSet_, pSkyBox_->skyBoxPipelineLayout_);
-    vkCmdEndRenderPass(commandBuffer);
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -1852,11 +1822,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-        //VkDebugUtilsLabelEXT debugLabel{};
-        //debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-        //debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str();
-
-        //vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
 
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
@@ -1871,8 +1837,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
         //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
     }
-
-    recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
     // Start the scene render pass
     VkRenderPassBeginInfo RPBeginInfo{};
@@ -1908,6 +1872,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
