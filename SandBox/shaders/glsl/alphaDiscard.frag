@@ -12,6 +12,11 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float bias;
 } ubo;
 
+layout(push_constant) uniform pushConstant {
+    layout(offset = 64) int alphaMask;
+    layout(offset = 68) float alphaCutoff;
+} pc;
+
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
 	0.0, 0.5, 0.0, 0.0,
@@ -195,7 +200,13 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 }
 
 void main()
-{
+{		
+	if (pc.alphaMask > 0) {
+        	if (ALPHA < pc.alphaCutoff) {
+            		discard;
+        	}
+   	}
+
 	vec3 N = calculateNormal();
 
 	vec3 V = normalize(fragViewPos - fragPosition);

@@ -5,30 +5,6 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-std::vector<glm::vec4> DirectionalLight::getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view) {
-	const auto inv = glm::inverse(proj * view);
-
-	std::vector<glm::vec4> frustumCorners;
-	for (unsigned int x = 0; x < 2; ++x)
-	{
-		for (unsigned int y = 0; y < 2; ++y)
-		{
-			for (unsigned int z = 0; z < 2; ++z)
-			{
-				const glm::vec4 pt =
-					inv * glm::vec4(
-						2.0f * x - 1.0f,
-						2.0f * y - 1.0f,
-						2.0f * z - 1.0f,
-						1.0f);
-				frustumCorners.push_back(pt / pt.w);
-			}
-		}
-	}
-
-	return frustumCorners;
-}
-
 uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
@@ -319,12 +295,8 @@ void DirectionalLight::createPipeline() {
     }
 
     std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
-	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMapFrag.spv");
-
-	//std::cout << "read files" << std::endl;
 
     VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
-	VkShaderModule sMFragShaderModule = createShaderModule(device_, sMFragShader);
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
     inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -391,17 +363,11 @@ void DirectionalLight::createPipeline() {
     sMVertexStageCInfo.module = sMVertexShaderModule;
     sMVertexStageCInfo.pName = "main";
 
-	VkPipelineShaderStageCreateInfo sMFragmentStageCInfo{};
-	sMFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	sMFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	sMFragmentStageCInfo.module = sMFragShaderModule;
-	sMFragmentStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo, sMFragmentStageCInfo };
+    VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo };
 
     VkGraphicsPipelineCreateInfo shadowMapPipelineCInfo{};
     shadowMapPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    shadowMapPipelineCInfo.stageCount = 2;
+    shadowMapPipelineCInfo.stageCount = 1;
     shadowMapPipelineCInfo.pStages = stages;
 
     // Describing the format of the vertex data to be passed to the vertex shader
@@ -458,12 +424,10 @@ void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDesc
 	}
 
 	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/animShadowMapVert.spv");
-	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMapFrag.spv");
 
 	//std::cout << "read files" << std::endl;
 
 	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
-	VkShaderModule sMFragShaderModule = createShaderModule(device_, sMFragShader);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
 	inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -529,17 +493,11 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	sMVertexStageCInfo.module = sMVertexShaderModule;
 	sMVertexStageCInfo.pName = "main";
 
-	VkPipelineShaderStageCreateInfo sMFragmentStageCInfo{};
-	sMFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	sMFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	sMFragmentStageCInfo.module = sMFragShaderModule;
-	sMFragmentStageCInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo, sMFragmentStageCInfo };
+	VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo };
 
 	VkGraphicsPipelineCreateInfo shadowMapPipelineCInfo{};
 	shadowMapPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	shadowMapPipelineCInfo.stageCount = 2;
+	shadowMapPipelineCInfo.stageCount = 1;
 	shadowMapPipelineCInfo.pStages = stages;
 
 	// Describing the format of the vertex data to be passed to the vertex shader
@@ -568,35 +526,7 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	shadowMapPipelineCInfo.renderPass = sMRenderpass_;
 	shadowMapPipelineCInfo.subpass = 0;
 
-	shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
 	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &animatedSMPipeline);
-
-	//std::cout << "pipeline created" << std::endl;
-}
-
-
-void DirectionalLight::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(*(pGraphicsQueue_), 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-
-    vkDeviceWaitIdle(device_);
-
-    vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -629,86 +559,6 @@ DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdB
 	vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	return { renderPassBeginInfo, sMPipeline_, sMPipelineLayout_, cmdBuf };
-}
-
-
-std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& projview)
-{
-	const auto inv = glm::inverse(projview);
-
-	std::vector<glm::vec4> frustumCorners;
-	for (unsigned int x = 0; x < 2; ++x)
-	{
-		for (unsigned int y = 0; y < 2; ++y)
-		{
-			for (unsigned int z = 0; z < 2; ++z)
-			{
-				const glm::vec4 pt = inv * glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
-				frustumCorners.push_back(pt / pt.w);
-			}
-		}
-	}
-
-	return frustumCorners;
-}
-
-std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view)
-{
-	return getFrustumCornersWorldSpace(proj * view);
-}
-
-glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio) {
-	const auto proj = glm::perspective(75.0f,aspectRatio, nearPlane,farPlane);
-	const auto corners = getFrustumCornersWorldSpace(proj, camView);
-
-	glm::vec3 center = glm::vec3(0, 0, 0);
-	for (const auto& v : corners)
-	{
-		center += glm::vec3(v);
-	}
-	center /= corners.size();
-
-	const auto lightView = glm::lookAt(center + transform.position, center, glm::vec3(0.0f, 1.0f, 0.0f));
-
-	float minX = std::numeric_limits<float>::max();
-	float maxX = std::numeric_limits<float>::lowest();
-	float minY = std::numeric_limits<float>::max();
-	float maxY = std::numeric_limits<float>::lowest();
-	float minZ = std::numeric_limits<float>::max();
-	float maxZ = std::numeric_limits<float>::lowest();
-	for (const auto& v : corners)
-	{
-		const auto trf = lightView * v;
-		minX = std::min(minX, trf.x);
-		maxX = std::max(maxX, trf.x);
-		minY = std::min(minY, trf.y);
-		maxY = std::max(maxY, trf.y);
-		minZ = std::min(minZ, trf.z);
-		maxZ = std::max(maxZ, trf.z);
-	}
-
-	// Tune this parameter according to the scene
-	constexpr float zMult = 10.0f;
-	if (minZ < 0)
-	{
-		minZ *= zMult;
-	}
-	else
-	{
-		minZ /= zMult;
-	}
-	if (maxZ < 0)
-	{
-		maxZ /= zMult;
-	}
-	else
-	{
-		maxZ *= zMult;
-	}
-
-	glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-	lightProjection[1][1] *= -1;
-	return lightProjection * lightView;
 }
 
 void DirectionalLight::updateUniBuffers(FPSCam* camera) {

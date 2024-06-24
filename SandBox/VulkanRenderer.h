@@ -54,6 +54,9 @@ struct SWChainSuppDetails {
 class VulkanRenderer {
 
 private:
+	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT = nullptr;
+	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT = nullptr;
+
 	uint32_t imageIndex_;
 
 	// SDL Surface handle
@@ -92,6 +95,7 @@ private:
 	bool rendered = false;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
+	void loadDebugUtilsFunctions(VkDevice device);
 	void updateIndividualDescriptorSet(MeshHelper::Material& m);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
@@ -132,8 +136,10 @@ public:
 	VkInstance instance_;
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	// Pipeline Layout for "gloabls" to change shaders
-	VkPipelineLayout pipeLineLayout_;
-	VkPipelineLayout animatedPipelineLayout_;
+	VkPipelineLayout opaquePipeLineLayout_;
+	VkPipelineLayout transparentPipeLineLayout_;
+	VkPipelineLayout opaqueAnimatedPipelineLayout_;
+	VkPipelineLayout transparentAnimatedPipelineLayout_;
 
 	// OPAQUE AND TRANSPARENT PIPELINES
 	VkPipeline opaquePipeline;
@@ -210,6 +216,9 @@ public:
 	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
 	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 	void freeEverything(int framesInFlight);
+	void separateDrawCalls();
+	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
+	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
 
 	void updateGeneratedImageDescriptorSets();
 

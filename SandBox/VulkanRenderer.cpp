@@ -541,6 +541,22 @@ void VulkanRenderer::createLogicalDevice() {
 
     vkGetDeviceQueue(device_, indices.graphicsFamily.value(), 0, &graphicsQueue_);
     vkGetDeviceQueue(device_, indices.presentFamily.value(), 0, &presentQueue_);
+
+    //loadDebugUtilsFunctions(device_);
+}
+
+void VulkanRenderer::loadDebugUtilsFunctions(VkDevice device) {
+    vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetDeviceProcAddr(device, "vkCmdBeginDebugUtilsLabelEXT");
+    if (!vkCmdBeginDebugUtilsLabelEXT) {
+        // Handle the error: the function could not be loaded
+        std::cerr << "Failed to load vkCmdBeginDebugUtilsLabelEXT" << std::endl;
+    }
+
+    vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT");
+    if (!vkCmdBeginDebugUtilsLabelEXT) {
+        // Handle the error: the function could not be loaded
+        std::cerr << "Failed to load vkCmdBeginDebugUtilsLabelEXT" << std::endl;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -795,6 +811,79 @@ GRAPHICS PIPELINE
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
+    if (node->mesh.primitives.size() > 0) {
+        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
+            if (p.numIndices > 0) {
+                MeshHelper::Material* mat = &(obj->pSceneMesh_->mats_[p.materialIndex]);
+                if (mat->alphaMode == "MASK") {
+                    GLTFObj::drawTransparentIndirectCall* drawCall = new GLTFObj::drawTransparentIndirectCall();
+                    drawCall->loadedAlphaInfo = GLTFObj::pcBlock{ 1, mat->alphaCutOff };
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    obj->transparentDraws[mat].push_back(drawCall);
+                }
+                else {
+                    GLTFObj::drawOpaqueIndirectCall* drawCall = new GLTFObj::drawOpaqueIndirectCall();
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    obj->opaqueDraws[mat].push_back(drawCall);
+                }
+            }
+        }
+    }
+    for (auto& child : node->children) {
+        sortDraw(obj, child);
+    }
+}
+
+void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node) {
+    if (node->mesh.primitives.size() > 0) {
+        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
+            if (p.numIndices > 0) {
+                MeshHelper::Material* mat = &(animObj->pSceneMesh_->mats_[p.materialIndex]);
+                if (mat->alphaMode == "MASK") {
+                    AnimatedGLTFObj::drawTransparentIndirectCall* drawCall = new AnimatedGLTFObj::drawTransparentIndirectCall();
+                    if (node->skin >= 0) {
+                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
+                    }
+                    drawCall->loadedAlphaInfo = AnimatedGLTFObj::pcBlock{ 1, mat->alphaCutOff };
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    animObj->transparentDraws[mat].push_back(drawCall);
+                }
+                else {
+                    AnimatedGLTFObj::drawOpaqueIndirectCall* drawCall = new AnimatedGLTFObj::drawOpaqueIndirectCall();
+                    if (node->skin >= 0) {
+                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
+                    }
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    animObj->opaqueDraws[mat].push_back(drawCall);
+                }
+            }
+        }
+    }
+    for (auto& child : node->children) {
+        sortDraw(animObj, child);
+    }
+}
+
+void VulkanRenderer::separateDrawCalls() {
+    for (GameObject* g : *gameObjects) {
+        GLTFObj* obj = g->renderTarget;
+        for (auto& node : obj->pNodes_) {
+            sortDraw(obj, node);
+        }
+    }
+    for (AnimatedGameObject* g : *animatedObjects) {
+        AnimatedGLTFObj* obj = g->renderTarget;
+        for (auto& node : obj->pNodes_) {
+            sortDraw(obj, node);
+        }
+    }
+}
+
 void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     // Read the file for the bytecodfe of the shaders
     std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
@@ -883,25 +972,13 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.blendEnable = VK_FALSE;
 
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.logicOpEnable = VK_FALSE;
-    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
     colorBlendingCInfo.attachmentCount = 1;
     colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-    colorBlendingCInfo.blendConstants[0] = 0.0f;
-    colorBlendingCInfo.blendConstants[1] = 0.0f;
-    colorBlendingCInfo.blendConstants[2] = 0.0f;
-    colorBlendingCInfo.blendConstants[3] = 0.0f;
 
     // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
@@ -921,12 +998,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     pcRange.size = sizeof(glm::mat4);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    VkPushConstantRange fragRange{};
-    fragRange.offset = sizeof(glm::mat4);
-    fragRange.size = sizeof(int) + sizeof(float);
-    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkPushConstantRange pcRanges[] = { pcRange, fragRange };
+    VkPushConstantRange pcRanges[] = { pcRange };
 
     // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
     // Initialize the pipeline layout with another create info struct
@@ -934,10 +1006,10 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeLineLayoutCInfo.setLayoutCount = 2;
     pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
     pipeLineLayoutCInfo.pPushConstantRanges = pcRanges;
 
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &pipeLineLayout_) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &opaquePipeLineLayout_) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
         std::_Xruntime_error("Failed to create pipeline layout!");
     }
@@ -960,7 +1032,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     graphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
     graphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
 
-    graphicsPipelineCInfo.layout = pipeLineLayout_;
+    graphicsPipelineCInfo.layout = opaquePipeLineLayout_;
 
     graphicsPipelineCInfo.renderPass = renderPass_;
     graphicsPipelineCInfo.subpass = 0;
@@ -973,6 +1045,57 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
         std::cout << "failed to create opaque graphics pipeline" << std::endl;
         std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
+
+    std::vector<char> alphaBlendShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/alphaDiscard.spv");
+
+    VkShaderModule alphaDiscardShaderModule = createShaderModule(alphaBlendShader);
+
+    VkPipelineShaderStageCreateInfo alphaDiscardStageCInfo{};
+    alphaDiscardStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    alphaDiscardStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    alphaDiscardStageCInfo.module = alphaDiscardShaderModule;
+    alphaDiscardStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo otherStages[] = { vertexStageCInfo, alphaDiscardStageCInfo };
+
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    // Array of structures for all of the framebuffers to set blend constants as blend factors
+    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendingCInfo.logicOpEnable = VK_FALSE;
+    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
+    colorBlendingCInfo.attachmentCount = 1;
+    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+
+    VkPushConstantRange fragRange{};
+    fragRange.offset = sizeof(glm::mat4);
+    fragRange.size = sizeof(int) + sizeof(float);
+    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange otherPCRanges[] = { pcRange, fragRange };
+
+    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
+    // Initialize the pipeline layout with another create info struct
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 2;
+    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pPushConstantRanges = otherPCRanges;
+
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &transparentPipeLineLayout_) != VK_SUCCESS) {
+        std::cout << "nah you buggin" << std::endl;
+        std::_Xruntime_error("Failed to create pipeline layout!");
+    }
+
+    graphicsPipelineCInfo.pStages = otherStages;
+    graphicsPipelineCInfo.layout = transparentPipeLineLayout_;
 
     // Create the object
     VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(transparentPipeline));
@@ -1069,25 +1192,13 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.blendEnable = VK_FALSE;
 
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.logicOpEnable = VK_FALSE;
-    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
     colorBlendingCInfo.attachmentCount = 1;
     colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-    colorBlendingCInfo.blendConstants[0] = 0.0f;
-    colorBlendingCInfo.blendConstants[1] = 0.0f;
-    colorBlendingCInfo.blendConstants[2] = 0.0f;
-    colorBlendingCInfo.blendConstants[3] = 0.0f;
 
     // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
@@ -1107,12 +1218,7 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     pcRange.size = sizeof(glm::mat4);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-    VkPushConstantRange fragRange{};
-    fragRange.offset = sizeof(glm::mat4);
-    fragRange.size = sizeof(int) + sizeof(float);
-    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkPushConstantRange pcRanges[] = { pcRange, fragRange };
+    VkPushConstantRange pcRanges[] = { pcRange };
 
     // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
     // Initialize the pipeline layout with another create info struct
@@ -1120,10 +1226,10 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeLineLayoutCInfo.setLayoutCount = 3;
     pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
     pipeLineLayoutCInfo.pPushConstantRanges = pcRanges;
 
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &animatedPipelineLayout_) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &opaqueAnimatedPipelineLayout_) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
         std::_Xruntime_error("Failed to create pipeline layout!");
     }
@@ -1146,7 +1252,7 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     graphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
     graphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
 
-    graphicsPipelineCInfo.layout = animatedPipelineLayout_;
+    graphicsPipelineCInfo.layout = opaqueAnimatedPipelineLayout_;
 
     graphicsPipelineCInfo.renderPass = renderPass_;
     graphicsPipelineCInfo.subpass = 0;
@@ -1159,6 +1265,57 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
         std::cout << "failed to create animated opaque graphics pipeline" << std::endl;
         std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
+
+    std::vector<char> alphaBlendShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/alphaDiscard.spv");
+
+    VkShaderModule alphaDiscardShaderModule = createShaderModule(alphaBlendShader);
+
+    VkPipelineShaderStageCreateInfo alphaDiscardStageCInfo{};
+    alphaDiscardStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    alphaDiscardStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    alphaDiscardStageCInfo.module = alphaDiscardShaderModule;
+    alphaDiscardStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo otherStages[] = { vertexStageCInfo, alphaDiscardStageCInfo };
+
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    // Array of structures for all of the framebuffers to set blend constants as blend factors
+    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendingCInfo.logicOpEnable = VK_FALSE;
+    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
+    colorBlendingCInfo.attachmentCount = 1;
+    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+
+    VkPushConstantRange fragRange{};
+    fragRange.offset = sizeof(glm::mat4);
+    fragRange.size = sizeof(int) + sizeof(float);
+    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange otherPCRanges[] = { pcRange, fragRange };
+
+    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
+    // Initialize the pipeline layout with another create info struct
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 3;
+    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
+    pipeLineLayoutCInfo.pPushConstantRanges = otherPCRanges;
+
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &transparentAnimatedPipelineLayout_) != VK_SUCCESS) {
+        std::cout << "nah you buggin" << std::endl;
+        std::_Xruntime_error("Failed to create pipeline layout!");
+    }
+
+    graphicsPipelineCInfo.pStages = otherStages;
+    graphicsPipelineCInfo.layout = transparentAnimatedPipelineLayout_;
 
     // Create the object
     VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(animatedTransparentPipeline));
@@ -1677,7 +1834,9 @@ void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, ui
     vkCmdBeginRenderPass(commandBuffer, &sbRPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Draw skybox
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyboxPipeline_);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
     pSkyBox_->pSkyBoxModel_->renderSkyBox(commandBuffer, pSkyBox_->skyboxPipeline_, pSkyBox_->skyBoxDescriptorSet_, pSkyBox_->skyBoxPipelineLayout_);
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -1693,6 +1852,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+        //VkDebugUtilsLabelEXT debugLabel{};
+        //debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+        //debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str();
+
+        //vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
         for (GameObject* gO : *(gameObjects)) {
@@ -1703,6 +1868,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
             animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
         }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
+
+        //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
     }
 
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
@@ -1742,21 +1909,37 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->transparentCurrentBound = false;
-        gO->renderTarget->render(commandBuffer, pipeLineLayout_, opaquePipeline, transparentPipeline);
+        gO->renderTarget->render(commandBuffer);
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
     }
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
-    for (AnimatedGameObject* animGO : *(animatedObjects)) {
-        animGO->renderTarget->transparentCurrentBound = false;
-        animGO->renderTarget->render(commandBuffer, animatedPipelineLayout_, animatedOpaquePipeline, animatedTransparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        gO->renderTarget->render(commandBuffer, opaqueAnimatedPipelineLayout_);
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
+    }
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (GameObject* gO : *(gameObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            gO->renderTarget->render(commandBuffer);
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
+        }
+    }
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            gO->renderTarget->render(commandBuffer, transparentAnimatedPipelineLayout_);
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
+        }
     }
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
-
     // After drawing is over, end the render pass
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1919,7 +2102,6 @@ void VulkanRenderer::freeEverything(int framesInFlight) {
         vkDestroyFence(device_, inFlightFences_[i], nullptr);
     }
 
-    vkDestroyPipelineLayout(device_, pipeLineLayout_, nullptr);
     vkDestroyRenderPass(device_, renderPass_, nullptr);
 
     for (auto imageView : SWChainImageViews_) {

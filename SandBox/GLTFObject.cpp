@@ -56,40 +56,34 @@ static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void GLTFObj::drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node, VkPipeline opaquePipeline, VkPipeline transparentPipeline) {
-    if (node->mesh.primitives.size() > 0) {
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(modelTransform));
-        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
-            if (p.numIndices > 0) {
-                MeshHelper::Material mat = pSceneMesh_->mats_[p.materialIndex];
-                pushConstantBlock.alphaMask = mat.alphaMode == "MASK";
-                pushConstantBlock.alphaCutoff = mat.alphaCutOff;
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(pushConstantBlock));
-                if (mat.alphaMode == "MASK" && !transparentCurrentBound) {
-                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
-                }
-                else if (mat.alphaMode != "MASK" && transparentCurrentBound) {
-                    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
-                }
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.descriptorSet), 0, nullptr);
-                vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
-            }
+void GLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(modelTransform));
+    for (auto& mat : opaqueDraws) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
+        for (auto& dC : mat.second) {
+            vkCmdDrawIndexed(commandBuffer, dC->numIndices, 1, dC->firstIndex, 0, 0);
         }
-    }
-    for (auto& child : node->children) {
-        drawIndexed(commandBuffer, pipelineLayout, child, opaquePipeline, transparentPipeline);
     }
 }
 
-void GLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline opaquePipeline, VkPipeline transparentPipeline) {
+void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(modelTransform));
+    for (auto& mat : transparentDraws) {
+        MeshHelper::Material* material = mat.first;
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
+        pcBlock newBlock{ (material->alphaMode == "MASK"), material->alphaCutOff};
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
+        for (auto& dC : mat.second) {
+            vkCmdDrawIndexed(commandBuffer, dC->numIndices, 1, dC->firstIndex, 0, 0);
+        }
+    }
+}
+
+void GLTFObj::render(VkCommandBuffer commandBuffer) {
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    for (auto& node : pNodes_) {
-        drawIndexed(commandBuffer, pipelineLayout, node, opaquePipeline, transparentPipeline);
-    }
 }
 
 void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
@@ -123,17 +117,8 @@ void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipel
 
 void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline_, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node) {
     if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = node->transform;
-        SceneNode* curParent = node->parent;
-        while (curParent) {
-            nodeTransform = curParent->transform * nodeTransform;
-            curParent = curParent->parent;
-        }
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(nodeTransform));
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
-                vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(descSet), 0, nullptr);
                 vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
             }
         }

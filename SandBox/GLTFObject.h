@@ -27,17 +27,29 @@ public:
 		uint32_t cascadeIndex;
 	} cascadeBlock;
 
+	struct drawOpaqueIndirectCall {
+		uint32_t firstIndex;
+		uint32_t numIndices;
+	};
+
 	struct pcBlock {
 		int alphaMask;
 		float alphaCutoff;
 	} pushConstantBlock;
 
+	struct drawTransparentIndirectCall {
+		pcBlock loadedAlphaInfo;
+		uint32_t firstIndex;
+		uint32_t numIndices;
+	};
+
 	bool isSkyBox_ = false;
 	MeshHelper* pSceneMesh_;
-
+	std::vector<SceneNode*> pNodes_;
 	glm::mat4 modelTransform;
 	glm::vec3* pos;
-
+	std::unordered_map<MeshHelper::Material*, std::vector<drawOpaqueIndirectCall*>> opaqueDraws;
+	std::unordered_map<MeshHelper::Material*, std::vector<drawTransparentIndirectCall*>> transparentDraws;
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF();
 
@@ -47,7 +59,9 @@ public:
 		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
 	} uniform;
 
-	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline opaquePipeline, VkPipeline transparentPipeline);
+	void render(VkCommandBuffer commandBuffer);
+	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 	void renderSkyBox(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout);
 	void genImageRenderSkybox(VkCommandBuffer commandBuffer);
@@ -61,13 +75,11 @@ private:
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
 	tinygltf::Model* pInputModel_;
-	std::vector<SceneNode*> pNodes_;
 
 	void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images);
 	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);
 	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
-	void drawIndexed(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* pNode, VkPipeline opaquePipeline, VkPipeline transparentPipeline);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node);

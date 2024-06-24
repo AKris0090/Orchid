@@ -9,10 +9,6 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float bias;
 } ubo;
 
-layout(push_constant) uniform pushConstant {
-    mat4 model;
-} pc;
-
 layout(location = 0) in vec3 inPosition;
 
 layout (location = 0) out vec3 outUVW;

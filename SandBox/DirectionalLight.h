@@ -55,8 +55,6 @@ private:
 	std::vector<char> readFile(const std::string& filename);
 
 	std::vector<glm::vec4> getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view);
-
-	void endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_);
 public:
 	struct PostRenderPacket {
 		VkRenderPassBeginInfo rpBeginInfo;
