@@ -312,8 +312,8 @@ SWChainSuppDetails VulkanRenderer::getDetails(VkPhysicalDevice physicalDevice) {
     return details;
 }
 
-QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDevice) {
-    QueueFamilyIndices indices;
+DeviceHelper::QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDevice) {
+    DeviceHelper::QueueFamilyIndices indices;
 
     // Get queue families and store in queueFamilies array
     uint32_t numQueueFamilies = 0;
@@ -327,6 +327,10 @@ QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDe
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
+        }
+
+        if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            indices.computeFamily = i;
         }
 
         VkBool32 prSupport = false;
@@ -379,7 +383,7 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
 
     // Specify how images from swap chain are handled
     // If graphics queue family is different from the present queue family, draw on the images in swap chain from graphics and submit them on present
-    QueueFamilyIndices indices = findQueueFamilies(GPU_);
+    DeviceHelper::QueueFamilyIndices indices = findQueueFamilies(GPU_);
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -422,7 +426,7 @@ PHYSICAL DEVICE AND LOGICAL DEVICE SELECTION AND CREATION METHODS
 
 bool VulkanRenderer::isSuitable(VkPhysicalDevice physicalDevice) {
     // If specific feature is needed, then poll for it, otherwise just return true for any suitable Vulkan supported GPU
-    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+    DeviceHelper::QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     // Make sure the extensions are supported using the method defined above
     bool extsSupported = checkExtSupport(physicalDevice);
@@ -489,7 +493,7 @@ void VulkanRenderer::pickPhysicalDevice() {
 
 // Setting up the logical device using the physical device
 void VulkanRenderer::createLogicalDevice() {
-    QueueFamilyIndices indices = findQueueFamilies(GPU_);
+    DeviceHelper::QueueFamilyIndices indices = findQueueFamilies(GPU_);
 
     // Create presentation queue with structs
     std::vector<VkDeviceQueueCreateInfo> queuecInfos;
@@ -510,6 +514,7 @@ void VulkanRenderer::createLogicalDevice() {
     VkPhysicalDeviceFeatures gpuFeatures{};
     gpuFeatures.samplerAnisotropy = VK_TRUE;
     gpuFeatures.depthClamp = VK_TRUE;
+    gpuFeatures.multiDrawIndirect = VK_TRUE;
 
 
     // Create the logical device, filling in with the create info structs
@@ -541,8 +546,11 @@ void VulkanRenderer::createLogicalDevice() {
 
     vkGetDeviceQueue(device_, indices.graphicsFamily.value(), 0, &graphicsQueue_);
     vkGetDeviceQueue(device_, indices.presentFamily.value(), 0, &presentQueue_);
+    vkGetDeviceQueue(device_, indices.computeFamily.value(), 0, &computeQueue_);
 
-    //loadDebugUtilsFunctions(device_);
+    pDevHelper_->queueFamilyIndex.graphicsFamily = indices.graphicsFamily.value();
+    pDevHelper_->queueFamilyIndex.presentFamily = indices.presentFamily.value();
+    pDevHelper_->queueFamilyIndex.computeFamily = indices.computeFamily.value();
 }
 
 void VulkanRenderer::loadDebugUtilsFunctions(VkDevice device) {
@@ -822,12 +830,95 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
                     drawCall->firstIndex = p.firstIndex;
                     drawCall->numIndices = p.numIndices;
                     obj->transparentDraws[mat].push_back(drawCall);
+                    obj->hasTransparent = true;
+
+                    float minX = obj->pSceneMesh_->vertices_[0].pos.x;
+                    float maxX = obj->pSceneMesh_->vertices_[0].pos.x;
+                    float minY = obj->pSceneMesh_->vertices_[0].pos.y;
+                    float maxY = obj->pSceneMesh_->vertices_[0].pos.y;
+                    float minZ = obj->pSceneMesh_->vertices_[0].pos.z;
+                    float maxZ = obj->pSceneMesh_->vertices_[0].pos.z;
+
+                    for (int index = p.firstIndex; index < p.firstIndex + p.numIndices; index++) {
+                        uint32_t i = obj->pSceneMesh_->indices_[index];
+                        if (obj->pSceneMesh_->vertices_[i].pos.x < minX) {
+                            minX = obj->pSceneMesh_->vertices_[i].pos.x;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.x > maxX) {
+                            maxX = obj->pSceneMesh_->vertices_[i].pos.x;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.y < minY) {
+                            minY = obj->pSceneMesh_->vertices_[i].pos.y;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.y > maxY) {
+                            maxY = obj->pSceneMesh_->vertices_[i].pos.y;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.z < minZ) {
+                            minZ = obj->pSceneMesh_->vertices_[i].pos.z;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.z > maxZ) {
+                            maxZ = obj->pSceneMesh_->vertices_[i].pos.z;
+                        }
+                    }
+
+                    DirectionalLight::shadowInstanceData shadowData{};
+                    shadowData.aabbExtent[0] = glm::vec4(minX, minY, minZ, 1.0f);
+                    shadowData.aabbExtent[1] = glm::vec4(maxX, maxY, maxZ, 1.0f);
+                    pDirectionalLight->shadowCallData.push_back(shadowData);
+
+                    pDirectionalLight->numStaticShadowDrawCalls++;
+
+                    DirectionalLight::depthMVP depth{};
+                    depth.model = obj->modelTransform;
+                    
+                    pDirectionalLight->pCBlockData.push_back(depth);
                 }
                 else {
                     GLTFObj::drawOpaqueIndirectCall* drawCall = new GLTFObj::drawOpaqueIndirectCall();
                     drawCall->firstIndex = p.firstIndex;
                     drawCall->numIndices = p.numIndices;
                     obj->opaqueDraws[mat].push_back(drawCall);
+
+                    float minX = obj->pSceneMesh_->vertices_[0].pos.x;
+                    float maxX = obj->pSceneMesh_->vertices_[0].pos.x;
+                    float minY = obj->pSceneMesh_->vertices_[0].pos.y;
+                    float maxY = obj->pSceneMesh_->vertices_[0].pos.y;
+                    float minZ = obj->pSceneMesh_->vertices_[0].pos.z;
+                    float maxZ = obj->pSceneMesh_->vertices_[0].pos.z;
+
+                    for (int index = p.firstIndex; index < p.firstIndex + p.numIndices; index++) {
+                        uint32_t i = obj->pSceneMesh_->indices_[index];
+                        if (obj->pSceneMesh_->vertices_[i].pos.x < minX) {
+                            minX = obj->pSceneMesh_->vertices_[i].pos.x;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.x > maxX) {
+                            maxX = obj->pSceneMesh_->vertices_[i].pos.x;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.y < minY) {
+                            minY = obj->pSceneMesh_->vertices_[i].pos.y;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.y > maxY) {
+                            maxY = obj->pSceneMesh_->vertices_[i].pos.y;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.z < minZ) {
+                            minZ = obj->pSceneMesh_->vertices_[i].pos.z;
+                        }
+                        if (obj->pSceneMesh_->vertices_[i].pos.z > maxZ) {
+                            maxZ = obj->pSceneMesh_->vertices_[i].pos.z;
+                        }
+                    }
+
+                    DirectionalLight::shadowInstanceData shadowData{};
+                    shadowData.aabbExtent[0] = glm::vec4(minX, minY, minZ, 1.0f);
+                    shadowData.aabbExtent[1] = glm::vec4(maxX, maxY, maxZ, 1.0f);
+                    pDirectionalLight->shadowCallData.push_back(shadowData);
+
+                    pDirectionalLight->numStaticShadowDrawCalls++;
+
+                    DirectionalLight::depthMVP depth{};
+                    depth.model = obj->modelTransform;
+
+                    pDirectionalLight->pCBlockData.push_back(depth);
                 }
             }
         }
@@ -851,6 +942,7 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
                     drawCall->firstIndex = p.firstIndex;
                     drawCall->numIndices = p.numIndices;
                     animObj->transparentDraws[mat].push_back(drawCall);
+                    animObj->hasTransparent = true;
                 }
                 else {
                     AnimatedGLTFObj::drawOpaqueIndirectCall* drawCall = new AnimatedGLTFObj::drawOpaqueIndirectCall();
@@ -875,6 +967,8 @@ void VulkanRenderer::separateDrawCalls() {
         for (auto& node : obj->pNodes_) {
             sortDraw(obj, node);
         }
+        pDirectionalLight->shadowVertices.insert(pDirectionalLight->shadowVertices.end(), obj->pSceneMesh_->vertices_.begin(), obj->pSceneMesh_->vertices_.end());
+        pDirectionalLight->shadowIndices.insert(pDirectionalLight->shadowIndices.end(), obj->pSceneMesh_->indices_.begin(), obj->pSceneMesh_->indices_.end());
     }
     for (AnimatedGameObject* g : *animatedObjects) {
         AnimatedGLTFObj* obj = g->renderTarget;
@@ -1823,12 +1917,20 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
         //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+        VkBuffer vertexBuffers[] = { pDirectionalLight->vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
 
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
-        for (GameObject* gO : *(gameObjects)) {
-            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
-        }
+
+        vkCmdBindVertexBuffers(cmdBuf.commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(cmdBuf.commandBuffer, pDirectionalLight->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindDescriptorSets(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipelineLayout_, 0, 1, &(pDirectionalLight->cascades[j].descriptorSet), 0, nullptr);
+        pDirectionalLight->executeCompute(cmdBuf.commandBuffer, j);
+        /*for (GameObject* gO : *(gameObjects)) {
+        gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
+        }*/
+
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
         for (AnimatedGameObject* animGO : *(animatedObjects)) {
             animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);

@@ -26,18 +26,7 @@ const std::vector<const char*> validationLayers = {
 };
 const std::vector<const char*> deviceExts = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-};
-
-// Queue family struct
-struct QueueFamilyIndices {
-	// Graphics families initialization
-	std::optional<uint32_t> graphicsFamily;
-
-	// Present families initialization as well
-	std::optional<uint32_t> presentFamily;
-
-	// General check to make things a bit more conveneient
-	bool isComplete() { return (graphicsFamily.has_value() && presentFamily.has_value()); }
+	VK_EXT_MULTI_DRAW_EXTENSION_NAME
 };
 
 // Swap chain support details struct - holds information to create the swapchain
@@ -97,7 +86,7 @@ private:
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	void loadDebugUtilsFunctions(VkDevice device);
 	void updateIndividualDescriptorSet(MeshHelper::Material& m);
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
+	DeviceHelper::QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
 	SWChainSuppDetails getDetails(VkPhysicalDevice physicalDevice);
@@ -157,7 +146,8 @@ public:
 	// Device and queue handles
 	VkQueue graphicsQueue_;
 	VkQueue presentQueue_;
-	QueueFamilyIndices QFIndices_;
+	VkQueue computeQueue_;
+	DeviceHelper::QueueFamilyIndices QFIndices_;
 	VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_8_BIT;
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <optional>
 #include <vulkan/vulkan.hpp>
 #include <fstream>
 #include <glm/glm.hpp>
@@ -14,18 +15,32 @@
 #define PI 3.141592653589793
 #define SHADOW_MAP_CASCADE_COUNT 4
 
-
 class DeviceHelper {
 private:
     VkDevice device_;
     VkPhysicalDevice gpu_;
     VkCommandPool commandPool_;
     VkQueue graphicsQueue_;
+    VkQueue computeQueue_;
     VkDescriptorPool descPool_;
     VkDescriptorSetLayout texDescSetLayout_;
 
 public:
     DeviceHelper() {};
+
+    // Queue family struct
+    struct QueueFamilyIndices {
+        // Graphics families initialization
+        std::optional<uint32_t> graphicsFamily;
+
+        // Present families initialization as well
+        std::optional<uint32_t> presentFamily;
+
+        std::optional<uint32_t> computeFamily;
+
+        // General check to make things a bit more conveneient
+        bool isComplete() { return (graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value()); }
+    } queueFamilyIndex;
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -43,6 +58,7 @@ public:
     VkPhysicalDevice            getPhysicalDevice()         { return this->gpu_; };
     VkCommandPool               getCommandPool()            { return this->commandPool_; };
     VkQueue                     getGraphicsQueue()          { return this->graphicsQueue_; };
+    VkQueue                     getComputeQueue()           { return this->computeQueue_; };
     VkDescriptorPool            getDescriptorPool()         { return this->descPool_; };
     const VkDescriptorSetLayout getTextureDescSetLayout()   { return this->texDescSetLayout_; };
 
@@ -50,6 +66,7 @@ public:
     void setPhysicalDevice(VkPhysicalDevice pD)                 { this->gpu_ = pD; };
     void setCommandPool(VkCommandPool comPool)                  { this->commandPool_ = comPool; };
     void setGraphicsQueue(VkQueue gQ)                           { this->graphicsQueue_ = gQ; };
+    void setComputeQueue(VkQueue cQ)                            { this->graphicsQueue_ = cQ; };
     void setDescriptorPool(VkDescriptorPool desPool)            { this->descPool_ = desPool; };
     void setTextureDescSetLayout(VkDescriptorSetLayout descSet) { this->texDescSetLayout_ = descSet; };
 };

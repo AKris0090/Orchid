@@ -8,7 +8,7 @@
 
 class GLTFObj {
 public:
-	bool transparentCurrentBound = false;
+	bool hasTransparent = false;
 
 	struct SceneNode {
 		SceneNode* parent;
@@ -80,7 +80,7 @@ private:
 	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);
 	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, std::vector<SceneNode*>& nodes);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer, VkPipeline pipeline, VkDescriptorSet descSet, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void genImageDrawSkyBoxIndexed(VkCommandBuffer commandBuffer, SceneNode* node);
 };

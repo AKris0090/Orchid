@@ -5,6 +5,149 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
+void DirectionalLight::updateComputeBuffers(int cascadeIndex) {
+	for(depthMVP mvp : pCBlockData) {
+		mvp.cascadeIndex = cascadeIndex;
+	}
+
+	memcpy(mappedPushConstantBuffer, pCBlockData.data(), pCBlockData.size() * sizeof(depthMVP));
+}
+
+void DirectionalLight::executeCompute(VkCommandBuffer commandBuffer, int cascadeIndex) {
+	updateComputeBuffers(cascadeIndex);
+
+	vkCmdDrawIndexedIndirect(commandBuffer, indirectCommandsBuffer, 0, static_cast<uint32_t>(drawIndexedIndirectCommands.size()), sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void DirectionalLight::createVertexBuffer() {
+	VkDeviceSize bufferSize = sizeof(MeshHelper::Vertex) * shadowVertices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, shadowVertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device_, stagingBufferMemory);
+
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+	pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer, bufferSize);
+
+	vkDestroyBuffer(device_, stagingBuffer, nullptr);
+	vkFreeMemory(device_, stagingBufferMemory, nullptr);
+}
+
+void DirectionalLight::createIndexBuffer() {
+	VkDeviceSize bufferSize = sizeof(shadowIndices[0]) * shadowIndices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, shadowIndices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device_, stagingBufferMemory);
+
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+	pDevHelper_->copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+	vkDestroyBuffer(device_, stagingBuffer, nullptr);
+	vkFreeMemory(device_, stagingBufferMemory, nullptr);
+}
+
+void DirectionalLight::createInstanceBuffers() {
+	drawIndexedIndirectCommands.resize(numStaticShadowDrawCalls);
+
+	VkDeviceSize bufferSize = drawIndexedIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
+
+	VkBuffer indirectCommandStagingBuffer;
+	VkDeviceMemory indirectCommandStagingBufferMemory;
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indirectCommandStagingBuffer, indirectCommandStagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device_, indirectCommandStagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, drawIndexedIndirectCommands.data(), (size_t)bufferSize);
+	vkUnmapMemory(device_, indirectCommandStagingBufferMemory);
+
+	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indirectCommandsBuffer, indirectCommandsBufferMemory);
+	pDevHelper_->copyBuffer(indirectCommandStagingBuffer, indirectCommandsBuffer, bufferSize);
+
+	vkDestroyBuffer(device_, indirectCommandStagingBuffer, nullptr);
+	vkFreeMemory(device_, indirectCommandStagingBufferMemory, nullptr);
+
+	indirectStats.drawCount = numStaticShadowDrawCalls;
+
+	pDevHelper_->createBuffer(sizeof(indirectStats), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indirectDrawCountBuffer, indirectDrawCountBufferMemory);
+
+	VkDeviceSize dataBufferSize = shadowCallData.size() * sizeof(shadowInstanceData);
+
+	pDevHelper_->createBuffer(dataBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indirectCommandStagingBuffer, indirectCommandStagingBufferMemory);
+
+	vkMapMemory(device_, indirectCommandStagingBufferMemory, 0, dataBufferSize, 0, &data);
+	memcpy(data, shadowCallData.data(), (size_t)dataBufferSize);
+	vkUnmapMemory(device_, indirectCommandStagingBufferMemory);
+
+	pDevHelper_->createBuffer(dataBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceDataBuffer, instanceDataBufferMemory);
+
+	VkCommandBuffer commandBuffer = pDevHelper_->beginSingleTimeCommands();
+
+	VkBufferCopy copyRegion{};
+	copyRegion.size = dataBufferSize;
+	vkCmdCopyBuffer(commandBuffer, indirectCommandStagingBuffer, instanceDataBuffer, 1, &copyRegion);
+
+	if (pDevHelper_->queueFamilyIndex.graphicsFamily != pDevHelper_->queueFamilyIndex.computeFamily) {
+		VkBufferMemoryBarrier buffer_barrier = {
+			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			nullptr,
+			VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+			0,
+			pDevHelper_->queueFamilyIndex.graphicsFamily.value(),
+			pDevHelper_->queueFamilyIndex.computeFamily.value(),
+			indirectCommandsBuffer,
+			0,
+			bufferSize
+		};
+
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			0,
+			0, nullptr,
+			1, &buffer_barrier,
+			0, nullptr);
+	}
+
+	pDevHelper_->endSingleTimeCommands(commandBuffer);
+
+	vkDestroyBuffer(device_, indirectCommandStagingBuffer, nullptr);
+	vkFreeMemory(device_, indirectCommandStagingBufferMemory, nullptr);
+
+
+	VkDeviceSize pcBufferSize = pCBlockData.size() * sizeof(depthMVP);
+
+	pDevHelper_->createBuffer(pcBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, pcBlockBuffer, pcBlockBufferMemory);
+
+	vkMapMemory(device_, pcBlockBufferMemory, 0, bufferSize, 0, &mappedPushConstantBuffer);
+	memcpy(mappedPushConstantBuffer, pCBlockData.data(), (size_t)bufferSize);
+
+
+	createVertexBuffer();
+	createIndexBuffer();
+}
+
+void DirectionalLight::setupCompute() {
+	createInstanceBuffers();
+
+
+
+	// TODO: setup compute
+
+	// TODO: setup command buffers
+}
+
 uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
@@ -192,16 +335,27 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	UBOLayoutBinding.pImmutableSamplers = nullptr;
 
+	VkDescriptorSetLayoutBinding pcBufferBinding{};
+	pcBufferBinding.binding = 1;
+	pcBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	pcBufferBinding.descriptorCount = 1;
+	pcBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pcBufferBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding bindingArray[] = { UBOLayoutBinding, pcBufferBinding };
+
 	VkDescriptorSetLayoutCreateInfo layoutCInfo{};
 	layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutCInfo.bindingCount = 1;
-	layoutCInfo.pBindings = &(UBOLayoutBinding);
+	layoutCInfo.bindingCount = 2;
+	layoutCInfo.pBindings = bindingArray;
 
 	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &cascadeSetLayout);
 
-	std::array<VkDescriptorPoolSize, 1> poolSizes{};
+	std::array<VkDescriptorPoolSize, 2> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSizes[1].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo poolCInfo{};
 	poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -228,6 +382,11 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 		descriptorBufferInfo.offset = 0;
 		descriptorBufferInfo.range = sizeof(UBO);
 
+		VkDescriptorBufferInfo pcDescriptorBufferInfo{};
+		pcDescriptorBufferInfo.buffer = pcBlockBuffer;
+		pcDescriptorBufferInfo.offset = 0;
+		pcDescriptorBufferInfo.range = sizeof(depthMVP);
+
 		VkWriteDescriptorSet bufferWriteSet{};
 		bufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		bufferWriteSet.dstSet = cascades[i].descriptorSet;
@@ -237,9 +396,18 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 		bufferWriteSet.descriptorCount = 1;
 		bufferWriteSet.pBufferInfo = &descriptorBufferInfo;
 
-		std::array<VkWriteDescriptorSet, 1> descriptors = { bufferWriteSet };
+		VkWriteDescriptorSet pcBufferWriteSet{};
+		pcBufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		pcBufferWriteSet.dstSet = cascades[i].descriptorSet;
+		pcBufferWriteSet.dstBinding = 1;
+		pcBufferWriteSet.dstArrayElement = 0;
+		pcBufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		pcBufferWriteSet.descriptorCount = 1;
+		pcBufferWriteSet.pBufferInfo = &pcDescriptorBufferInfo;
 
-		vkUpdateDescriptorSets(device_, 1, descriptors.data(), 0, NULL);
+		std::array<VkWriteDescriptorSet, 2> descriptors = { bufferWriteSet, pcBufferWriteSet };
+
+		vkUpdateDescriptorSets(device_, 2, descriptors.data(), 0, NULL);
 	}
 }
 
@@ -674,4 +842,5 @@ void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, Vk
 	this->imageFormat_ = VK_FORMAT_D16_UNORM;
 	this->swapChainHeight = swapChainHeight;
 	this->swapChainWidth = swapChainWidth;
+	this->numStaticShadowDrawCalls = 0;
 }

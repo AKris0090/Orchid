@@ -5,6 +5,22 @@
 
 class DirectionalLight {
 private:
+	VkBuffer indirectCommandsBuffer;
+	VkDeviceMemory indirectCommandsBufferMemory;
+
+	VkBuffer indirectDrawCountBuffer;
+	VkDeviceMemory indirectDrawCountBufferMemory;
+
+	VkBuffer instanceDataBuffer;
+	VkDeviceMemory instanceDataBufferMemory;
+
+	VkBuffer pcBlockBuffer;
+	VkDeviceMemory pcBlockBufferMemory;
+
+	VkBuffer pushConstantBuffer;
+	void* mappedPushConstantBuffer;
+	VkDeviceMemory pushConstantBufferMemory;
+
 	struct {
 		VkImage image;
 		VkDeviceMemory memory;
@@ -26,7 +42,7 @@ private:
 	VkSemaphore computeSemaphore_;
 	VkDescriptorSetLayout computeDescriptorSetLayout_;
 	VkDescriptorSet computeDescriptorSet_;
-	VkPipelineLayout computePipeline_;
+	VkPipelineLayout computePipelineLayout_;
 	VkPipeline computePipeline_;
 
 	VkDevice device_;
@@ -59,13 +75,12 @@ private:
 	void createFrameBuffer();
 
 	void createPipeline();
-
+	void createInstanceBuffers();
 	uint32_t findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
 	std::vector<char> readFile(const std::string& filename);
-
-	std::vector<glm::vec4> getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view);
 public:
+	uint32_t numStaticShadowDrawCalls = 0;
 	struct PostRenderPacket {
 		VkRenderPassBeginInfo rpBeginInfo;
 		VkPipeline pipline;
@@ -96,6 +111,30 @@ public:
 		uint32_t cascadeIndex;
 	} depthPushBlock;
 
+	struct shadowInstanceData {
+		std::array<glm::vec4, 2> aabbExtent;
+	};
+	
+	struct {
+		uint32_t drawCount;
+	} indirectStats;
+
+	std::vector<VkDrawIndexedIndirectCommand> drawIndexedIndirectCommands;
+	std::vector<shadowInstanceData> shadowCallData;
+	std::vector<depthMVP> pCBlockData;
+
+	std::vector<MeshHelper::Vertex> shadowVertices;
+	std::vector<uint32_t> shadowIndices;
+
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	void createVertexBuffer();
+	void createIndexBuffer();
+
 	struct UBO {
 		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
 	};
@@ -114,5 +153,8 @@ public:
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
 	void genShadowMap(FPSCam* camera);
 	void updateUniBuffers(FPSCam* camera);
-	glm::mat4 getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio);
+	
+	void setupCompute();
+	void updateComputeBuffers(int cascadeIndex);
+	void executeCompute(VkCommandBuffer commandBuffer, int cascadeIndex);
 };

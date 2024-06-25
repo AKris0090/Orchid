@@ -105,6 +105,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->createLogicalDevice();
     pVkR_->pDevHelper_->setDevice(pVkR_->device_);
     pVkR_->pDevHelper_->setGraphicsQueue(pVkR_->graphicsQueue_);
+    pVkR_->pDevHelper_->setComputeQueue(pVkR_->computeQueue_);
     std::cout << "created logical device" << std::endl;
 
     pVkR_->createSWChain(pWindow_);
@@ -168,6 +169,11 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDirectionalLight->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     pVkR_->camera_.setProjectionMatrix();
+
+    pVkR_->separateDrawCalls();
+
+    pVkR_->pDirectionalLight->setupCompute();
+
     pVkR_->pDirectionalLight->genShadowMap(&(pVkR_->camera_));
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
@@ -240,8 +246,6 @@ void GraphicsManager::startVulkan() {
     for (int i = 0; i < numModels_; i++) {
         (gameObjects)[i]->setTransform(glm::mat4(1.0f));
     }
-
-    pVkR_->separateDrawCalls();
 }
 
 void GraphicsManager::loopUpdate() {

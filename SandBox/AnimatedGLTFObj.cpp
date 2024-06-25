@@ -70,6 +70,9 @@ void AnimatedGLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelin
 }
 
 void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    if (!hasTransparent) {
+        return;
+    }
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(modelTransform));
     for (auto& mat : transparentDraws) {
         MeshHelper::Material* material = mat.first;
@@ -90,23 +93,20 @@ void AnimatedGLTFObj::render(VkCommandBuffer commandBuffer, VkPipelineLayout pip
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 }
 
-void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
-    if (node->mesh.primitives.size() > 0) {
-        glm::mat4 nodeTransform = modelTransform;
-        cascadeBlock.model = nodeTransform;
-        if (node->skin >= 0) {
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(skins_[node->skin].descriptorSet), 0, nullptr);
-        }
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &cascadeDescriptor, 0, nullptr);
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
-        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
-            if (p.numIndices > 0) {
-                vkCmdDrawIndexed(commandBuffer, p.numIndices, 1, p.firstIndex, 0, 0);
-            }
+void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    for (auto& mat : opaqueDraws) {
+        for (auto& dC : mat.second) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, dC->skinSet, 0, nullptr);
+            vkCmdDrawIndexed(commandBuffer, dC->numIndices, 1, dC->firstIndex, 0, 0);
         }
     }
-    for (auto& child : node->children) {
-        drawShadow(commandBuffer, pipelineLayout, animatedShadowPipeline, cascadeIndex, cascadeDescriptor, child);
+    if (hasTransparent) {
+        for (auto& mat : transparentDraws) {
+            for (auto& dC : mat.second) {
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, dC->skinSet, 0, nullptr);
+                vkCmdDrawIndexed(commandBuffer, dC->numIndices, 1, dC->firstIndex, 0, 0);
+            }
+        }
     }
 }
 
@@ -114,12 +114,12 @@ void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayo
     VkBuffer vertexBuffers[] = { pSceneMesh_->getVertexBuffer() };
     VkDeviceSize offsets[] = { 0 };
     cascadeBlock.cascadeIndex = cascadeIndex;
+    cascadeBlock.model = modelTransform;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, pSceneMesh_->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    for (auto& node : pNodes_) {
-        drawShadow(commandBuffer, pipelineLayout, animatedShadowPipeline, cascadeIndex, cascadeDescriptor, node);
-    }
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &cascadeDescriptor, 0, nullptr);
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
+    drawShadow(commandBuffer, pipelineLayout);
 }
 
 glm::mat4 AnimatedGLTFObj::SceneNode::getLocalMatrix() {
@@ -852,5 +852,5 @@ AnimatedGLTFObj::AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelpe
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
     pSceneMesh_ = new MeshHelper(deviceHelper);
-    transparentCurrentBound = false;
+    hasTransparent = false;
 }

@@ -8,7 +8,7 @@
 
 class AnimatedGLTFObj {
 public:
-	bool transparentCurrentBound = false;
+	bool hasTransparent = false;
 
 	struct SceneNode {
 		SceneNode* parent;
@@ -124,7 +124,7 @@ private:
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
 };;
