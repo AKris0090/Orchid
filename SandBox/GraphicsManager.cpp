@@ -65,7 +65,21 @@ void GraphicsManager::imGUIUpdate() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
+    ImGui::Begin("Frame Stats");
+    ImGui::SeparatorText("Frame Statistics");
+
+    auto framesPerSecond = 1.0f / Time::getDeltaTime();
+    ImGui::Text("afps: %.0f rad/s", glm::two_pi<float>() * framesPerSecond);
+    ImGui::Text("dfps: %.0f °/s", glm::degrees(glm::two_pi<float>() * framesPerSecond));
+    ImGui::Text("rfps: %.0f", framesPerSecond);
+    ImGui::Text("rpms: %.0f", framesPerSecond * 60.0f);
+    ImGui::Text("  ft: %.2f ms", Time::getDeltaTime() * 1000.0f);
+    ImGui::Text("   f: %.d", this->numFrames);
+
+    ImGui::End();
+
     ImGui::Begin("Var Editor");
+
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight->transform.position.x);
     ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight->transform.position.y);
     ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight->transform.position.z);
@@ -248,7 +262,28 @@ void GraphicsManager::startVulkan() {
     }
 }
 
+void GraphicsManager::updateShdowModelMatrices() {
+    uint32_t index = 0;
+    for (GameObject* g : gameObjects) {
+        GLTFObj* obj = g->renderTarget;
+        for (auto& node : obj->pNodes_) {
+            if (node->mesh.primitives.size() > 0) {
+                for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
+                    if (p.numIndices > 0) {
+                        pVkR_->pDirectionalLight->pCBlockData[index].model = obj->modelTransform;
+                        index++;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void GraphicsManager::loopUpdate() {
+    numFrames++;
+
+    updateShdowModelMatrices();
+
     imGUIUpdate();
 
     pVkR_->drawNewFrame(pWindow_, MAX_FRAMES_IN_FLIGHT);
@@ -275,4 +310,5 @@ GraphicsManager::GraphicsManager(std::vector<std::string> staticModelPaths, std:
     this->pVkR_ = nullptr;
     this->windowWidth = windowWidth;
     this->windowHeight = windowHeight;
+    this->numFrames = 0;
 }

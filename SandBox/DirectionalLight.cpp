@@ -5,11 +5,10 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-void DirectionalLight::updateComputeBuffers(int cascadeIndex) {
-	for(depthMVP mvp : pCBlockData) {
-		mvp.cascadeIndex = cascadeIndex;
-	}
+void DirectionalLight::createComputeResources() {
+}
 
+void DirectionalLight::updateComputeBuffers(int cascadeIndex) {
 	memcpy(mappedPushConstantBuffer, pCBlockData.data(), pCBlockData.size() * sizeof(depthMVP));
 }
 
@@ -58,8 +57,6 @@ void DirectionalLight::createIndexBuffer() {
 }
 
 void DirectionalLight::createInstanceBuffers() {
-	drawIndexedIndirectCommands.resize(numStaticShadowDrawCalls);
-
 	VkDeviceSize bufferSize = drawIndexedIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
 
 	VkBuffer indirectCommandStagingBuffer;
@@ -125,25 +122,37 @@ void DirectionalLight::createInstanceBuffers() {
 	vkDestroyBuffer(device_, indirectCommandStagingBuffer, nullptr);
 	vkFreeMemory(device_, indirectCommandStagingBufferMemory, nullptr);
 
-
 	VkDeviceSize pcBufferSize = pCBlockData.size() * sizeof(depthMVP);
 
 	pDevHelper_->createBuffer(pcBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, pcBlockBuffer, pcBlockBufferMemory);
 
-	vkMapMemory(device_, pcBlockBufferMemory, 0, bufferSize, 0, &mappedPushConstantBuffer);
-	memcpy(mappedPushConstantBuffer, pCBlockData.data(), (size_t)bufferSize);
-
+	vkMapMemory(device_, pcBlockBufferMemory, 0, pcBufferSize, 0, &mappedPushConstantBuffer);
+	memcpy(mappedPushConstantBuffer, pCBlockData.data(), (size_t)pcBufferSize);
 
 	createVertexBuffer();
 	createIndexBuffer();
+
+	cascadeIndexBuffers.resize(SHADOW_MAP_CASCADE_COUNT);
+	cascadeIndexBufferMemories.resize(SHADOW_MAP_CASCADE_COUNT);
+	cascadeIndices.resize(SHADOW_MAP_CASCADE_COUNT);
+
+	for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		cascadeIndices[i] = cascadeUBO{ i };
+
+		VkDeviceSize bufferSize = sizeof(cascadeUBO);
+		pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, cascadeIndexBuffers[i], cascadeIndexBufferMemories[i]);
+
+		void* mapData;
+		vkMapMemory(device_, cascadeIndexBufferMemories[i], 0, VK_WHOLE_SIZE, 0, &mapData);
+		memcpy(mapData, &(cascadeIndices[i]), bufferSize);
+	}
 }
 
 void DirectionalLight::setupCompute() {
 	createInstanceBuffers();
 
-
-
 	// TODO: setup compute
+	createComputeResources();
 
 	// TODO: setup command buffers
 }
@@ -335,27 +344,36 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	UBOLayoutBinding.pImmutableSamplers = nullptr;
 
+	VkDescriptorSetLayoutBinding cascadeUBOLayoutBinding{};
+	cascadeUBOLayoutBinding.binding = 1;
+	cascadeUBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	cascadeUBOLayoutBinding.descriptorCount = 1;
+	cascadeUBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	cascadeUBOLayoutBinding.pImmutableSamplers = nullptr;
+
 	VkDescriptorSetLayoutBinding pcBufferBinding{};
-	pcBufferBinding.binding = 1;
+	pcBufferBinding.binding = 2;
 	pcBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	pcBufferBinding.descriptorCount = 1;
 	pcBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	pcBufferBinding.pImmutableSamplers = nullptr;
 
-	VkDescriptorSetLayoutBinding bindingArray[] = { UBOLayoutBinding, pcBufferBinding };
+	VkDescriptorSetLayoutBinding bindingArray[] = { UBOLayoutBinding, cascadeUBOLayoutBinding, pcBufferBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutCInfo{};
 	layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutCInfo.bindingCount = 2;
+	layoutCInfo.bindingCount = 3;
 	layoutCInfo.pBindings = bindingArray;
 
 	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &cascadeSetLayout);
 
-	std::array<VkDescriptorPoolSize, 2> poolSizes{};
+	std::array<VkDescriptorPoolSize, 3> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSizes[1].descriptorCount = 1;
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[1].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSizes[2].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo poolCInfo{};
 	poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -382,10 +400,15 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 		descriptorBufferInfo.offset = 0;
 		descriptorBufferInfo.range = sizeof(UBO);
 
+		VkDescriptorBufferInfo cascadeDescriptorBufferInfo{};
+		cascadeDescriptorBufferInfo.buffer = cascadeIndexBuffers[i];
+		cascadeDescriptorBufferInfo.offset = 0;
+		cascadeDescriptorBufferInfo.range = sizeof(cascadeUBO);
+
 		VkDescriptorBufferInfo pcDescriptorBufferInfo{};
 		pcDescriptorBufferInfo.buffer = pcBlockBuffer;
 		pcDescriptorBufferInfo.offset = 0;
-		pcDescriptorBufferInfo.range = sizeof(depthMVP);
+		pcDescriptorBufferInfo.range = (pCBlockData.size() * sizeof(depthMVP));
 
 		VkWriteDescriptorSet bufferWriteSet{};
 		bufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -396,18 +419,27 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 		bufferWriteSet.descriptorCount = 1;
 		bufferWriteSet.pBufferInfo = &descriptorBufferInfo;
 
+		VkWriteDescriptorSet cascadeUBOBufferWriteSet{};
+		cascadeUBOBufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		cascadeUBOBufferWriteSet.dstSet = cascades[i].descriptorSet;
+		cascadeUBOBufferWriteSet.dstBinding = 1;
+		cascadeUBOBufferWriteSet.dstArrayElement = 0;
+		cascadeUBOBufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		cascadeUBOBufferWriteSet.descriptorCount = 1;
+		cascadeUBOBufferWriteSet.pBufferInfo = &cascadeDescriptorBufferInfo;
+
 		VkWriteDescriptorSet pcBufferWriteSet{};
 		pcBufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		pcBufferWriteSet.dstSet = cascades[i].descriptorSet;
-		pcBufferWriteSet.dstBinding = 1;
+		pcBufferWriteSet.dstBinding = 2;
 		pcBufferWriteSet.dstArrayElement = 0;
 		pcBufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		pcBufferWriteSet.descriptorCount = 1;
 		pcBufferWriteSet.pBufferInfo = &pcDescriptorBufferInfo;
 
-		std::array<VkWriteDescriptorSet, 2> descriptors = { bufferWriteSet, pcBufferWriteSet };
+		std::array<VkWriteDescriptorSet, 3> descriptors = { bufferWriteSet, cascadeUBOBufferWriteSet, pcBufferWriteSet };
 
-		vkUpdateDescriptorSets(device_, 2, descriptors.data(), 0, NULL);
+		vkUpdateDescriptorSets(device_, 3, descriptors.data(), 0, NULL);
 	}
 }
 

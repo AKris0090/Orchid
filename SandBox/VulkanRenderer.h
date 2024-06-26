@@ -26,7 +26,7 @@ const std::vector<const char*> validationLayers = {
 };
 const std::vector<const char*> deviceExts = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	VK_EXT_MULTI_DRAW_EXTENSION_NAME
+	VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME
 };
 
 // Swap chain support details struct - holds information to create the swapchain
@@ -207,8 +207,10 @@ public:
 	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 	void freeEverything(int framesInFlight);
 	void separateDrawCalls();
-	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
+	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node, uint32_t vertexOffset, uint32_t indexOffset);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
+
+	MeshHelper::Material* defaultMat;
 
 	void updateGeneratedImageDescriptorSets();
 

@@ -4,12 +4,14 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include "VulkanRenderer.h"
+#include "Time.h"
 
 class GraphicsManager {
 private:
 	int MAX_FRAMES_IN_FLIGHT = 3;
 	float windowWidth;
 	float windowHeight;
+	int numFrames;
 
 	int numModels_;
 	int numAnimatedModels_;
@@ -25,6 +27,7 @@ private:
 	void setupImGUI();
 	void startVulkan();
 	void startSDL();
+	void updateShdowModelMatrices();
 
 public:
 	VulkanRenderer* pVkR_;

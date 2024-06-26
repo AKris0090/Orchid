@@ -35,15 +35,17 @@ private:
 		glm::mat4 viewProjectionMatrix;
 	};
 
-	VkQueue computeQueue_;
-	VkCommandPool computeCommandPool_;
-	VkCommandBuffer computeCommandBuffer_;
-	VkFence computeFence_;
-	VkSemaphore computeSemaphore_;
-	VkDescriptorSetLayout computeDescriptorSetLayout_;
-	VkDescriptorSet computeDescriptorSet_;
-	VkPipelineLayout computePipelineLayout_;
-	VkPipeline computePipeline_;
+	struct ComputeSet {
+		VkQueue computeQueue_;
+		VkCommandPool computeCommandPool_;
+		VkCommandBuffer computeCommandBuffer_;
+		VkFence computeFence_;
+		VkSemaphore computeSemaphore_;
+		VkDescriptorSetLayout computeDescriptorSetLayout_;
+		VkDescriptorSet computeDescriptorSet_;
+		VkPipelineLayout computePipelineLayout_;
+		VkPipeline computePipeline_;
+	} compute;
 
 	VkDevice device_;
 	DeviceHelper* pDevHelper_;
@@ -108,8 +110,7 @@ public:
 
 	struct depthMVP {
 		glm::mat4 model;
-		uint32_t cascadeIndex;
-	} depthPushBlock;
+	};
 
 	struct shadowInstanceData {
 		std::array<glm::vec4, 2> aabbExtent;
@@ -120,6 +121,7 @@ public:
 	} indirectStats;
 
 	std::vector<VkDrawIndexedIndirectCommand> drawIndexedIndirectCommands;
+
 	std::vector<shadowInstanceData> shadowCallData;
 	std::vector<depthMVP> pCBlockData;
 
@@ -135,9 +137,21 @@ public:
 	void createVertexBuffer();
 	void createIndexBuffer();
 
+	struct cascadeUBO {
+		int cascadeIndex;
+		char pad[12];
+	};
+
+	std::vector<VkBuffer> cascadeIndexBuffers;
+	std::vector<VkDeviceMemory> cascadeIndexBufferMemories;
+
+	std::vector<cascadeUBO> cascadeIndices;
+
 	struct UBO {
 		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
 	};
+
+	std::vector<VkBuffer> perCascadeIndirectDrawBuffer;
 
 	std::vector<VkBuffer> uniformBuffer;
 	std::vector<void*> mappedBuffer;
@@ -155,6 +169,7 @@ public:
 	void updateUniBuffers(FPSCam* camera);
 	
 	void setupCompute();
+	void createComputeResources();
 	void updateComputeBuffers(int cascadeIndex);
 	void executeCompute(VkCommandBuffer commandBuffer, int cascadeIndex);
 };

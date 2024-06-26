@@ -3,7 +3,8 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-VulkanRenderer::VulkanRenderer() {}
+VulkanRenderer::VulkanRenderer() {
+}
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject ubo;
@@ -819,7 +820,8 @@ GRAPHICS PIPELINE
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
+void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node, uint32_t vertexOffset, uint32_t indexOffset) {
+    uint32_t count = 0;
     if (node->mesh.primitives.size() > 0) {
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
@@ -860,6 +862,14 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
                             maxZ = obj->pSceneMesh_->vertices_[i].pos.z;
                         }
                     }
+
+                    VkDrawIndexedIndirectCommand command{};
+                    command.firstIndex = p.firstIndex + indexOffset; // will be written by compute shader
+                    command.indexCount = p.numIndices; // will be written by compute shader
+                    command.firstInstance = pDirectionalLight->drawIndexedIndirectCommands.size();
+                    command.instanceCount = 1;
+                    command.vertexOffset = vertexOffset;
+                    pDirectionalLight->drawIndexedIndirectCommands.push_back(command);
 
                     DirectionalLight::shadowInstanceData shadowData{};
                     shadowData.aabbExtent[0] = glm::vec4(minX, minY, minZ, 1.0f);
@@ -908,6 +918,14 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
                         }
                     }
 
+                    VkDrawIndexedIndirectCommand command{};
+                    command.firstIndex = p.firstIndex + indexOffset; // will be written by compute shader
+                    command.indexCount = p.numIndices; // will be written by compute shader
+                    command.firstInstance = pDirectionalLight->drawIndexedIndirectCommands.size();
+                    command.instanceCount = 1;
+                    command.vertexOffset = vertexOffset;
+                    pDirectionalLight->drawIndexedIndirectCommands.push_back(command);
+
                     DirectionalLight::shadowInstanceData shadowData{};
                     shadowData.aabbExtent[0] = glm::vec4(minX, minY, minZ, 1.0f);
                     shadowData.aabbExtent[1] = glm::vec4(maxX, maxY, maxZ, 1.0f);
@@ -924,7 +942,7 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
         }
     }
     for (auto& child : node->children) {
-        sortDraw(obj, child);
+        sortDraw(obj, child, vertexOffset, indexOffset);
     }
 }
 
@@ -963,9 +981,11 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
 
 void VulkanRenderer::separateDrawCalls() {
     for (GameObject* g : *gameObjects) {
+        uint32_t vertexOffset = pDirectionalLight->shadowVertices.size();
+        uint32_t indexOffset = pDirectionalLight->shadowIndices.size();
         GLTFObj* obj = g->renderTarget;
         for (auto& node : obj->pNodes_) {
-            sortDraw(obj, node);
+            sortDraw(obj, node, vertexOffset, indexOffset);
         }
         pDirectionalLight->shadowVertices.insert(pDirectionalLight->shadowVertices.end(), obj->pSceneMesh_->vertices_.begin(), obj->pSceneMesh_->vertices_.end());
         pDirectionalLight->shadowIndices.insert(pDirectionalLight->shadowIndices.end(), obj->pSceneMesh_->indices_.begin(), obj->pSceneMesh_->indices_.end());

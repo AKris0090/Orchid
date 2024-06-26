@@ -11,8 +11,9 @@ std::vector<std::string> staticModelPaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/trimmedFroge.glb"
 };
 
 std::vector<std::string> animatedModelPaths = {
@@ -79,6 +80,9 @@ int main(int argc, char* argv[]) {
     graphicsManager.gameObjects[0]->isDynamic = true; // helmet
     graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
 
+    //graphicsManager.gameObjects[2]->transform.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+    //graphicsManager.gameObjects[2]->transform.position = glm::vec3(0.0f, 0.25f, 0.0f);
+
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.gameObjects[1]->transform.scale);
 
@@ -98,6 +102,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
     graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
+
 
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
         g->renderTarget->modelTransform = g->transform.to_matrix();

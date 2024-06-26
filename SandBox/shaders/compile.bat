@@ -11,4 +11,5 @@ C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/shadowMap.vert -o spv/shadowMap.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/animShader.vert -o spv/animvert.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/animShadowShader.vert -o spv/animShadowMapVert.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/alphaDiscard.frag -o spv/alphaDiscard.spv
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/shadowCull.comp -o spv/shadowCull.spv
 pause
