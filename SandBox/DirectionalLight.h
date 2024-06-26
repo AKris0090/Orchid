@@ -19,16 +19,6 @@ private:
 		glm::mat4 viewProjectionMatrix;
 	};
 
-	VkQueue computeQueue_;
-	VkCommandPool computeCommandPool_;
-	VkCommandBuffer computeCommandBuffer_;
-	VkFence computeFence_;
-	VkSemaphore computeSemaphore_;
-	VkDescriptorSetLayout computeDescriptorSetLayout_;
-	VkDescriptorSet computeDescriptorSet_;
-	VkPipelineLayout computePipeline_;
-	VkPipeline computePipeline_;
-
 	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
