@@ -8,8 +8,6 @@
 
 class AnimatedGLTFObj {
 public:
-	bool transparentCurrentBound = false;
-
 	struct SceneNode {
 		SceneNode* parent;
 		uint32_t index;

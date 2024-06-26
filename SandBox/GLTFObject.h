@@ -8,8 +8,6 @@
 
 class GLTFObj {
 public:
-	bool transparentCurrentBound = false;
-
 	struct SceneNode {
 		SceneNode* parent;
 		std::vector<SceneNode*> children;

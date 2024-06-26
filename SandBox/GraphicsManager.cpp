@@ -237,10 +237,6 @@ void GraphicsManager::startVulkan() {
     pVkR_->createSemaphores(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created semaphores \n" << std::endl;
 
-    for (int i = 0; i < numModels_; i++) {
-        (gameObjects)[i]->setTransform(glm::mat4(1.0f));
-    }
-
     pVkR_->separateDrawCalls();
 }
 

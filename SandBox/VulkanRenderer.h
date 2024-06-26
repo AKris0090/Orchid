@@ -120,6 +120,15 @@ public:
 	float depthBias;
 	VkExtent2D SWChainExtent_;
 
+	std::vector<MeshHelper::Vertex> vertices_;
+	std::vector<uint32_t>indices_;
+
+	VkBuffer vertexBuffer_;
+	VkDeviceMemory vertexBufferMemory_;
+
+	VkBuffer indexBuffer_;
+	VkDeviceMemory indexBufferMemory_;
+
 	std::vector<GameObject*>* gameObjects;
 	std::vector<AnimatedGameObject*>* animatedObjects;
 

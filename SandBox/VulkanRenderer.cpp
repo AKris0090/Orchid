@@ -816,18 +816,18 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 MeshHelper::Material* mat = &(obj->pSceneMesh_->mats_[p.materialIndex]);
-                if (mat->alphaMode == "MASK") {
+                if (mat->alphaMode == "OPAQUE") {
+                    GLTFObj::drawOpaqueIndirectCall* drawCall = new GLTFObj::drawOpaqueIndirectCall();
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    obj->opaqueDraws[mat].push_back(drawCall);
+                }
+                else {
                     GLTFObj::drawTransparentIndirectCall* drawCall = new GLTFObj::drawTransparentIndirectCall();
                     drawCall->loadedAlphaInfo = GLTFObj::pcBlock{ 1, mat->alphaCutOff };
                     drawCall->firstIndex = p.firstIndex;
                     drawCall->numIndices = p.numIndices;
                     obj->transparentDraws[mat].push_back(drawCall);
-                }
-                else {
-                    GLTFObj::drawOpaqueIndirectCall* drawCall = new GLTFObj::drawOpaqueIndirectCall();
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    obj->opaqueDraws[mat].push_back(drawCall);
                 }
             }
         }
@@ -842,7 +842,16 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
         for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
             if (p.numIndices > 0) {
                 MeshHelper::Material* mat = &(animObj->pSceneMesh_->mats_[p.materialIndex]);
-                if (mat->alphaMode == "MASK") {
+                if (mat->alphaMode == "OPAQUE") {
+                    AnimatedGLTFObj::drawOpaqueIndirectCall* drawCall = new AnimatedGLTFObj::drawOpaqueIndirectCall();
+                    if (node->skin >= 0) {
+                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
+                    }
+                    drawCall->firstIndex = p.firstIndex;
+                    drawCall->numIndices = p.numIndices;
+                    animObj->opaqueDraws[mat].push_back(drawCall);
+                }
+                else {
                     AnimatedGLTFObj::drawTransparentIndirectCall* drawCall = new AnimatedGLTFObj::drawTransparentIndirectCall();
                     if (node->skin >= 0) {
                         drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
@@ -851,15 +860,6 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
                     drawCall->firstIndex = p.firstIndex;
                     drawCall->numIndices = p.numIndices;
                     animObj->transparentDraws[mat].push_back(drawCall);
-                }
-                else {
-                    AnimatedGLTFObj::drawOpaqueIndirectCall* drawCall = new AnimatedGLTFObj::drawOpaqueIndirectCall();
-                    if (node->skin >= 0) {
-                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
-                    }
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    animObj->opaqueDraws[mat].push_back(drawCall);
                 }
             }
         }
