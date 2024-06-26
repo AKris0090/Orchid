@@ -348,8 +348,8 @@ void IrradianceCube::createPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -402,7 +402,7 @@ void IrradianceCube::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff,
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-void IrradianceCube::render() {
+void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     VkClearValue clearValues[1];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
@@ -435,6 +435,11 @@ void IrradianceCube::render() {
     scissor.extent.width = width_;
     scissor.extent.height = height_;
     vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+    VkBuffer vertexBuffers[] = { vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(cmdBuf, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iRCubeImage_);
 
@@ -469,7 +474,7 @@ void IrradianceCube::render() {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipeline_);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipelineLayout_, 0, 1, &iRCubeDescriptorSet_, 0, NULL);
 
-            pSkybox_->pSkyBoxModel_->genImageRenderSkybox(cmdBuf);
+            pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
 
             vkCmdEndRenderPass(cmdBuf);
 
@@ -505,7 +510,7 @@ void IrradianceCube::render() {
     endCommandBuffer(device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
 }
 
-void IrradianceCube::geniRCube() {
+void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     createiRCubeImage();
     createiRCubeImageView();
     createiRCubeImageSampler();
@@ -516,7 +521,7 @@ void IrradianceCube::geniRCube() {
     createiRCubeDescriptors();
 
     createPipeline();
-    render();
+    render(vertexBuffer, indexBuffer);
 }
 
 IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {

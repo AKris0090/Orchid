@@ -805,6 +805,44 @@ void VulkanRenderer::createDescriptorSetLayout() {
     }
 }
 
+void VulkanRenderer::createVertexBuffer() {
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices_.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices_.data(), (size_t)bufferSize);
+    vkUnmapMemory(device_, stagingBufferMemory);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
+    pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize);
+
+    vkDestroyBuffer(device_, stagingBuffer, nullptr);
+    vkFreeMemory(device_, stagingBufferMemory, nullptr);
+}
+
+void VulkanRenderer::createIndexBuffer() {
+    VkDeviceSize bufferSize = sizeof(indices_[0]) * indices_.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, indices_.data(), (size_t)bufferSize);
+    vkUnmapMemory(device_, stagingBufferMemory);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer_, indexBufferMemory_);
+    pDevHelper_->copyBuffer(stagingBuffer, indexBuffer_, bufferSize);
+
+    vkDestroyBuffer(device_, stagingBuffer, nullptr);
+    vkFreeMemory(device_, stagingBufferMemory, nullptr);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 GRAPHICS PIPELINE
@@ -812,25 +850,12 @@ GRAPHICS PIPELINE
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
-    if (node->mesh.primitives.size() > 0) {
-        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
-            if (p.numIndices > 0) {
-                MeshHelper::Material* mat = &(obj->pSceneMesh_->mats_[p.materialIndex]);
-                if (mat->alphaMode == "OPAQUE") {
-                    GLTFObj::drawOpaqueIndirectCall* drawCall = new GLTFObj::drawOpaqueIndirectCall();
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    obj->opaqueDraws[mat].push_back(drawCall);
-                }
-                else {
-                    GLTFObj::drawTransparentIndirectCall* drawCall = new GLTFObj::drawTransparentIndirectCall();
-                    drawCall->loadedAlphaInfo = GLTFObj::pcBlock{ 1, mat->alphaCutOff };
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    obj->transparentDraws[mat].push_back(drawCall);
-                }
-            }
-        }
+    Material* mat = &(obj->mats_[node->mesh->materialIndex]);
+    if (mat->alphaMode == "OPAQUE") {
+        obj->opaqueDraws[mat].push_back(node);
+    }
+    else {
+        obj->transparentDraws[mat].push_back(node);
     }
     for (auto& child : node->children) {
         sortDraw(obj, child);
@@ -838,31 +863,12 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
 }
 
 void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node) {
-    if (node->mesh.primitives.size() > 0) {
-        for (MeshHelper::PrimitiveObjIndices p : node->mesh.primitives) {
-            if (p.numIndices > 0) {
-                MeshHelper::Material* mat = &(animObj->pSceneMesh_->mats_[p.materialIndex]);
-                if (mat->alphaMode == "OPAQUE") {
-                    AnimatedGLTFObj::drawOpaqueIndirectCall* drawCall = new AnimatedGLTFObj::drawOpaqueIndirectCall();
-                    if (node->skin >= 0) {
-                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
-                    }
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    animObj->opaqueDraws[mat].push_back(drawCall);
-                }
-                else {
-                    AnimatedGLTFObj::drawTransparentIndirectCall* drawCall = new AnimatedGLTFObj::drawTransparentIndirectCall();
-                    if (node->skin >= 0) {
-                        drawCall->skinSet = &(animObj->skins_[node->skin].descriptorSet);
-                    }
-                    drawCall->loadedAlphaInfo = AnimatedGLTFObj::pcBlock{ 1, mat->alphaCutOff };
-                    drawCall->firstIndex = p.firstIndex;
-                    drawCall->numIndices = p.numIndices;
-                    animObj->transparentDraws[mat].push_back(drawCall);
-                }
-            }
-        }
+    Material* mat = &(animObj->mats_[node->mesh->materialIndex]);
+    if (mat->alphaMode == "OPAQUE") {
+        animObj->opaqueDraws[mat].push_back(node);
+    }
+    else {
+        animObj->transparentDraws[mat].push_back(node);
     }
     for (auto& child : node->children) {
         sortDraw(animObj, child);
@@ -870,21 +876,22 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
 }
 
 void VulkanRenderer::separateDrawCalls() {
+
     for (GameObject* g : *gameObjects) {
         GLTFObj* obj = g->renderTarget;
-        for (auto& node : obj->pNodes_) {
+        for (auto& node : obj->pParentNodes) {
             sortDraw(obj, node);
         }
     }
     for (AnimatedGameObject* g : *animatedObjects) {
         AnimatedGLTFObj* obj = g->renderTarget;
-        for (auto& node : obj->pNodes_) {
+        for (auto& node : obj->pParentNodes) {
             sortDraw(obj, node);
         }
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
+void VulkanRenderer::createGraphicsPipeline() {
     // Read the file for the bytecodfe of the shaders
     std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
     std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
@@ -915,8 +922,8 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getAttributeDescriptions();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -1105,7 +1112,7 @@ void VulkanRenderer::createGraphicsPipeline(MeshHelper* m) {
     }
 }
 
-void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
+void VulkanRenderer::createAnimatedGraphicsPipeline() {
     // Read the file for the bytecodfe of the shaders
     std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/animvert.spv");
     std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
@@ -1136,8 +1143,8 @@ void VulkanRenderer::createAnimatedGraphicsPipeline(MeshHelper* m) {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getAnimatedAttributeDescriptions();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAnimatedAttributeDescriptions();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -1338,8 +1345,8 @@ void VulkanRenderer::createSkyBoxPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -1597,10 +1604,10 @@ void VulkanRenderer::createUniformBuffers() {
 void VulkanRenderer::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size()) + 1;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
-    poolSizes[1].descriptorCount = (this->numMats_) * 10 * static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
+    poolSizes[1].descriptorCount = (this->numMats_) * 10 + static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1608,7 +1615,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolCInfo.pPoolSizes = poolSizes.data();
     //  needs to render separate font atlas ( + 1)
-    poolCInfo.maxSets = this->numImages_ * static_cast<uint32_t>(SWChainImages_.size()) + 1;
+    poolCInfo.maxSets = (this->numMats_ * this->numImages_) + static_cast<uint32_t>(SWChainImages_.size()) + 1;
 
     if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &descriptorPool_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the descriptor pool!");
@@ -1649,7 +1656,7 @@ void VulkanRenderer::createDescriptorSets() {
     }
 }
 
-void VulkanRenderer::updateIndividualDescriptorSet(MeshHelper::Material& m) {
+void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
     VkDescriptorImageInfo BRDFLutImageInfo{};
     BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
@@ -1713,12 +1720,12 @@ void VulkanRenderer::updateIndividualDescriptorSet(MeshHelper::Material& m) {
 
 void VulkanRenderer::updateGeneratedImageDescriptorSets() {
     for (GameObject* gO : *gameObjects) {
-        for (MeshHelper::Material& m : gO->renderTarget->pSceneMesh_->mats_) {
+        for (Material& m : gO->renderTarget->mats_) {
             updateIndividualDescriptorSet(m);
         }
     }
     for (AnimatedGameObject* aGO : *animatedObjects) {
-        for (MeshHelper::Material& m : aGO->renderTarget->pSceneMesh_->mats_) {
+        for (Material& m : aGO->renderTarget->mats_) {
             updateIndividualDescriptorSet(m);
         }
     }
@@ -1808,7 +1815,7 @@ void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, ui
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyboxPipeline_);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
-    pSkyBox_->pSkyBoxModel_->renderSkyBox(commandBuffer, pSkyBox_->skyboxPipeline_, pSkyBox_->skyBoxDescriptorSet_, pSkyBox_->skyBoxPipelineLayout_);
+    pSkyBox_->pSkyBoxModel_->drawSkyBoxIndexed(commandBuffer);
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -1821,22 +1828,22 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
-    for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+    //for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+    //    //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
 
-        DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
-        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
-        for (GameObject* gO : *(gameObjects)) {
-            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
-        }
-        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
-        for (AnimatedGameObject* animGO : *(animatedObjects)) {
-            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
-        }
-        vkCmdEndRenderPass(cmdBuf.commandBuffer);
+    //    DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
+    //    vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
+    //    for (GameObject* gO : *(gameObjects)) {
+    //       gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
+    //    }
+    //    vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
+    //    for (AnimatedGameObject* animGO : *(animatedObjects)) {
+    //        animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
+    //    }
+    //    vkCmdEndRenderPass(cmdBuf.commandBuffer);
 
         //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
-    }
+    //}
 
     // Start the scene render pass
     VkRenderPassBeginInfo RPBeginInfo{};
@@ -1873,36 +1880,40 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    VkBuffer vertexBuffers[] = { vertexBuffer_ };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->render(commandBuffer);
-        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
-    }
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (AnimatedGameObject* gO : *(animatedObjects)) {
-        gO->renderTarget->render(commandBuffer, opaqueAnimatedPipelineLayout_);
-        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
-    }
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (GameObject* gO : *(gameObjects)) {
-        if (gO->renderTarget->transparentDraws.size() > 0) {
-            gO->renderTarget->render(commandBuffer);
-            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
-        }
-    }
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (AnimatedGameObject* gO : *(animatedObjects)) {
-        if (gO->renderTarget->transparentDraws.size() > 0) {
-            gO->renderTarget->render(commandBuffer, transparentAnimatedPipelineLayout_);
-            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
-        }
-    }
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+
+    //for (GameObject* gO : *(gameObjects)) {
+    //    gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
+    //}
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    //for (AnimatedGameObject* gO : *(animatedObjects)) {
+    //    gO->renderTarget->render(commandBuffer, opaqueAnimatedPipelineLayout_);
+    //    gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
+    //}
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    //for (GameObject* gO : *(gameObjects)) {
+    //    if (gO->renderTarget->transparentDraws.size() > 0) {
+    //        gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
+    //    }
+    //}
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    //for (AnimatedGameObject* gO : *(animatedObjects)) {
+    //    if (gO->renderTarget->transparentDraws.size() > 0) {
+    //        gO->renderTarget->render(commandBuffer, transparentAnimatedPipelineLayout_);
+    //        gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
+    //    }
+    //}
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {

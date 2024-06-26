@@ -164,9 +164,24 @@ void Skybox::createSkyBoxDescriptorSetLayout() {
 }
 
 void Skybox::createDescriptorSet() {
+    std::array<VkDescriptorPoolSize, 1> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[0].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolCInfo{};
+    poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolCInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolCInfo.pPoolSizes = poolSizes.data();
+    poolCInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &skyBoxDescriptorPool_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the descriptor pool!");
+    }
+
     VkDescriptorSetAllocateInfo allocateInfo{};
     allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+    allocateInfo.descriptorPool = skyBoxDescriptorPool_;
     allocateInfo.descriptorSetCount = 1;
     VkDescriptorSetLayout skySet = skyBoxDescriptorSetLayout_;
     allocateInfo.pSetLayouts = &(skySet);
@@ -199,9 +214,9 @@ Skybox::Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHel
     this->device_ = devHelper->getDevice();
 }
 
-void Skybox::loadSkyBox() {
+void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
 	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_);
-	pSkyBoxModel_->loadGLTF();
+	pSkyBoxModel_->loadGLTF(globalVertexOffset, globalIndexOffset);
     pSkyBoxModel_->isSkyBox_ = true;
     skyBoxLoad();
 }

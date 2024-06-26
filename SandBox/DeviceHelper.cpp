@@ -1,6 +1,6 @@
 #include "DeviceHelper.h"
 
-VkImageView DeviceHelper::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) {
+VkImageView DeviceHelper::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const {
     VkImageViewCreateInfo imageViewCInfo{};
     imageViewCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCInfo.image = image;
@@ -20,7 +20,7 @@ VkImageView DeviceHelper::createImageView(VkImage image, VkFormat format, VkImag
     return tempImageView;
 }
 
-void DeviceHelper::createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+void DeviceHelper::createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
     VkImageCreateInfo imageCInfo{};
     imageCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -56,7 +56,7 @@ void DeviceHelper::createImage(uint32_t width, uint32_t height, uint32_t mipLeve
     vkBindImageMemory(device_, image, imageMemory, 0);
 }
 
-void DeviceHelper::createSkyBoxImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+void DeviceHelper::createSkyBoxImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
     VkImageCreateInfo imageCInfo{};
     imageCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -93,7 +93,7 @@ void DeviceHelper::createSkyBoxImage(uint32_t width, uint32_t height, uint32_t m
     vkBindImageMemory(device_, image, imageMemory, 0);
 }
 
-uint32_t DeviceHelper::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t DeviceHelper::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
 
@@ -106,7 +106,7 @@ uint32_t DeviceHelper::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
     std::_Xruntime_error("Failed to find a suitable memory type!");
 }
 
-VkCommandBuffer DeviceHelper::beginSingleTimeCommands() {
+VkCommandBuffer DeviceHelper::beginSingleTimeCommands() const {
     VkCommandBufferAllocateInfo allocateInfo{};
     allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -126,14 +126,12 @@ VkCommandBuffer DeviceHelper::beginSingleTimeCommands() {
 }
 
 std::vector<char> DeviceHelper::readFile(const std::string& filename) {
-    // Start reading at end of the file and read as binary
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
         std::cout << "failed to open file" << std::endl;
         std::_Xruntime_error("");
     }
 
-    // Read the file, create the buffer, and return it
     size_t fileSize = file.tellg();
     std::vector<char> buffer((size_t)file.tellg());
     file.seekg(0);
@@ -143,7 +141,7 @@ std::vector<char> DeviceHelper::readFile(const std::string& filename) {
     return buffer;
 }
 
-void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{};
@@ -157,7 +155,7 @@ void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(device_, commandPool_, 1, &commandBuffer);
 }
 
-void DeviceHelper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+void DeviceHelper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
     VkBufferCopy copyRegion{};
@@ -167,7 +165,7 @@ void DeviceHelper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
     endSingleTimeCommands(commandBuffer);
 }
 
-void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const {
     VkBufferCreateInfo bufferCInfo{};
     bufferCInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferCInfo.size = size;

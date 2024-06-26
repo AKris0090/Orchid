@@ -27,7 +27,7 @@ public:
 
 	PhysicsManager() {};
 
-	physx::PxShape* createPhysicsFromMesh(MeshHelper* mesh, physx::PxMaterial* material, glm::vec3 scale);
+	physx::PxShape* createPhysicsFromMesh(GameObject* g, physx::PxMaterial* material, glm::vec3 scale);
 	void addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent);
 	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale);
 

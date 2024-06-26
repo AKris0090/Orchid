@@ -18,7 +18,7 @@ void FPSCam::baseUpdate() {
     this->up = inverseViewMatrix[1];
 }
 
-void FPSCam::update(Transform playerTransform) {
+void FPSCam::update() {
     glm::vec3 localDisplacement{ 0.0f, 0.0f, 0.0f };
     if (Input::forwardKeyDown()) {
         localDisplacement -= trueForward;

@@ -7,16 +7,16 @@
 #define WINDOW_HEIGHT 720.0f
 
 std::vector<std::string> staticModelPaths = {
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf", - 
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf" -
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
 };
 
 std::vector<std::string> animatedModelPaths = {
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb", - 
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
 
-    PhysicsManager physicsManager = PhysicsManager();
+    //PhysicsManager physicsManager = PhysicsManager();
 
     // Camera Setup
     graphicsManager.pVkR_->camera_.setVelocity(glm::vec3(0.0f));
@@ -71,44 +71,44 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
 
     graphicsManager.setup();
-    physicsManager.setup();
+    //physicsManager.setup();
 
     // Scene objects
-    graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f); //sponza
+    //graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f); //sponza
 
-    graphicsManager.gameObjects[0]->isDynamic = true; // helmet
-    graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
+    //graphicsManager.gameObjects[0]->isDynamic = true; // helmet
+    //graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
 
-    physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
-    physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.gameObjects[1]->transform.scale);
+    //physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
+   // physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.gameObjects[1]->transform.scale);
 
-    for (GameObject* g : graphicsManager.gameObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
-    }
+    //for (GameObject* g : graphicsManager.gameObjects) {
+        //g->renderTarget->modelTransform = g->transform.to_matrix();
+    //}
 
     // second helmet
-    //graphicsManager.animatedObjects[1]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
-    //graphicsManager.animatedObjects[1]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
+    //------graphicsManager.animatedObjects[1]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+    //------graphicsManager.animatedObjects[1]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
 
-    graphicsManager.animatedObjects[0]->isPlayerObj = true;
+    //graphicsManager.animatedObjects[0]->isPlayerObj = true;
 
     // WOLF
-    //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
-    //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
-    graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
-    graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
-    graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
+    // ----- graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
+    // ----- graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
+    //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
+    //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
+    //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
-    for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
-    }
+    //for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
+        //g->renderTarget->modelTransform = g->transform.to_matrix();
+    //}
 
     // Player setup
-    PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
-    player->playerGameObject = graphicsManager.animatedObjects[0];
-    player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
-    player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
-    player->playerGameObject = graphicsManager.animatedObjects[0];
+    // PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
+    // player->playerGameObject = graphicsManager.animatedObjects[0];
+    // player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
+    // player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
+    // player->playerGameObject = graphicsManager.animatedObjects[0];
 
     bool running = true;
     while (running) {
@@ -153,25 +153,25 @@ int main(int argc, char* argv[]) {
         std::cout << "\r" << "time: " << Time::getDeltaTime();
 
         // player update -----------
-        player->loopUpdate(&(graphicsManager.pVkR_->camera_));
-        //std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
+        //player->loopUpdate(&(graphicsManager.pVkR_->camera_));
+        // --------- std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
 
         // update camera ------------
-        if (graphicsManager.pVkR_->camera_.isAttatched) {
-            graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
-        }
-        else {
-            graphicsManager.pVkR_->camera_.update(player->transform);
-        }
+        //if (graphicsManager.pVkR_->camera_.isAttatched) {
+        //    graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
+        //}
+        //else {
+            graphicsManager.pVkR_->camera_.update();
+        //}
 
         // player animation -------------
-        if (player->isWalking) {
-            graphicsManager.animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
-        }
+        //if (player->isWalking) {
+        //    graphicsManager.animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
+        //}
 
         // update physics -------------------
         // includes game object position updates
-        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
+        //physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
         
         // update graphics -------------------
         graphicsManager.loopUpdate();

@@ -65,6 +65,16 @@ void GraphicsManager::imGUIUpdate() {
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
+    ImGui::Begin("FPS MENU");
+    auto framesPerSecond = 1.0f / Time::getDeltaTime();
+    ImGui::Text("afps: %.0f rad/s", glm::two_pi<float>() * framesPerSecond);
+    ImGui::Text("dfps: %.0f °/s", glm::degrees(glm::two_pi<float>() * framesPerSecond));
+    ImGui::Text("rfps: %.0f", framesPerSecond);
+    ImGui::Text("rpms: %.0f", framesPerSecond * 60.0f);
+    ImGui::Text("  ft: %.2f ms", Time::getDeltaTime() * 1000.0f);
+    ImGui::Text("   f: %.d", frameCount);
+    ImGui::End();
+
     ImGui::Begin("Var Editor");
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight->transform.position.x);
     ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight->transform.position.y);
@@ -88,7 +98,7 @@ void GraphicsManager::imGUIUpdate() {
 
 void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_ = new DeviceHelper();
-    pVkR_->camera_.update(pVkR_->camera_.transform);
+    pVkR_->camera_.update();
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
 
@@ -131,36 +141,6 @@ void GraphicsManager::startVulkan() {
 
     std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
 
-    for (std::string s : pStaticModelPaths_) {
-        GameObject* newGO = new GameObject();
-        GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
-        mod->loadGLTF();
-        newGO->setGLTFObj(mod);
-        gameObjects.push_back(newGO);
-
-        pVkR_->numMats_ += static_cast<uint32_t>(mod->getMeshHelper()->mats_.size());
-        pVkR_->numImages_ += static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
-
-        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
-    }
-
-    for (std::string s : pAnimatedModelPaths_) {
-        AnimatedGameObject* newAnimGO = new AnimatedGameObject();
-        AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_);
-        mod->loadGLTF();
-        newAnimGO->setAnimatedGLTFObj(mod);
-        animatedObjects.push_back(newAnimGO);
-
-        pVkR_->numMats_ += static_cast<uint32_t>(mod->getMeshHelper()->mats_.size());
-        pVkR_->numImages_ += static_cast<uint32_t>(mod->getMeshHelper()->images_.size());
-
-        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
-    }
-
-    // link renderable objects to member game objects
-    pVkR_->gameObjects = &gameObjects;
-    pVkR_->animatedObjects = &animatedObjects;
-
     pVkR_->createDescriptorPool();
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
@@ -178,18 +158,68 @@ void GraphicsManager::startVulkan() {
     pVkR_->createDescriptorSetLayout();
     std::cout << "created desc set layout" << std::endl;
 
+    std::cout << "loading skybox\n" << std::endl;
+
+    uint32_t globalVertexOffset = 0;
+    uint32_t globalIndexOffset = 0;
+
+    pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_);
+    pVkR_->pSkyBox_->loadSkyBox(globalVertexOffset, globalIndexOffset);
+    pVkR_->createSkyBoxPipeline();
+
+    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalVertices(); i++) {
+        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->mesh->stagingVertices_[i]);
+    }
+
+    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices(); i++) {
+        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->mesh->stagingIndices_[i]);
+    }
+
+    std::cout << "DONE loading skybox\n" << std::endl;
+
+    globalVertexOffset += pVkR_->pSkyBox_->pSkyBoxModel_->getTotalVertices();
+    globalIndexOffset += pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices();
+
+    //for (std::string s : pStaticModelPaths_) {
+    //    GameObject* newGO = new GameObject();
+    //    GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
+    //    mod->loadGLTF(globalVertexOffset, globalIndexOffset);
+    //    newGO->setGLTFObj(mod);
+    //    gameObjects.push_back(newGO);
+
+    //    globalVertexOffset += mod->getTotalVertices();
+    //    globalIndexOffset += mod->getTotalIndices();
+
+    //    pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
+    //    pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+
+    //    std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+    //}
+
+    //for (std::string s : pAnimatedModelPaths_) {
+    //    AnimatedGameObject* newAnimGO = new AnimatedGameObject();
+    //    AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_);
+    //    mod->loadGLTF();
+    //    newAnimGO->setAnimatedGLTFObj(mod);
+    //    animatedObjects.push_back(newAnimGO);
+
+    //    pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
+    //    pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+
+    //    std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+    //}
+
+    // link renderable objects to member game objects
+    pVkR_->gameObjects = &gameObjects;
+    pVkR_->animatedObjects = &animatedObjects;
+
+    pVkR_->createVertexBuffer();
+    pVkR_->createIndexBuffer();
+
     pVkR_->pDevHelper_->setTextureDescSetLayout(pVkR_->textureDescriptorSetLayout_);
 
     pVkR_->createDescriptorSets();
     std::cout << "created desc sets" << std::endl << std::endl;
-
-    std::cout << "loading skybox\n" << std::endl;
-
-    pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_);
-    pVkR_->pSkyBox_->loadSkyBox();
-    pVkR_->createSkyBoxPipeline();
-
-    std::cout << "DONE loading skybox\n" << std::endl;
 
     pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_);
     pVkR_->brdfLut->genBRDFLUT();
@@ -197,12 +227,12 @@ void GraphicsManager::startVulkan() {
     std::cout << "generated BRDFLUT" << std::endl;
 
     pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
-    pVkR_->irCube->geniRCube();
+    pVkR_->irCube->geniRCube(pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
 
     std::cout << std::endl << "generated IrradianceCube" << std::endl;
 
     pVkR_->prefEMap = new PrefilteredEnvMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
-    pVkR_->prefEMap->genprefEMap();
+    pVkR_->prefEMap->genprefEMap(pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
 
@@ -218,16 +248,11 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->pDirectionalLight->createAnimatedPipeline(pVkR_->animatedDescriptorSetLayout_);
 
+    pVkR_->createGraphicsPipeline();
+    std::cout << "created material graphics pipeline" << std::endl;
 
-    for(GameObject* gO : gameObjects) {
-        pVkR_->createGraphicsPipeline(gO->renderTarget->getMeshHelper());
-        std::cout << "created material graphics pipeline" << std::endl;
-    }
-
-    for (AnimatedGameObject* animGO : animatedObjects) {
-        pVkR_->createAnimatedGraphicsPipeline(animGO->renderTarget->getMeshHelper());
-        std::cout << "created animated material graphics pipeline" << std::endl;
-    }
+    pVkR_->createAnimatedGraphicsPipeline();
+    std::cout << "created animated material graphics pipeline" << std::endl;
 
     std::cout << "\ncreated descriptor sets" << std::endl;
 
@@ -252,6 +277,8 @@ void GraphicsManager::loopUpdate() {
     pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, MAX_FRAMES_IN_FLIGHT);
 
     vkDeviceWaitIdle(pVkR_->device_);
+
+    frameCount++;
 }
 
 GraphicsManager::GraphicsManager(std::vector<std::string> staticModelPaths, std::vector<std::string> animatedModelPaths, std::string skyboxModelPath, std::vector<std::string> skyboxTexturePaths, float windowWidth, float windowHeight) {
@@ -267,4 +294,5 @@ GraphicsManager::GraphicsManager(std::vector<std::string> staticModelPaths, std:
     this->pVkR_ = nullptr;
     this->windowWidth = windowWidth;
     this->windowHeight = windowHeight;
+    this->frameCount = 0;
 }

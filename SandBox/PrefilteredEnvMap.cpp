@@ -409,8 +409,8 @@ void PrefilteredEnvMap::createPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -461,7 +461,7 @@ void PrefilteredEnvMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBu
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-void PrefilteredEnvMap::render() {
+void PrefilteredEnvMap::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     VkClearValue clearValues[1];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
@@ -514,6 +514,11 @@ void PrefilteredEnvMap::render() {
     subresourceRange2.levelCount = 1;
     subresourceRange2.layerCount = 1;
 
+    VkBuffer vertexBuffers[] = { vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(cmdBuf, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
     for (int mip = 0; mip < mipLevels_; mip++) {
         pushBlock.roughness = (float)mip / (float)(mipLevels_ - 1);
         for (int face = 0; face < 6; face++) {
@@ -530,7 +535,7 @@ void PrefilteredEnvMap::render() {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, prefEMapPipeline_);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, prefEMapPipelineLayout_, 0, 1, &prefEMapDescriptorSet_, 0, NULL);
 
-            pSkybox_->pSkyBoxModel_->genImageRenderSkybox(cmdBuf);
+            pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
 
             vkCmdEndRenderPass(cmdBuf);
 
@@ -566,7 +571,7 @@ void PrefilteredEnvMap::render() {
     endCommandBuffer(device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
 }
 
-void PrefilteredEnvMap::genprefEMap() {
+void PrefilteredEnvMap::genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     createprefEMapImage();
     createprefEMapImageView();
     createprefEMapImageSampler();
@@ -577,7 +582,7 @@ void PrefilteredEnvMap::genprefEMap() {
     createprefEMapDescriptors();
 
     createPipeline();
-    render();
+    render(vertexBuffer, indexBuffer);
 }
 
 PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {

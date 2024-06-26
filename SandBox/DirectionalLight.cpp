@@ -374,8 +374,8 @@ void DirectionalLight::createPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -504,8 +504,8 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
 	vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-	auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-	auto attributeDescriptions = MeshHelper::Vertex::getAnimatedPositionDescription();
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescriptions = Vertex::getAnimatedPositionDescription();
 
 	vertexInputCInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;

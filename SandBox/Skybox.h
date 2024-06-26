@@ -39,11 +39,12 @@ public:
 	VkDescriptorSet skyBoxDescriptorSet_;
 	VkImageView skyBoxImageView_;
 	VkSampler skyBoxImageSampler_;
+	VkDescriptorPool skyBoxDescriptorPool_;
 
 	Skybox() {};
 	Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHelper* devHelper);
 
 	VkImageView getImageView() { return this->skyBoxImageView_; };
 
-	void loadSkyBox();
+	void loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 };

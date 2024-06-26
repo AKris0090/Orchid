@@ -12,13 +12,14 @@ public:
 		SceneNode* parent;
 		uint32_t index;
 		std::vector<SceneNode*> children;
-		MeshHelper::MeshObj mesh;
+		MeshHelper* mesh;
 		glm::vec3 translation{};
 		glm::vec3 scale{1.0f};
 		glm::quat rotation{};
-		int32_t skin = -1;
 		glm::mat4 matrix;
-		glm::mat4 getLocalMatrix();
+		glm::mat4 getAnimatedMatrix();
+
+		int32_t skinIndex = -1;
 	};
 
 	struct Skin {
@@ -53,11 +54,6 @@ public:
 		float currentTime = 0.0f;
 	};
 
-	struct depthMVModel {
-		glm::mat4 mvp;
-		glm::mat4 model;
-	} depthPushBlock_;
-
 	struct cascadeMVP {
 		glm::mat4 model;
 		uint32_t cascadeIndex;
@@ -68,40 +64,28 @@ public:
 		float alphaCutoff;
 	} pushConstantBlock;
 
-	struct drawOpaqueIndirectCall {
-		VkDescriptorSet* skinSet;
-		uint32_t firstIndex;
-		uint32_t numIndices;
-	};
-
-	struct drawTransparentIndirectCall {
-		VkDescriptorSet* skinSet;
-		pcBlock loadedAlphaInfo;
-		uint32_t firstIndex;
-		uint32_t numIndices;
-	};
-
-	MeshHelper* pSceneMesh_;
-	std::vector<SceneNode*> pNodes_;
+	std::vector<SceneNode*> pParentNodes;
 	glm::mat4 modelTransform;
-	glm::vec3* pos;
-	std::unordered_map<MeshHelper::Material*, std::vector<drawOpaqueIndirectCall*>> opaqueDraws;
-	std::unordered_map<MeshHelper::Material*, std::vector<drawTransparentIndirectCall*>> transparentDraws;
+	std::unordered_map<Material*, std::vector<SceneNode*>> opaqueDraws;
+	std::unordered_map<Material*, std::vector<SceneNode*>> transparentDraws;
 	std::vector<Skin> skins_;
 
+	std::vector<int32_t> textureIndices_;
+	std::vector<TextureHelper*> images_;
+	std::vector<Material> mats_;
+
 	AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
-	void loadGLTF();
+	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 
 	void createDescriptors(VkDescriptorSetLayout descSetLayout);
 
-	void render(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
-	MeshHelper* getMeshHelper() { return pSceneMesh_; };
+
 	uint32_t activeAnimation;
 	void updateAnimation(float deltaTime);
 
@@ -110,19 +94,21 @@ private:
 	DeviceHelper* pDevHelper_;
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
+
 	tinygltf::Model* pInputModel_;
 
 	std::vector<Animation> animations_;
 
-	void loadImages(tinygltf::Model& in, std::vector<TextureHelper*>& images);
-	void loadTextures(tinygltf::Model& in, std::vector<TextureHelper::TextureIndexHolder>& textures);
-	void loadMaterials(tinygltf::Model& in, std::vector<MeshHelper::Material>& mats);
-	void loadSkins(tinygltf::Model& in, std::vector<Skin>& skins);
+	void loadImages();
+	void loadTextures();
+	void loadMaterials();
+	void loadSkins();
 	void loadAnimations(tinygltf::Model& in, std::vector<Animation>& animations);
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
-	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes);
+	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
+	void callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo);
 };;

@@ -96,7 +96,7 @@ private:
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	void loadDebugUtilsFunctions(VkDevice device);
-	void updateIndividualDescriptorSet(MeshHelper::Material& m);
+	void updateIndividualDescriptorSet(Material& m);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
@@ -120,7 +120,7 @@ public:
 	float depthBias;
 	VkExtent2D SWChainExtent_;
 
-	std::vector<MeshHelper::Vertex> vertices_;
+	std::vector<Vertex> vertices_;
 	std::vector<uint32_t>indices_;
 
 	VkBuffer vertexBuffer_;
@@ -198,8 +198,8 @@ public:
 	// Create the descriptor set layout
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
-	void createGraphicsPipeline(MeshHelper* m);
-	void createAnimatedGraphicsPipeline(MeshHelper* m);
+	void createGraphicsPipeline();
+	void createAnimatedGraphicsPipeline();
 	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
@@ -228,6 +228,9 @@ public:
 	void separateDrawCalls();
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
+
+	void createVertexBuffer();
+	void createIndexBuffer();
 
 	void updateGeneratedImageDescriptorSets();
 

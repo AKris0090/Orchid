@@ -55,7 +55,7 @@ void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 g
 void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale) {
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
-	physx::PxShape* shape = createPhysicsFromMesh(gameObject->renderTarget->getMeshHelper(), pMaterial, scale);
+	physx::PxShape* shape = createPhysicsFromMesh(gameObject, pMaterial, scale);
 	physx::PxRigidStatic* body = pPhysics_->createRigidStatic(physx::PxTransform(globalTransform));
 	gameObject->physicsActor = body;
 	gameObject->pShape_ = shape;
@@ -65,14 +65,18 @@ void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 
 	shape->release();
 }
 
-physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::PxMaterial* material, glm::vec3 scale) {
+physx::PxShape* PhysicsManager::createPhysicsFromMesh(GameObject* g, physx::PxMaterial* material, glm::vec3 scale) {
 	std::vector<physx::PxVec3> pxVertices;
 	std::vector<uint32_t> pxIndices;
 
-	for (MeshHelper::Vertex& vertex : mesh->vertices_) {
-		pxVertices.push_back(physx::PxVec3(vertex.pos.x, vertex.pos.y, vertex.pos.z));
-		pxIndices.push_back(pxIndices.size());
-	}
+	// TODO: figure this out with the node/children (use recursion to populate the list)
+
+	//for(GLTFObj::SceneNode* sceneNode : g->renderTarget->opaqueDraws) {
+	//	for (Vertex& vertex : sceneNode->mesh->stagingVertices_) {
+	//		pxVertices.push_back(physx::PxVec3(vertex.pos.x, vertex.pos.y, vertex.pos.z));
+	//		pxIndices.push_back(pxIndices.size());
+	//	}
+	//}
 
 	physx::PxTriangleMeshDesc meshDescription;
 	meshDescription.points.count = pxVertices.size();
@@ -80,7 +84,7 @@ physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::P
 	meshDescription.points.stride = sizeof(physx::PxVec3);
 
 	meshDescription.triangles.count = pxVertices.size() / 3;
-	meshDescription.triangles.data = mesh->indices_.data();
+	meshDescription.triangles.data = pxIndices.data();
 	meshDescription.triangles.stride = 3 * sizeof(physx::PxU32);
 
 	assert(meshDescription.isValid());

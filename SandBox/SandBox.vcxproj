@@ -140,7 +140,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AnimatedGLTFObj.cpp" />
-    <ClCompile Include="AreaLights.cpp" />
     <ClCompile Include="BRDFLut.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceHelper.cpp" />
@@ -154,7 +153,6 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="IrradianceCube.cpp" />
-    <ClCompile Include="MeshHelper.cpp" />
     <ClCompile Include="mikktspace.cpp" />
     <ClCompile Include="PhysicsManager.cpp" />
     <ClCompile Include="PlayerObject.cpp" />
@@ -166,12 +164,10 @@
     <ClCompile Include="TextureHelper.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
-    <ClCompile Include="VulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AnimatedGameObject.h" />
     <ClInclude Include="AnimatedGLTFObj.h" />
-    <ClInclude Include="AreaLights.h" />
     <ClInclude Include="BRDFLut.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeviceHelper.h" />
@@ -199,7 +195,6 @@
     <ClInclude Include="TextureHelper.h" />
     <ClInclude Include="Time.h" />
     <ClInclude Include="VulkanRenderer.h" />
-    <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

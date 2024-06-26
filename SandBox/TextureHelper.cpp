@@ -499,16 +499,3 @@ void TextureHelper::loadSkyBoxTex() {
     vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer, nullptr);
     vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory, nullptr);
 }
-
-TextureHelper::TextureHelper(tinygltf::Model& in, int i, DeviceHelper* deviceHelper) {
-    this->pDevHelper_ = deviceHelper;
-    this->device_ = deviceHelper->getDevice();
-    this->pInputModel_ = &in;
-    this->index_ = i;
-}
-
-TextureHelper::TextureHelper(std::string texPath, DeviceHelper* deviceHelper) {
-    this->pDevHelper_ = deviceHelper;
-    this->device_ = deviceHelper->getDevice();
-    this->texPath_ = texPath;
-}
