@@ -529,7 +529,7 @@ IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, 
     this->device_ = devHelper->getDevice();
     this->imageFormat_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     this->width_ = this->height_ = 64;
-    this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;;
+    this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;
     this->pGraphicsQueue_ = graphicsQueue;
     this->pSkybox_ = pSkybox;
     this->pCommandPool_ = cmdPool;

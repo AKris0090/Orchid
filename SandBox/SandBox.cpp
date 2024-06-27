@@ -77,6 +77,7 @@ int main(int argc, char* argv[]) {
     //graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f); //sponza
 
     graphicsManager.gameObjects[0]->isDynamic = true; // helmet
+    graphicsManager.gameObjects[0]->transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
     //graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
 
     //physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);

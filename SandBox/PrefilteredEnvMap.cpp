@@ -590,7 +590,7 @@ PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, VkQueue* graphicsQ
     this->device_ = devHelper->getDevice();
     this->imageFormat_ = VK_FORMAT_R16G16B16A16_SFLOAT;
     this->width_ = this->height_ = 512;
-    this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;;
+    this->mipLevels_ = static_cast<uint32_t>(floor(log2(512))) + 1;
     this->pGraphicsQueue_ = graphicsQueue;
     this->pSkybox_ = pSkybox;
     this->pCommandPool_ = cmdPool;

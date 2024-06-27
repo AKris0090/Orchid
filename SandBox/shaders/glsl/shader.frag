@@ -24,11 +24,9 @@ layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
-
 layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
-
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec3 fragPosition;
@@ -191,7 +189,12 @@ void main()
 	vec3 N = calculateNormal();
 
 	vec3 V = normalize(fragViewPos - fragPosition);
-	vec3 R = -normalize(reflect(V, N)); 
+	vec3 L = normalize(fragLightVec);
+	vec3 R = -normalize(reflect(V, N));
+
+	float NdotV = max(dot(N, V), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
+	float NdotH = max(dot(N, V + L), 0.0);
 
 	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 
@@ -202,12 +205,9 @@ void main()
 	F0 = mix(F0, ALBEDO, metallic);
 
 	vec3 Lo = vec3(0.0);
-	for(int i = 0; i < 1; i++) {
-		vec3 L = normalize(fragLightVec);
-                Lo += specularContribution(L, V, N, F0, metallic, roughness);
-	}
+        Lo += specularContribution(L, V, N, F0, metallic, roughness);
 
-	vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec2 brdf = texture(samplerCubeMap, vec2(NdotV, roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
 
@@ -252,6 +252,5 @@ void main()
 	// Gamma correction
 	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-        //outColor = fragShadowCoord;
 	outColor = vec4(color, ALPHA);
 }

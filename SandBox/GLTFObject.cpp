@@ -64,7 +64,7 @@ void GLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout 
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = (*(dC->worldTransformMatrix)) * modelTransform;
+            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -78,7 +78,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
         pcBlock newBlock{ 1, material->alphaCutOff};
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = (*(dC->worldTransformMatrix)) * modelTransform;
+            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -86,7 +86,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
 }
 
 void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
-    cascadeBlock.model = node->worldTransform * modelTransform;
+    cascadeBlock.model = modelTransform * node->worldTransform;
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
@@ -216,7 +216,6 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
                 v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
                 v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
                 v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
-                v.color = glm::vec3(1.0f);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
                 p->stagingVertices_.push_back(v);
             }
@@ -310,6 +309,10 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 
             totalIndices_ += currentNumIndices; 
             totalVertices_ += currentNumVertices;
+
+            for (auto& v : p->stagingVertices_) {
+                v.bitangent = glm::normalize(glm::cross(glm::vec3(v.normal), glm::vec3(glm::normalize(v.tangent)) * v.tangent.w));
+            }
 
             scNode->meshPrimitives.push_back(p);
         }

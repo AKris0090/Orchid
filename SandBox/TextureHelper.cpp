@@ -106,7 +106,7 @@ void TextureHelper::createTextureImages() {
     case -1:
         pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
-        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+        this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
@@ -117,7 +117,7 @@ void TextureHelper::createTextureImages() {
     case -2:
         pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
-        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+        this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
@@ -128,7 +128,7 @@ void TextureHelper::createTextureImages() {
     case -3:
         pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
-        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+        this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
@@ -139,7 +139,7 @@ void TextureHelper::createTextureImages() {
     case -4:
         pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyEmission.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = texWidth * texHeight * 4;
-        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+        this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
@@ -168,8 +168,10 @@ void TextureHelper::createTextureImages() {
             buffSize = curImage.image.size();
         }
 
-        mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(curImage.width, curImage.height)))) + 1;
+        this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(curImage.width, curImage.height)))) + 1;
     }
+
+    std::cout << "MIP LEVELS: " << this->mipLevels_ << std::endl;
 
     if (dummy) {
         VkBuffer stagingBuffer;
@@ -190,7 +192,7 @@ void TextureHelper::createTextureImages() {
         vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer, nullptr);
         vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory, nullptr);
 
-        generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, mipLevels_);
+        generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
 
         std::cout << "loaded: DUMMY " << index_ << std::endl;
     }
@@ -216,7 +218,7 @@ void TextureHelper::createTextureImages() {
         vkDestroyBuffer(device_, stagingBuffer, nullptr);
         vkFreeMemory(device_, stagingBufferMemory, nullptr);
 
-        generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, mipLevels_);
+        generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
 
         if (deleteBuff) {
             delete[] buff;

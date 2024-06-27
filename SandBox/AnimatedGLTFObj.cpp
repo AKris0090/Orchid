@@ -339,7 +339,6 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
                 v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
                 v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
-                v.color = glm::vec3(1.0f);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
                 if (hasSkin) {
                     switch (jointType) {

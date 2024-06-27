@@ -21,6 +21,7 @@ layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec2 inTexCoord;
 layout(location = 2) in vec3 inNormal;
 layout(location = 3) in vec4 inTangent;
+layout(location = 4) in vec3 inBiTangent;
 
 layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out vec3 fragViewPos;
@@ -29,12 +30,6 @@ layout(location = 3) out vec3 fragLightVec;
 layout(location = 4) out vec3 fragNormal;
 layout(location = 5) out float fragShadow;
 layout(location = 6) out mat3 TBNMatrix;
-
-const mat4 biasMat = mat4( 
-	0.5, 0.0, 0.0, 0.0,
-	0.0, 0.5, 0.0, 0.0,
-	0.0, 0.0, 1.0, 0.0,
-	0.5, 0.5, 0.0, 1.0 );
 
 void main() {
     fragTexCoord = inTexCoord;
@@ -50,7 +45,7 @@ void main() {
 
     fragShadow = (ubo.view * vec4(fragPosition, 1.0f)).z;
 
-    TBNMatrix = mat3(normalize(fragTangent.xyz), normalize(cross(fragNormal.xyz, fragTangent.xyz) * fragTangent.w), normalize(fragNormal));
+    TBNMatrix = mat3(normalize(fragTangent.xyz), inBiTangent, normalize(fragNormal));
 
     gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
 }
