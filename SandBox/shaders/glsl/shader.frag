@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
     float bias;
+    int maxReflection;
 } ubo;
 
 const mat4 biasMat = mat4( 
@@ -35,8 +36,8 @@ layout(location = 1) in vec3 fragViewPos;
 layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragLightVec;
 layout(location = 4) in vec3 fragNormal;
-layout(location = 5) in vec4 fragTangent;
-layout(location = 6) in vec3 fragShadow;
+layout(location = 5) in float fragShadow;
+layout(location = 6) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 
@@ -61,16 +62,14 @@ vec3 Uncharted2Tonemap(vec3 x)
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    float a      = roughness*roughness;
-    float a2     = a*a;
+    float a2     = roughness*roughness*roughness*roughness;
     float NdotH  = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
 	
-    float num   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 	
-    return num / denom;
+    return a2 / denom;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness)
@@ -138,39 +137,34 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 		vec3 F = fresnelSchlick(dotNV, F0);		
 		vec3 spec = D * F * G / (4.0 * dotNL * dotNV + 0.001);		
 		vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);			
-		color += (kD * ALBEDO / PI + spec) * dotNL;
+		return (kD * ALBEDO / PI + spec) * dotNL;
+	} else {
+		return vec3(0.0);
 	}
-
-	return color;
 }
 
 vec3 calculateNormal()
 {
 	vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
 
-
-        vec3 T = normalize(fragTangent.xyz);
-        vec3 B = normalize(cross(fragNormal.xyz, fragTangent.xyz) * fragTangent.w);
-        vec3 N = normalize(fragNormal);
-
-	return normalize(mat3(T, B, N) * tangentNormal);
+	return normalize(TBNMatrix * tangentNormal);
 }
 
 float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
-	float shadow = 1.0;
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) 
+	float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
+
+	if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 	{
-		float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
-		if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
-		{
-			shadow = AMBIENT;
-		}
+		return AMBIENT;
 	}
-	return shadow;
+
+	return 1.0;
 }
 
 ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
+const int range = 1;
+const int kernelRange = (2 * range + 1) * (2 * range + 1);
 
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
 {
@@ -179,19 +173,17 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	float dy = scale * 1.0 / float(texDim.y);
 
 	float shadowFactor = 0.0;
-	int count = 0;
-	int range = 1;
 	
 	for (int x = -range; x <= range; x++)
 	{
 		for (int y = -range; y <= range; y++)
 		{
 			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
-			count++;
 		}
 	
 	}
-	return shadowFactor / count;
+
+	return shadowFactor / (kernelRange);
 }
 
 void main()
@@ -235,12 +227,12 @@ void main()
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-		if(fragShadow.z < ubo.cascadeSplits[i]) {	
+		if(fragShadow < ubo.cascadeSplits[i]) {	
 			cascadeIndex = i + 1;
 		}
 	}
 
-	float newBias = max(0.05 * (1.0 - dot(N, fragLightVec)), ubo.bias);
+	float newBias = max(0.05 * (1.0 - dot(N, ubo.lightPos.xyz)), ubo.bias);
 
 	if(cascadeIndex == SHADOW_MAP_CASCADE_COUNT) {
 		newBias *= 1 / (((ubo.proj[2][3] / ubo.proj[2][2]) + 1.0) * 0.5);

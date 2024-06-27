@@ -7,6 +7,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 viewPos;
     mat4 depthMVP;
     float bias;
+    int maxReflection;
 } ubo;
 
 layout(location = 0) in vec3 inPosition;

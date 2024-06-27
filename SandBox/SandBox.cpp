@@ -7,11 +7,11 @@
 #define WINDOW_HEIGHT 720.0f
 
 std::vector<std::string> staticModelPaths = {
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf", - 
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf" -
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
 };
 
@@ -50,7 +50,7 @@ std::vector<std::string> skyboxTexturePaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
 };
 
-std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.gltf";
+std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.glb";
 
 int main(int argc, char* argv[]) {
     GraphicsManager graphicsManager = GraphicsManager(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -76,15 +76,15 @@ int main(int argc, char* argv[]) {
     // Scene objects
     //graphicsManager.gameObjects[1]->transform.scale = glm::vec3(0.008f); //sponza
 
-    //graphicsManager.gameObjects[0]->isDynamic = true; // helmet
+    graphicsManager.gameObjects[0]->isDynamic = true; // helmet
     //graphicsManager.gameObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
 
     //physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
    // physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.gameObjects[1]->transform.scale);
 
-    //for (GameObject* g : graphicsManager.gameObjects) {
-        //g->renderTarget->modelTransform = g->transform.to_matrix();
-    //}
+    for (GameObject* g : graphicsManager.gameObjects) {
+        g->renderTarget->modelTransform = g->transform.to_matrix();
+    }
 
     // second helmet
     //------graphicsManager.animatedObjects[1]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);

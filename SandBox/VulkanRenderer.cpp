@@ -19,6 +19,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
         ubo.cascadeViewProjMat[i] = pDirectionalLight->cascades[i].viewProjectionMatrix;
     }
     ubo.bias = this->depthBias;
+    ubo.maxReflectionLOD = 9;
 
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
@@ -850,12 +851,14 @@ GRAPHICS PIPELINE
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
-    Material* mat = &(obj->mats_[node->mesh->materialIndex]);
-    if (mat->alphaMode == "OPAQUE") {
-        obj->opaqueDraws[mat].push_back(node);
-    }
-    else {
-        obj->transparentDraws[mat].push_back(node);
+    for (auto& mesh : node->meshPrimitives) {
+        Material* mat = &(obj->mats_[mesh->materialIndex]);
+        if (mat->alphaMode == "OPAQUE") {
+            obj->opaqueDraws[mat].push_back(mesh);
+        }
+        else {
+            obj->transparentDraws[mat].push_back(mesh);
+        }
     }
     for (auto& child : node->children) {
         sortDraw(obj, child);
@@ -876,7 +879,6 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNo
 }
 
 void VulkanRenderer::separateDrawCalls() {
-
     for (GameObject* g : *gameObjects) {
         GLTFObj* obj = g->renderTarget;
         for (auto& node : obj->pParentNodes) {
@@ -1604,10 +1606,10 @@ void VulkanRenderer::createUniformBuffers() {
 void VulkanRenderer::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(SWChainImages_.size());
+    poolSizes[0].descriptorCount = 1000; //static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
-    poolSizes[1].descriptorCount = (this->numMats_) * 10 + static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
+    poolSizes[1].descriptorCount = 1000; //(this->numMats_) * 10 + static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1615,7 +1617,7 @@ void VulkanRenderer::createDescriptorPool() {
     poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolCInfo.pPoolSizes = poolSizes.data();
     //  needs to render separate font atlas ( + 1)
-    poolCInfo.maxSets = (this->numMats_ * this->numImages_) + static_cast<uint32_t>(SWChainImages_.size()) + 1;
+    poolCInfo.maxSets = 1000; //(this->numMats_ * this->numImages_) + static_cast<uint32_t>(SWChainImages_.size()) + 1;
 
     if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &descriptorPool_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the descriptor pool!");
@@ -1828,22 +1830,27 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
-    //for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-    //    //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+    VkBuffer vertexBuffers[] = { vertexBuffer_ };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
 
-    //    DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
-    //    vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
-    //    for (GameObject* gO : *(gameObjects)) {
-    //       gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
-    //    }
+    for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+
+        DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
+        for (GameObject* gO : *(gameObjects)) {
+           gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
+        }
     //    vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
     //    for (AnimatedGameObject* animGO : *(animatedObjects)) {
     //        animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
     //    }
-    //    vkCmdEndRenderPass(cmdBuf.commandBuffer);
+        vkCmdEndRenderPass(cmdBuf.commandBuffer);
 
         //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
-    //}
+    }
 
     // Start the scene render pass
     VkRenderPassBeginInfo RPBeginInfo{};
@@ -1880,32 +1887,32 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkBuffer vertexBuffers[] = { vertexBuffer_ };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
 
-    //for (GameObject* gO : *(gameObjects)) {
-    //    gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
-    //}
+    //VkDebugUtilsLabelEXT debugLabelOpaque{}; debugLabelOpaque.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelOpaque.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
+    for (GameObject* gO : *(gameObjects)) {
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
+    }
+    //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
+    
     //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
     //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     //for (AnimatedGameObject* gO : *(animatedObjects)) {
     //    gO->renderTarget->render(commandBuffer, opaqueAnimatedPipelineLayout_);
     //    gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
     //}
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    //for (GameObject* gO : *(gameObjects)) {
-    //    if (gO->renderTarget->transparentDraws.size() > 0) {
-    //        gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
-    //    }
-    //}
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    //VkDebugUtilsLabelEXT debugLabelTransparent{}; debugLabelTransparent.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelTransparent.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
+    for (GameObject* gO : *(gameObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
+        }
+    }
+    //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
     //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
     //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     //for (AnimatedGameObject* gO : *(animatedObjects)) {

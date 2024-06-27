@@ -64,9 +64,9 @@ void GLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout 
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = dC->worldTransform * modelTransform;
+            glm::mat4 trueModelMatrix = (*(dC->worldTransformMatrix)) * modelTransform;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->mesh->indirectInfo);
+            callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
 }
@@ -78,9 +78,9 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
         pcBlock newBlock{ 1, material->alphaCutOff};
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = dC->worldTransform * modelTransform;
+            glm::mat4 trueModelMatrix = (*(dC->worldTransformMatrix)) * modelTransform;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->mesh->indirectInfo);
+            callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
 }
@@ -89,7 +89,9 @@ void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelin
     cascadeBlock.model = node->worldTransform * modelTransform;
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
-    callIndexedDraw(commandBuffer, node->mesh->indirectInfo);
+    for (auto& mesh : node->meshPrimitives) {
+        callIndexedDraw(commandBuffer, mesh->indirectInfo);
+    }
     for (auto& child : node->children) {
         drawShadow(commandBuffer, pipelineLayout, cascadeIndex, cascadeDescriptor, child);
     }
@@ -104,7 +106,7 @@ void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipel
 }
 
 void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer) {
-    MeshHelper* m = pParentNodes[0]->mesh;
+    MeshHelper* m = (pParentNodes[0])->meshPrimitives[0];
     callIndexedDraw(commandBuffer, m->indirectInfo);
 }
 
@@ -176,8 +178,8 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             MeshHelper* p = new MeshHelper();
 
             const tinygltf::Primitive& gltfPrims = mesh.primitives[i];
-            uint32_t firstIndex = totalVertices_;
-            uint32_t vertexStart = totalIndices_;
+            uint32_t firstIndex = totalIndices_;
+            uint32_t firstVertex = totalVertices_;
 
             uint32_t currentNumIndices = 0;
             uint32_t currentNumVertices = 0;
@@ -230,21 +232,21 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
                 const uint32_t* buf = reinterpret_cast<const uint32_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    p->stagingIndices_.push_back(buf[index] + vertexStart);
+                    p->stagingIndices_.push_back(buf[index] + firstVertex);
                 }
                 break;
             }
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
                 const uint16_t* buf = reinterpret_cast<const uint16_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    p->stagingIndices_.push_back(buf[index] + vertexStart);
+                    p->stagingIndices_.push_back(buf[index] + firstVertex);
                 }
                 break;
             }
             case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
                 const uint8_t* buf = reinterpret_cast<const uint8_t*>(&buffer.data[accessor.byteOffset + view.byteOffset]);
                 for (size_t index = 0; index < accessor.count; index++) {
-                    p->stagingIndices_.push_back(buf[index] + vertexStart);
+                    p->stagingIndices_.push_back(buf[index] + firstVertex);
                 }
                 break;
             }
@@ -258,18 +260,16 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             p->indirectInfo.firstInstance = 0;
             p->indirectInfo.instanceCount = 1;
             p->indirectInfo.globalVertexOffset = globalVertexOffset;
-
+            p->worldTransformMatrix = &scNode->worldTransform;
             p->materialIndex = gltfPrims.material;
 
             // TANGENT SPACE CREATION - ALSO REFERENCED OFF OF: https://github.com/Eearslya/glTFView.
             if (!tangentsBuff) {
-                currentNumIndices = 0;
-                currentNumVertices = 0;
                 //UNPACK VERTICES
                 std::vector<Vertex> unpacked(p->stagingIndices_.size());
                 uint32_t newInd = 0;
                 for (uint32_t index : p->stagingIndices_) {
-                    unpacked[newInd] = p->stagingVertices_[index];
+                    unpacked[newInd] = p->stagingVertices_[index - firstVertex];
                     newInd++;
                 }
                 p->stagingVertices_ = std::move(unpacked);
@@ -308,18 +308,18 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
                 currentNumVertices = p->stagingVertices_.size();
             }
 
-            totalIndices_ += currentNumIndices;
+            totalIndices_ += currentNumIndices; 
             totalVertices_ += currentNumVertices;
 
-            scNode->mesh = p;
-
-            if (parent) {
-                parent->children.push_back(scNode);
-            }
-            else {
-                pParentNodes.push_back(scNode);
-            }
+            scNode->meshPrimitives.push_back(p);
         }
+    }
+
+    if (parent) {
+        parent->children.push_back(scNode);
+    }
+    else {
+        pParentNodes.push_back(scNode);
     }
 }
 
@@ -502,6 +502,46 @@ void GLTFObj::createDescriptors() {
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
         vkUpdateDescriptorSets(pDevHelper_->getDevice() , static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+    }
+}
+
+void GLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNode* parentNode) {
+    for (auto& mesh : parentNode->meshPrimitives) {
+        for (int i = 0; i < mesh->stagingVertices_.size(); i++) {
+            vertices->push_back(mesh->stagingVertices_[i]);
+        }
+        mesh->stagingVertices_.clear();
+        mesh->stagingVertices_.shrink_to_fit();
+    }
+
+    for (auto& node : parentNode->children) {
+        recursiveVertexAdd(vertices, node);
+    }
+}
+
+void GLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, SceneNode* parentNode) {
+    for (auto& mesh : parentNode->meshPrimitives) {
+        for (int i = 0; i < mesh->stagingIndices_.size(); i++) {
+            indices->push_back(mesh->stagingIndices_[i]);
+        }
+        mesh->stagingIndices_.clear();
+        mesh->stagingIndices_.shrink_to_fit();
+    }
+
+    for (auto& node : parentNode->children) {
+        recursiveIndexAdd(indices, node);
+    }
+}
+
+void GLTFObj::addVertices(std::vector<Vertex>* vertices) {
+    for (auto& node : pParentNodes) {
+        recursiveVertexAdd(vertices, node);
+    }
+}
+
+void GLTFObj::addIndices(std::vector<uint32_t>* indices) {
+    for (auto& node : pParentNodes) {
+        recursiveIndexAdd(indices, node);
     }
 }
 

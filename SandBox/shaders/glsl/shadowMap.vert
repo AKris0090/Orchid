@@ -7,13 +7,13 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 } ubo;
 
 layout(push_constant) uniform pushConstant {
-    mat4 model;
-    uint cascadeIndex;
-} pc;
+    mat4 pCModel;
+    uint pCascadeIndex;
+};
 
 layout(location = 0) in vec3 inPosition;
  
 void main()
 {
-	gl_Position =  ubo.cascadeViewProj[pc.cascadeIndex] * pc.model * vec4(inPosition, 1.0);
+	gl_Position =  ubo.cascadeViewProj[pCascadeIndex] * pCModel * vec4(inPosition, 1.0);
 }

@@ -86,6 +86,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
     ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda);
+    ImGui::DragFloat("bias", &pVkR_->depthBias);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
 
@@ -168,33 +169,35 @@ void GraphicsManager::startVulkan() {
     pVkR_->createSkyBoxPipeline();
 
     for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalVertices(); i++) {
-        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->mesh->stagingVertices_[i]);
+        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->meshPrimitives[0]->stagingVertices_[i]);
+        globalVertexOffset++;
     }
 
-    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices(); i++) {
-        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->mesh->stagingIndices_[i]);
+    for (int i = globalIndexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices(); i++) {
+        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->meshPrimitives[0]->stagingIndices_[i]);
+        globalIndexOffset++;
     }
 
     std::cout << "DONE loading skybox\n" << std::endl;
 
-    globalVertexOffset += pVkR_->pSkyBox_->pSkyBoxModel_->getTotalVertices();
-    globalIndexOffset += pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices();
+    for (std::string s : pStaticModelPaths_) {
+        GameObject* newGO = new GameObject();
+        GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
+        mod->loadGLTF(globalVertexOffset, globalIndexOffset);
+        newGO->setGLTFObj(mod);
+        gameObjects.push_back(newGO);
 
-    //for (std::string s : pStaticModelPaths_) {
-    //    GameObject* newGO = new GameObject();
-    //    GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
-    //    mod->loadGLTF(globalVertexOffset, globalIndexOffset);
-    //    newGO->setGLTFObj(mod);
-    //    gameObjects.push_back(newGO);
+        pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
+        pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-    //    globalVertexOffset += mod->getTotalVertices();
-    //    globalIndexOffset += mod->getTotalIndices();
+        mod->addVertices(&(pVkR_->vertices_));
+        mod->addIndices(&(pVkR_->indices_));
 
-    //    pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
-    //    pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+        globalVertexOffset = pVkR_->vertices_.size();
+        globalIndexOffset = pVkR_->indices_.size();
 
-    //    std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
-    //}
+        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+    }
 
     //for (std::string s : pAnimatedModelPaths_) {
     //    AnimatedGameObject* newAnimGO = new AnimatedGameObject();
@@ -215,6 +218,11 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->createVertexBuffer();
     pVkR_->createIndexBuffer();
+
+    pVkR_->vertices_.clear();
+    pVkR_->indices_.clear();
+    pVkR_->vertices_.shrink_to_fit();
+    pVkR_->indices_.shrink_to_fit();
 
     pVkR_->pDevHelper_->setTextureDescSetLayout(pVkR_->textureDescriptorSetLayout_);
 

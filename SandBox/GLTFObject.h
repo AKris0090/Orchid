@@ -21,7 +21,7 @@ public:
 	struct SceneNode {
 		SceneNode* parent;
 		std::vector<SceneNode*> children;
-		MeshHelper* mesh;
+		std::vector<MeshHelper*> meshPrimitives;
 		glm::mat4 worldTransform;
 	};
 
@@ -35,10 +35,13 @@ public:
 
 	glm::mat4 modelTransform;
 	glm::vec3* pos;
-	std::unordered_map<Material*, std::vector<SceneNode*>> opaqueDraws;
-	std::unordered_map<Material*, std::vector<SceneNode*>> transparentDraws;
+	std::unordered_map<Material*, std::vector<MeshHelper*>> opaqueDraws;
+	std::unordered_map<Material*, std::vector<MeshHelper*>> transparentDraws;
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
+
+	std::vector<Vertex> objectVertices;
+	std::vector<uint32_t> objectIndices;
 
 	void createDescriptors();
 
@@ -51,6 +54,8 @@ public:
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	void drawSkyBoxIndexed(VkCommandBuffer commandBuffer);
+	void addVertices(std::vector<Vertex>* vertices);
+	void addIndices(std::vector<uint32_t>* indices);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
@@ -68,4 +73,7 @@ private:
 	void loadMaterials();
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo);
+
+	void recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNode* node);
+	void recursiveIndexAdd(std::vector<uint32_t>* indices, SceneNode* node);
 };

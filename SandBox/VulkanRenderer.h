@@ -242,5 +242,6 @@ public:
 		float cascadeSplits[4];
 		glm::mat4 cascadeViewProjMat[4];
 		float bias;
+		int maxReflectionLOD;
 	};
 };
