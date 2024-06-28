@@ -5,7 +5,7 @@
 // MIKKTSPACE TANGENT FUNCTIONS, REFERENCED OFF OF: https://github.com/Eearslya/glTFView. SUCH AN AMAZING PERSON
 struct MikkTContext {
     MeshHelper* mesh;
-};  
+};
 
 static int MikkTGetNumFaces(const SMikkTSpaceContext* context) {
     const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
@@ -513,8 +513,6 @@ void GLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNode* paren
         for (int i = 0; i < mesh->stagingVertices_.size(); i++) {
             vertices->push_back(mesh->stagingVertices_[i]);
         }
-        mesh->stagingVertices_.clear();
-        mesh->stagingVertices_.shrink_to_fit();
     }
 
     for (auto& node : parentNode->children) {
@@ -527,8 +525,6 @@ void GLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, SceneNode* paren
         for (int i = 0; i < mesh->stagingIndices_.size(); i++) {
             indices->push_back(mesh->stagingIndices_[i]);
         }
-        mesh->stagingIndices_.clear();
-        mesh->stagingIndices_.shrink_to_fit();
     }
 
     for (auto& node : parentNode->children) {
@@ -548,7 +544,28 @@ void GLTFObj::addIndices(std::vector<uint32_t>* indices) {
     }
 }
 
-GLTFObj::GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper) {
+void GLTFObj::recursiveRemove(SceneNode* parentNode) {
+    for (auto& mesh : parentNode->meshPrimitives) {
+        mesh->stagingVertices_.clear();
+        mesh->stagingVertices_.shrink_to_fit();
+        mesh->stagingIndices_.clear();
+        mesh->stagingIndices_.shrink_to_fit();
+    }
+
+    for (auto& node : parentNode->children) {
+        recursiveRemove(node);
+    }
+}
+
+void GLTFObj::remove() {
+    for (auto& node : pParentNodes) {
+        recursiveRemove(node);
+    }
+}
+
+GLTFObj::GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
+    this->globalFirstVertex = globalVertexOffset;
+    this->globalFirstIndex = globalIndexOffset;
 }

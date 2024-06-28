@@ -47,7 +47,7 @@ public:
 
 	Transform transform;
 
-	FPSCam() { distanceToPlayer = 1.75f; isAttatched = false; moveSpeed_ = 0.0085; };
+	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; moveSpeed_ = 0.0085; };
 
 	void update();
 	void setProjectionMatrix();

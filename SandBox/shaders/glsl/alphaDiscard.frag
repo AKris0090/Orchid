@@ -9,8 +9,6 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 viewPos;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
-    float bias;
-    int maxReflection;
 } ubo;
 
 layout(push_constant) uniform pushConstant {
@@ -29,20 +27,14 @@ layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
-
 layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
-
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
-layout(location = 0) in vec3 fragPosition;
-layout(location = 1) in vec3 fragViewPos;
-layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in vec3 fragLightVec;
-layout(location = 4) in vec3 fragNormal;
-layout(location = 5) flat in float fragShadow;
-layout(location = 6) in mat3 TBNMatrix;
+layout(location = 0) in vec4 fragPosition;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 
@@ -67,16 +59,14 @@ vec3 Uncharted2Tonemap(vec3 x)
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    float a      = roughness*roughness;
-    float a2     = a*a;
+    float a2     = roughness*roughness*roughness*roughness;
     float NdotH  = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
 	
-    float num   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 	
-    return num / denom;
+    return a2 / denom;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness)
@@ -113,8 +103,7 @@ vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
 
 vec3 prefilteredReflection(vec3 R, float roughness)
 {
-	const float MAX_REFLECTION_LOD = 9.0; // todo: param/const
-	float lod = roughness * MAX_REFLECTION_LOD;
+	float lod = roughness * ubo.lightPos.w;
 	float lodf = floor(lod);
 	float lodc = ceil(lod);
 	vec3 a = textureLod(prefilteredEnvMap, R, lodf).rgb;
@@ -200,10 +189,16 @@ void main()
             		discard;
         	}
 	}
+
 	vec3 N = calculateNormal();
 
-	vec3 V = normalize(fragViewPos - fragPosition);
-	vec3 R = -normalize(reflect(V, N)); 
+	vec3 V = normalize(ubo.viewPos.xyz - fragPosition.xyz);
+	vec3 L = normalize(ubo.lightPos.xyz - fragPosition.xyz);
+	vec3 R = -normalize(reflect(V, N));
+
+	float NdotV = max(dot(N, V), 0.0);
+	//float NdotL = max(dot(N, L), 0.0);
+	//float NdotH = max(dot(N, V + L), 0.0);
 
 	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 
@@ -213,20 +208,16 @@ void main()
 	vec3 F0 = vec3(0.04); 
 	F0 = mix(F0, ALBEDO, metallic);
 
-	vec3 Lo = vec3(0.0);
-	for(int i = 0; i < 1; i++) {
-		vec3 L = normalize(fragLightVec);
-                Lo += specularContribution(L, V, N, F0, metallic, roughness);
-	}
+	vec3 Lo = specularContribution(L, V, N, F0, metallic, roughness);
 
-	vec2 brdf = texture(samplerCubeMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec2 brdf = texture(samplerCubeMap, vec2(NdotV, roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
 
 	// Diffuse based on irradiance
 	vec3 diffuse = irradiance * ALBEDO;
 
-        vec3 F = F_SchlickR(max(dot(N, V), 0.0), F0, roughness);	
+        vec3 F = F_SchlickR(NdotV, F0, roughness);	
 
 	// Specular reflectance
 	vec3 specular = reflected * (F * brdf.x + brdf.y);
@@ -238,12 +229,12 @@ void main()
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-		if(fragShadow < ubo.cascadeSplits[i]) {	
+		if(fragPosition.w < ubo.cascadeSplits[i]) {	
 			cascadeIndex = i + 1;
 		}
 	}
 
-	float newBias = 0.05 * (1.0 - dot(N, ubo.lightPos.xyz));
+	float newBias = max(0.05 * (1.0 - dot(N, ubo.lightPos.xyz)), ubo.viewPos.w);
 
 	if(cascadeIndex == SHADOW_MAP_CASCADE_COUNT) {
 		newBias *= 1 / (((ubo.proj[2][3] / ubo.proj[2][2]) + 1.0) * 0.5);
@@ -251,7 +242,7 @@ void main()
 		newBias *= 1 / (ubo.cascadeSplits[cascadeIndex] * 0.5);
 	}
 
-	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition, 1.0);
+	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz, 1.0);
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
@@ -263,6 +254,5 @@ void main()
 	// Gamma correction
 	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
-        //outColor = fragShadowCoord;
 	outColor = vec4(color, ALPHA);
 }

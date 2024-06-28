@@ -6,6 +6,7 @@
 #include "GameObject.h"
 #include "AnimatedGameObject.h"
 #include "Input.h"
+#include "GLTFObject.h"
 
 class PhysicsManager {
 private:
@@ -27,9 +28,10 @@ public:
 
 	PhysicsManager() {};
 
-	physx::PxShape* createPhysicsFromMesh(GameObject* g, physx::PxMaterial* material, glm::vec3 scale);
+	physx::PxShape* createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale);
 	void addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent);
-	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale);
+	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale);
+	void recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices);
 
 	void setup();
 	void loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, std::vector<AnimatedGameObject*> animatedGameObjects, PlayerObject* player, FPSCam* cam, float deltaTime);

@@ -37,7 +37,7 @@ public:
 	glm::vec3* pos;
 	std::unordered_map<Material*, std::vector<MeshHelper*>> opaqueDraws;
 	std::unordered_map<Material*, std::vector<MeshHelper*>> transparentDraws;
-	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper);
+	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 
 	std::vector<Vertex> objectVertices;
@@ -49,6 +49,8 @@ public:
 		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
 	} uniform;
 
+	void recursiveRemove(SceneNode* parentNode);
+	void remove();
 	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
@@ -59,9 +61,14 @@ public:
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
+	uint32_t getFirstVertex() { return this->globalFirstVertex; };
+	uint32_t getFirstIndex() { return this->globalFirstIndex; };
 private:
 	std::string gltfPath_;
 	DeviceHelper* pDevHelper_;
+
+	uint32_t globalFirstVertex;
+	uint32_t globalFirstIndex;
 
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;

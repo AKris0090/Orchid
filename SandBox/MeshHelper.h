@@ -70,8 +70,8 @@ struct Vertex {
 		return attributeDescriptions;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 6> getAnimatedAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 6> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 7> getAnimatedAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 7> attributeDescriptions{};
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -91,11 +91,15 @@ struct Vertex {
 		attributeDescriptions[4].binding = 0;
 		attributeDescriptions[4].location = 4;
 		attributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		attributeDescriptions[4].offset = offsetof(Vertex, jointIndices);
+		attributeDescriptions[4].offset = offsetof(Vertex, bitangent);
 		attributeDescriptions[5].binding = 0;
 		attributeDescriptions[5].location = 5;
 		attributeDescriptions[5].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		attributeDescriptions[5].offset = offsetof(Vertex, jointWeights);
+		attributeDescriptions[5].offset = offsetof(Vertex, jointIndices);
+		attributeDescriptions[6].binding = 0;
+		attributeDescriptions[6].location = 6;
+		attributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		attributeDescriptions[6].offset = offsetof(Vertex, jointWeights);
 		return attributeDescriptions;
 	}
 
@@ -124,6 +128,7 @@ struct Vertex {
 class MeshHelper {
 public:
 	uint32_t materialIndex;
+	uint32_t skinIndex;	
 	glm::mat4* worldTransformMatrix;
 	std::vector<uint32_t> stagingIndices_ = {};
 	std::vector<Vertex> stagingVertices_ = {};

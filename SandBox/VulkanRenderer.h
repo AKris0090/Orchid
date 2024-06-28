@@ -118,6 +118,7 @@ public:
 	DirectionalLight* pDirectionalLight;
 	FPSCam camera_;
 	float depthBias;
+	float maxReflectionLOD;
 	VkExtent2D SWChainExtent_;
 
 	std::vector<Vertex> vertices_;
@@ -241,7 +242,5 @@ public:
 		glm::vec4 viewPos;
 		float cascadeSplits[4];
 		glm::mat4 cascadeViewProjMat[4];
-		float bias;
-		int maxReflectionLOD;
 	};
 };

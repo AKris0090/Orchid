@@ -87,6 +87,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
     ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda);
     ImGui::DragFloat("bias", &pVkR_->depthBias);
+    ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
 
@@ -182,7 +183,7 @@ void GraphicsManager::startVulkan() {
 
     for (std::string s : pStaticModelPaths_) {
         GameObject* newGO = new GameObject();
-        GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_);
+        GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
         mod->loadGLTF(globalVertexOffset, globalIndexOffset);
         newGO->setGLTFObj(mod);
         gameObjects.push_back(newGO);
@@ -199,18 +200,24 @@ void GraphicsManager::startVulkan() {
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
 
-    //for (std::string s : pAnimatedModelPaths_) {
-    //    AnimatedGameObject* newAnimGO = new AnimatedGameObject();
-    //    AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_);
-    //    mod->loadGLTF();
-    //    newAnimGO->setAnimatedGLTFObj(mod);
-    //    animatedObjects.push_back(newAnimGO);
+    for (std::string s : pAnimatedModelPaths_) {
+        AnimatedGameObject* newAnimGO = new AnimatedGameObject();
+        AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
+        mod->loadGLTF(globalVertexOffset, globalIndexOffset);
+        newAnimGO->setAnimatedGLTFObj(mod);
+        animatedObjects.push_back(newAnimGO);
 
-    //    pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
-    //    pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+        pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
+        pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-    //    std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
-    //}
+        mod->addVertices(&(pVkR_->vertices_));
+        mod->addIndices(&(pVkR_->indices_));
+
+        globalVertexOffset = pVkR_->vertices_.size();
+        globalIndexOffset = pVkR_->indices_.size();
+
+        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+    }
 
     // link renderable objects to member game objects
     pVkR_->gameObjects = &gameObjects;
@@ -219,10 +226,10 @@ void GraphicsManager::startVulkan() {
     pVkR_->createVertexBuffer();
     pVkR_->createIndexBuffer();
 
-    pVkR_->vertices_.clear();
-    pVkR_->indices_.clear();
-    pVkR_->vertices_.shrink_to_fit();
-    pVkR_->indices_.shrink_to_fit();
+    //pVkR_->vertices_.clear();
+    //pVkR_->indices_.clear();
+    //pVkR_->vertices_.shrink_to_fit();
+    //pVkR_->indices_.shrink_to_fit();
 
     pVkR_->pDevHelper_->setTextureDescSetLayout(pVkR_->textureDescriptorSetLayout_);
 

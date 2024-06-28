@@ -11,15 +11,13 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     this->camera_.setProjectionMatrix();
     ubo.view = this->camera_.getViewMatrix();
     ubo.proj = this->camera_.getProjectionMatrix();
-    ubo.viewPos = glm::vec4(this->camera_.transform.position, 0.0f);
-    ubo.lightPos = glm::vec4(pDirectionalLight->transform.position, 1.0f);
+    ubo.viewPos = glm::vec4(this->camera_.transform.position, this->depthBias);
+    ubo.lightPos = glm::vec4(pDirectionalLight->transform.position, this->maxReflectionLOD);
     pDirectionalLight->updateUniBuffers(&(this->camera_));
     for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
         ubo.cascadeSplits[i] = pDirectionalLight->cascades[i].splitDepth;
         ubo.cascadeViewProjMat[i] = pDirectionalLight->cascades[i].viewProjectionMatrix;
     }
-    ubo.bias = this->depthBias;
-    ubo.maxReflectionLOD = 9;
 
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
@@ -866,12 +864,14 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
 }
 
 void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node) {
-    Material* mat = &(animObj->mats_[node->mesh->materialIndex]);
-    if (mat->alphaMode == "OPAQUE") {
-        animObj->opaqueDraws[mat].push_back(node);
-    }
-    else {
-        animObj->transparentDraws[mat].push_back(node);
+    for (auto& mesh : node->meshPrimitives) {
+        Material* mat = &(animObj->mats_[mesh->materialIndex]);
+        if (mat->alphaMode == "OPAQUE") {
+            animObj->opaqueDraws[mat].push_back(mesh);
+        }
+        else {
+            animObj->transparentDraws[mat].push_back(mesh);
+        }
     }
     for (auto& child : node->children) {
         sortDraw(animObj, child);
@@ -1843,10 +1843,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         for (GameObject* gO : *(gameObjects)) {
            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
-    //    vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
-    //    for (AnimatedGameObject* animGO : *(animatedObjects)) {
-    //        animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
-    //    }
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
+        for (AnimatedGameObject* animGO : *(animatedObjects)) {
+            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
+        }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
 
         //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
@@ -1898,12 +1898,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
     
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    //for (AnimatedGameObject* gO : *(animatedObjects)) {
-    //    gO->renderTarget->render(commandBuffer, opaqueAnimatedPipelineLayout_);
-    //    gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
-    //}
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
+    }
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     //VkDebugUtilsLabelEXT debugLabelTransparent{}; debugLabelTransparent.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelTransparent.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
@@ -1913,14 +1913,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         }
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    //for (AnimatedGameObject* gO : *(animatedObjects)) {
-    //    if (gO->renderTarget->transparentDraws.size() > 0) {
-    //        gO->renderTarget->render(commandBuffer, transparentAnimatedPipelineLayout_);
-    //        gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
-    //    }
-    //}
+    // 
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
+        }
+    }
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {

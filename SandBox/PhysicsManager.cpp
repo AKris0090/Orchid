@@ -52,10 +52,10 @@ void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 g
 	cubeShape->release();
 }
 
-void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale) {
+void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale) {
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
-	physx::PxShape* shape = createPhysicsFromMesh(gameObject, pMaterial, scale);
+	physx::PxShape* shape = createPhysicsFromMesh(gameObject, vertices, indices, pMaterial, scale);
 	physx::PxRigidStatic* body = pPhysics_->createRigidStatic(physx::PxTransform(globalTransform));
 	gameObject->physicsActor = body;
 	gameObject->pShape_ = shape;
@@ -65,18 +65,30 @@ void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 
 	shape->release();
 }
 
-physx::PxShape* PhysicsManager::createPhysicsFromMesh(GameObject* g, physx::PxMaterial* material, glm::vec3 scale) {
+void PhysicsManager::recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices) {
+	for (auto& mesh : node->meshPrimitives) {
+		for (int i = g->renderTarget->getFirstVertex(); i < g->renderTarget->getFirstVertex() + g->renderTarget->getTotalVertices(); i++) {
+			pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
+			pxIndices.push_back(i - g->renderTarget->getFirstVertex());
+		}
+	}
+
+	for (auto& childNode : node->children) {
+		recursiveAddToList(g, pxVertices, pxIndices, childNode, vertices);
+	}
+}
+
+physx::PxShape* PhysicsManager::createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale) {
 	std::vector<physx::PxVec3> pxVertices;
 	std::vector<uint32_t> pxIndices;
 
-	// TODO: figure this out with the node/children (use recursion to populate the list)
+	for(int i = g->renderTarget->getFirstVertex(); i < g->renderTarget->getFirstVertex() + g->renderTarget->getTotalVertices(); i++) {
+		pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
+	}
 
-	//for(GLTFObj::SceneNode* sceneNode : g->renderTarget->opaqueDraws) {
-	//	for (Vertex& vertex : sceneNode->mesh->stagingVertices_) {
-	//		pxVertices.push_back(physx::PxVec3(vertex.pos.x, vertex.pos.y, vertex.pos.z));
-	//		pxIndices.push_back(pxIndices.size());
-	//	}
-	//}
+	for (int i = g->renderTarget->getFirstIndex(); i < g->renderTarget->getFirstIndex() + g->renderTarget->getTotalIndices(); i++) {
+		pxIndices.push_back(indices.at(i));
+	}
 
 	physx::PxTriangleMeshDesc meshDescription;
 	meshDescription.points.count = pxVertices.size();

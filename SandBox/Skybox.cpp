@@ -215,7 +215,7 @@ Skybox::Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHel
 }
 
 void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
-	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_);
+	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_, globalVertexOffset, globalIndexOffset);
 	pSkyBoxModel_->loadGLTF(globalVertexOffset, globalIndexOffset);
     pSkyBoxModel_->isSkyBox_ = true;
     skyBoxLoad();

@@ -9,8 +9,6 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 viewPos;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
-    float bias;
-    int maxReflection;
 } ubo;
 
 layout(push_constant) uniform pushConstant {
@@ -23,29 +21,22 @@ layout(location = 2) in vec3 inNormal;
 layout(location = 3) in vec4 inTangent;
 layout(location = 4) in vec3 inBiTangent;
 
-layout(location = 0) out vec3 fragPosition;
-layout(location = 1) out vec3 fragViewPos;
-layout(location = 2) out vec2 fragTexCoord;
-layout(location = 3) out vec3 fragLightVec;
-layout(location = 4) out vec3 fragNormal;
-layout(location = 5) out float fragShadow;
-layout(location = 6) out mat3 TBNMatrix;
+layout(location = 0) out vec4 fragPosition;
+layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out mat3 TBNMatrix;
 
 void main() {
     fragTexCoord = inTexCoord;
 
     vec4 pos = pc.model * vec4(inPosition, 1.0f);
-    fragPosition = pos.xyz / pos.w;
+    vec3 fragPositionTemp = pos.xyz / pos.w;
 
-    fragViewPos = ubo.viewPos.xyz;
-    fragLightVec = ubo.lightPos.xyz - fragPosition;
-
-    fragNormal = mat3(pc.model) * inNormal;
+    vec3 fragNormal = mat3(pc.model) * inNormal;
     vec4 fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
-
-    fragShadow = (ubo.view * vec4(fragPosition, 1.0f)).z;
 
     TBNMatrix = mat3(normalize(fragTangent.xyz), inBiTangent, normalize(fragNormal));
 
-    gl_Position = ubo.proj * ubo.view * vec4(fragPosition, 1.0);
+    fragPosition = vec4(fragPositionTemp, (ubo.view * vec4(fragPositionTemp, 1.0f)).z);
+
+    gl_Position = ubo.proj * ubo.view * vec4(fragPositionTemp, 1.0);
 }
