@@ -85,7 +85,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
-    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda);
+    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda, 0.01f);
     ImGui::DragFloat("bias", &pVkR_->depthBias);
     ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
@@ -210,8 +210,8 @@ void GraphicsManager::startVulkan() {
         pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
         pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-        mod->addVertices(&(pVkR_->vertices_));
-        mod->addIndices(&(pVkR_->indices_));
+        mod->addVertices(&(pVkR_->animatedVertices_));
+        mod->addIndices(&(pVkR_->animatedIndices_));
 
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();

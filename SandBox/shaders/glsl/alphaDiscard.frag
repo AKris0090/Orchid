@@ -1,6 +1,6 @@
 #version 450
 
-#define SHADOW_MAP_CASCADE_COUNT 4
+#define SHADOW_MAP_CASCADE_COUNT 3
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;

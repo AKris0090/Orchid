@@ -19,6 +19,8 @@ private:
 		glm::mat4 viewProjectionMatrix;
 	};
 
+	std::vector<float> shadowCascadeLevels{};
+
 	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
@@ -41,7 +43,7 @@ private:
 	VkCommandPool* pCommandPool_;
 
 	void findDepthFormat(VkPhysicalDevice GPU_);
-	VkFormat findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkFormat findSupportedFormat(VkPhysicalDevice GPU_);
 
 	void createSMDescriptors(FPSCam* camera);
 

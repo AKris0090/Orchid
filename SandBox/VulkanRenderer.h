@@ -124,6 +124,9 @@ public:
 	std::vector<Vertex> vertices_;
 	std::vector<uint32_t>indices_;
 
+	std::vector<Vertex> animatedVertices_;
+	std::vector<uint32_t> animatedIndices_;
+
 	VkBuffer vertexBuffer_;
 	VkDeviceMemory vertexBufferMemory_;
 
@@ -229,6 +232,7 @@ public:
 	void separateDrawCalls();
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
+	void setupCompute();
 
 	void createVertexBuffer();
 	void createIndexBuffer();

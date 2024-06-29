@@ -12,7 +12,7 @@
 #include <characterkinematic/PxControllerManager.h>
 
 constexpr auto PI = 3.141592653589793;
-constexpr auto SHADOW_MAP_CASCADE_COUNT = 4;
+constexpr auto SHADOW_MAP_CASCADE_COUNT = 3;
 
 
 class DeviceHelper {

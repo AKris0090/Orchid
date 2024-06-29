@@ -18,19 +18,17 @@ uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFi
 	std::_Xruntime_error("Failed to find a suitable memory type!");
 }
 
-void DirectionalLight::findDepthFormat(VkPhysicalDevice GPU_) {
-	imageFormat_ = findSupportedFormat(GPU_, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
-
-VkFormat DirectionalLight::findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features) {
-	for (VkFormat format : potentialFormats) {
+VkFormat DirectionalLight::findSupportedFormat(VkPhysicalDevice GPU_) {
+	std::vector<VkFormat> potentialFormats = { VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM };
+	for (VkFormat& format : potentialFormats) {
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(GPU_, format, &props);
 
-		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-			return format;
-		}
-		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+		{
+			if (!(props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
+				continue;
+			}
 			return format;
 		}
 	}
@@ -571,7 +569,7 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 	float ratio = maxZ / minZ;
 
 	std::vector<float> shadowCascadeLevels{};
-	shadowCascadeLevels.resize(4);
+	shadowCascadeLevels.resize(3);
 
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
@@ -652,8 +650,10 @@ void DirectionalLight::genShadowMap(FPSCam* camera) {
 	height_ = 4096;
 	zNear = 1.f;
 	zFar = 100.0f;
-	imageFormat_ = VK_FORMAT_D16_UNORM;
-	cascadeSplitLambda = 0.95f;
+	
+	imageFormat_ = findSupportedFormat(pDevHelper_->getPhysicalDevice());
+
+	cascadeSplitLambda = 0.89f;
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 
@@ -671,7 +671,6 @@ void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, Vk
 	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
 	this->pCommandPool_ = cmdPool;
-	this->imageFormat_ = VK_FORMAT_D16_UNORM;
 	this->swapChainHeight = swapChainHeight;
 	this->swapChainWidth = swapChainWidth;
 }

@@ -84,9 +84,9 @@ int main(int argc, char* argv[]) {
     for (auto& gameObject : graphicsManager.gameObjects) {
         gameObject->renderTarget->remove();
     }
-    for (auto& gameObject : graphicsManager.animatedObjects) {
-        gameObject->renderTarget->remove();
-    }
+
+    graphicsManager.pVkR_->vertices_.clear();
+    graphicsManager.pVkR_->vertices_.shrink_to_fit();
 
     for (GameObject* g : graphicsManager.gameObjects) {
         g->renderTarget->modelTransform = g->transform.to_matrix();
