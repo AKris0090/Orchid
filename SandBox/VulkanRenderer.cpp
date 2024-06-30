@@ -25,6 +25,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     // Wait for the frame to be finished, with the fences
     vkWaitForFences(this->device_, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
+    vkResetFences(this->device_, 1, &inFlightFences_[currentFrame_]);
 
     // Acquire an image from the swap chain, execute the command buffer with the image attached in the framebuffer, and return to swap chain as ready to present
     // Disable the timeout with UINT64_MAX
@@ -40,6 +41,7 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     }
 
     updateUniformBuffer(imageIndex_);
+    vkResetCommandBuffer(commandBuffers_[currentFrame_], 0);
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
@@ -160,7 +162,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
     aInfo.applicationVersion = 1;
     aInfo.pEngineName = "No Engine";
     aInfo.engineVersion = 1;
-    aInfo.apiVersion = VK_API_VERSION_1_2;
+    aInfo.apiVersion = VK_API_VERSION_1_3;
 
     VkInstanceCreateInfo instanceCInfo{};
     instanceCInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -328,6 +330,10 @@ QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDe
             indices.graphicsFamily = i;
         }
 
+        if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            indices.computeFamily = i;
+        }
+
         VkBool32 prSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface_, &prSupport);
 
@@ -488,11 +494,11 @@ void VulkanRenderer::pickPhysicalDevice() {
 
 // Setting up the logical device using the physical device
 void VulkanRenderer::createLogicalDevice() {
-    QueueFamilyIndices indices = findQueueFamilies(GPU_);
+    QFIndices_ = findQueueFamilies(GPU_);
 
     // Create presentation queue with structs
     std::vector<VkDeviceQueueCreateInfo> queuecInfos;
-    std::set<uint32_t> uniqueQFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    std::set<uint32_t> uniqueQFamilies = { QFIndices_.graphicsFamily.value(), QFIndices_.presentFamily.value(), QFIndices_.computeFamily.value() };
 
     float queuePrio = 1.0f;
     for (uint32_t queueFamily : uniqueQFamilies) {
@@ -504,20 +510,21 @@ void VulkanRenderer::createLogicalDevice() {
         queuecInfos.push_back(queuecInfo);
     }
 
-
     // Specifying device features through another struct
     VkPhysicalDeviceFeatures gpuFeatures{};
     gpuFeatures.samplerAnisotropy = VK_TRUE;
     gpuFeatures.depthClamp = VK_TRUE;
 
+    VkPhysicalDeviceVulkan13Features vk13Features{};
+    vk13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vk13Features.synchronization2 = VK_TRUE;
 
     // Create the logical device, filling in with the create info structs
     VkDeviceCreateInfo deviceCInfo{};
     deviceCInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCInfo.pNext = VK_NULL_HANDLE;
+    deviceCInfo.pNext = &vk13Features;
     deviceCInfo.queueCreateInfoCount = static_cast<uint32_t>(queuecInfos.size());
     deviceCInfo.pQueueCreateInfos = queuecInfos.data();
-
     deviceCInfo.pEnabledFeatures = &gpuFeatures;
 
     // Set enabledLayerCount and ppEnabledLayerNames fields to be compatible with older implementations of Vulkan
@@ -538,8 +545,9 @@ void VulkanRenderer::createLogicalDevice() {
         std::_Xruntime_error("failed to instantiate logical device!");
     }
 
-    vkGetDeviceQueue(device_, indices.graphicsFamily.value(), 0, &graphicsQueue_);
-    vkGetDeviceQueue(device_, indices.presentFamily.value(), 0, &presentQueue_);
+    vkGetDeviceQueue(device_, QFIndices_.graphicsFamily.value(), 0, &graphicsQueue_);
+    vkGetDeviceQueue(device_, QFIndices_.presentFamily.value(), 0, &presentQueue_);
+    vkGetDeviceQueue(device_, QFIndices_.computeFamily.value(), 0, &computeQueue_);
 
     //loadDebugUtilsFunctions(device_);
 }
@@ -1604,12 +1612,14 @@ void VulkanRenderer::createUniformBuffers() {
 }
 
 void VulkanRenderer::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = 1000; //static_cast<uint32_t>(SWChainImages_.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // Multiplied by 2 for imgui, needs to render separate font atlas, so needs double the image space // 5 samplers + 3 generated images + 1 shadow map
     poolSizes[1].descriptorCount = 1000; //(this->numMats_) * 10 + static_cast<uint32_t>(SWChainImages_.size()) + 6; // plus one for the skybox descriptor
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount = 3;
 
     VkDescriptorPoolCreateInfo poolCInfo{};
     poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1830,6 +1840,36 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
 
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeDescriptorSet_, 0, nullptr);
+
+    for (AnimatedGameObject* g : *animatedObjects) {
+        const auto cs = ComputePushConstant{
+            .jointMatrixStart = g->renderTarget->globalSkinningMatrixOffset,
+            .numVertices = g->renderTarget->getTotalVertices()
+        };
+        vkCmdPushConstants(commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstant), &cs);
+
+        static const auto workgroupSize = 256;
+        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->getTotalVertices() / (float)workgroupSize);
+        vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
+    }
+
+    VkMemoryBarrier2 memoryBarrier{};
+    memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    memoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+
+    VkDependencyInfo dependencyInfo{};
+    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependencyInfo.memoryBarrierCount = 1;
+    dependencyInfo.pMemoryBarriers = &memoryBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
     VkBuffer vertexBuffers[] = { vertexBuffer_ };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -1839,13 +1879,19 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
 
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
+
+
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
         for (GameObject* gO : *(gameObjects)) {
            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
-        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
+        //vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->animatedSMPipeline);
         for (AnimatedGameObject* animGO : *(animatedObjects)) {
-            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->animatedSmPipelineLayout, pDirectionalLight->animatedSMPipeline, j, pDirectionalLight->cascades[j].descriptorSet);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, pDirectionalLight->sMPipeline_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
 
@@ -1887,6 +1933,9 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
@@ -1898,12 +1947,16 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
     
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     for (AnimatedGameObject* gO : *(animatedObjects)) {
-        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaqueAnimatedPipelineLayout_);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
     }
 
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     //VkDebugUtilsLabelEXT debugLabelTransparent{}; debugLabelTransparent.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelTransparent.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
@@ -1914,10 +1967,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
     // 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    ///vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     for (AnimatedGameObject* gO : *(animatedObjects)) {
         if (gO->renderTarget->transparentDraws.size() > 0) {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
             gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
         }
     }
@@ -2018,8 +2073,171 @@ COMPUTE
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void VulkanRenderer::setupCompute() {
+void VulkanRenderer::updateBindMatrices() {
+    memcpy(mappedSkinBuffer, inverseBindMatrices.data(), inverseBindMatrices.size() * sizeof(glm::mat4));
+}
 
+void VulkanRenderer::setupCompute() {
+    size_t bufferSize = inverseBindMatrices.size() * sizeof(glm::mat4);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, skinBindMatricsBuffer, skinBindMatricesBufferMemory);
+
+    vkMapMemory(pDevHelper_->getDevice(), skinBindMatricesBufferMemory, 0, bufferSize, 0, &mappedSkinBuffer);
+    memcpy(mappedSkinBuffer, inverseBindMatrices.data(), bufferSize);
+
+    // TODO: implement buffer device addresses so that you can launch multiple compute shaders
+    VkDescriptorSetLayoutBinding jointMatrixLayout{};
+    jointMatrixLayout.binding = 0;
+    jointMatrixLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    jointMatrixLayout.descriptorCount = 1;
+    jointMatrixLayout.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    jointMatrixLayout.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding inputVertexBufferLayout{};
+    inputVertexBufferLayout.binding = 1;
+    inputVertexBufferLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    inputVertexBufferLayout.descriptorCount = 1;
+    inputVertexBufferLayout.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    inputVertexBufferLayout.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding outputVertexBufferLayout{};
+    outputVertexBufferLayout.binding = 2;
+    outputVertexBufferLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    outputVertexBufferLayout.descriptorCount = 1;
+    outputVertexBufferLayout.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    outputVertexBufferLayout.pImmutableSamplers = nullptr;
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { jointMatrixLayout, inputVertexBufferLayout, outputVertexBufferLayout };
+
+    VkDescriptorSetLayoutCreateInfo layoutCInfo{};
+    layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutCInfo.bindingCount = 3;
+    layoutCInfo.pBindings = bindings.data();
+
+    vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &computeDescriptorSetLayout_);
+
+    VkPushConstantRange pcRange{};
+    pcRange.offset = 0;
+    pcRange.size = sizeof(ComputePushConstant);
+    pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 1;
+    pipeLineLayoutCInfo.pSetLayouts = &computeDescriptorSetLayout_;
+    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
+    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(computePipelineLayout)) != VK_SUCCESS) {
+        std::cout << "nah you buggin on dis compute shit" << std::endl;
+        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
+    }
+
+    VkDescriptorSetAllocateInfo allocateInfo{};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocateInfo.descriptorPool = descriptorPool_;
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.pSetLayouts = &computeDescriptorSetLayout_;
+    
+    VkResult res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &computeDescriptorSet_);
+
+    VkDescriptorBufferInfo skinMatrixDescriptorBufferInfo{};
+    skinMatrixDescriptorBufferInfo.buffer = skinBindMatricsBuffer;
+    skinMatrixDescriptorBufferInfo.offset = 0;
+    skinMatrixDescriptorBufferInfo.range = (sizeof(glm::mat4) * inverseBindMatrices.size());
+
+    VkWriteDescriptorSet skinMatrixWriteSet{};
+    skinMatrixWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    skinMatrixWriteSet.dstSet = computeDescriptorSet_;
+    skinMatrixWriteSet.dstBinding = 0;
+    skinMatrixWriteSet.dstArrayElement = 0;
+    skinMatrixWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    skinMatrixWriteSet.descriptorCount = 1;
+    skinMatrixWriteSet.pBufferInfo = &skinMatrixDescriptorBufferInfo;
+
+
+
+    VkDescriptorBufferInfo vertexDescriptorBufferInfo{};
+    vertexDescriptorBufferInfo.buffer = (*animatedObjects)[0]->vertexBuffer_;
+    vertexDescriptorBufferInfo.offset = 0;
+    vertexDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->basePoseVertices_.size());
+
+    VkWriteDescriptorSet vertexInputWriteSet{};
+    vertexInputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vertexInputWriteSet.dstSet = computeDescriptorSet_;
+    vertexInputWriteSet.dstBinding = 1;
+    vertexInputWriteSet.dstArrayElement = 0;
+    vertexInputWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexInputWriteSet.descriptorCount = 1;
+    vertexInputWriteSet.pBufferInfo = &vertexDescriptorBufferInfo;
+
+
+
+
+    VkDescriptorBufferInfo vertexOutputDescriptorBufferInfo{};
+    vertexOutputDescriptorBufferInfo.buffer = (*animatedObjects)[0]->skinnedBuffer_;
+    vertexOutputDescriptorBufferInfo.offset = 0;
+    vertexOutputDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->basePoseVertices_.size());
+
+    VkWriteDescriptorSet vertexOutputWriteSet{};
+    vertexOutputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vertexOutputWriteSet.dstSet = computeDescriptorSet_;
+    vertexOutputWriteSet.dstBinding = 2;
+    vertexOutputWriteSet.dstArrayElement = 0;
+    vertexOutputWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vertexOutputWriteSet.descriptorCount = 1;
+    vertexOutputWriteSet.pBufferInfo = &vertexOutputDescriptorBufferInfo;
+
+    std::array<VkWriteDescriptorSet, 3> descriptors = { skinMatrixWriteSet, vertexInputWriteSet, vertexOutputWriteSet };
+
+    vkUpdateDescriptorSets(device_, 3, descriptors.data(), 0, NULL);
+
+    // COMPUTE PIPELINE CREATION
+
+    std::vector<char> computeShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/computeSkin.spv");
+
+    VkShaderModule computeShaderModule = createShaderModule(computeShader);
+
+    VkPipelineShaderStageCreateInfo computeStageCInfo{};
+    computeStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeStageCInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeStageCInfo.module = computeShaderModule;
+    computeStageCInfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineCInfo{};
+    computePipelineCInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCInfo.stage = computeStageCInfo;
+
+    computePipelineCInfo.layout = computePipelineLayout;
+
+    vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &computePipelineCInfo, nullptr, &computePipeline);
+
+    // BARRIER OBJECTS
+    VkCommandPoolCreateInfo computePoolCInfo = {};
+    computePoolCInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    computePoolCInfo.queueFamilyIndex = QFIndices_.computeFamily.value();
+    computePoolCInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    vkCreateCommandPool(device_, &computePoolCInfo, nullptr, &computePool_);
+
+    VkCommandBufferAllocateInfo computeBufferAllocationInfo{};
+    computeBufferAllocationInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    computeBufferAllocationInfo.commandPool = computePool_;
+    computeBufferAllocationInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    computeBufferAllocationInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(device_, &computeBufferAllocationInfo, &computeBuffer_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to allocate compute command buffer!");
+    }
+
+    VkSemaphoreCreateInfo semaCInfo{};
+    semaCInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceCInfo{};
+    fenceCInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    vkCreateFence(device_, &fenceCInfo, nullptr, &computeFence);
+    vkCreateSemaphore(device_, &semaCInfo, nullptr, &computeSema);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -34,7 +34,7 @@ static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[],
 
 static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
     const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    glm::vec2 uv = data->mesh->stagingVertices_[face * 3 + vert].uv;
+    glm::vec2 uv = glm::vec2(data->mesh->stagingVertices_[face * 3 + vert].pos.w, data->mesh->stagingVertices_[face * 3 + vert].normal.w);
     fvTexcOut[0] = uv.x;
     fvTexcOut[1] = 1.0 - uv.y;
 }
@@ -213,9 +213,11 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 
             for (size_t vert = 0; vert < currentNumVertices; vert++) {
                 Vertex v;
-                v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
-                v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
-                v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
+                glm::vec2 uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
+                glm::vec3 normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
+
+                v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), uv.x);
+                v.normal = glm::vec4(normal, uv.y);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
                 p->stagingVertices_.push_back(v);
             }
@@ -309,10 +311,6 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 
             totalIndices_ += currentNumIndices; 
             totalVertices_ += currentNumVertices;
-
-            for (auto& v : p->stagingVertices_) {
-                v.bitangent = glm::normalize(glm::cross(glm::vec3(v.normal), glm::vec3(glm::normalize(v.tangent)) * v.tangent.w));
-            }
 
             scNode->meshPrimitives.push_back(p);
         }

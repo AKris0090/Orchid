@@ -34,7 +34,7 @@ static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[],
 
 static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
     const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    glm::vec2 uv = data->mesh->stagingVertices_[face * 3 + vert].uv;
+    glm::vec2 uv = glm::vec2(data->mesh->stagingVertices_[face * 3 + vert].pos.w, data->mesh->stagingVertices_[face * 3 + vert].normal.w);
     fvTexcOut[0] = uv.x;
     fvTexcOut[1] = 1.0 - uv.y;
 }
@@ -66,7 +66,6 @@ void AnimatedGLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelin
         for (auto& draw : mat.second) {
             glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &(skins_[draw->skinIndex].descriptorSet), 0, nullptr);
             callIndexedDraw(commandBuffer, draw->indirectInfo);
         }
     }
@@ -81,18 +80,15 @@ void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPi
         for (auto& draw : mat.second) {
             glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &(skins_[draw->skinIndex].descriptorSet), 0, nullptr);
+            //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &(skins_[draw->skinIndex].descriptorSet), 0, nullptr);
             callIndexedDraw(commandBuffer, draw->indirectInfo);
         }
     }
 }
 
 void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
-    cascadeBlock.model = node->getAnimatedMatrix() * modelTransform;
-    if (node->skinIndex >= 0) {
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(skins_[node->skinIndex].descriptorSet), 0, nullptr);
-    }
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &cascadeDescriptor, 0, nullptr);
+    cascadeBlock.model = modelTransform * node->getAnimatedMatrix();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
         callIndexedDraw(commandBuffer, mesh->indirectInfo);
@@ -199,14 +195,13 @@ void AnimatedGLTFObj::updateJoints(SceneNode* node)
         glm::mat4              inverseTransform = glm::inverse(getNodeMatrix(node));
         Skin                   skin = skins_[node->skinIndex];
         size_t                 numJoints = (uint32_t)skin.joints.size();
-        std::vector<glm::mat4> jointMatrices(numJoints);
         for (size_t i = 0; i < numJoints; i++)
         {
-            jointMatrices[i] = inverseTransform * (getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i]);
+            (*(skin.finalJointMatrices))[i] = inverseTransform * (getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i]);
         }
 
         // Update ssbo
-        memcpy(skin.ssbo, jointMatrices.data(), jointMatrices.size() * sizeof(glm::mat4));
+        //memcpy(skin.ssbo, jointMatrices.data(), jointMatrices.size() * sizeof(glm::mat4));
     }
 
     for (auto& child : node->children)
@@ -250,7 +245,7 @@ void AnimatedGLTFObj::loadTextures() {
     textureIndices_.push_back(size + 3);
 }
 
-void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t& globalVertexOffset, uint32_t& globalIndexOffset) {
     SMikkTSpaceContext mikktContext = { .m_pInterface = &MikkTInterface };
 
     SceneNode* scNode = new SceneNode{};
@@ -337,10 +332,12 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
             bool hasSkin = (jointIndicesBuffer && jointWeightsBuffer);
 
             for (size_t vert = 0; vert < currentNumVertices; vert++) {
+                glm::vec2 uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
+                glm::vec3 normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
+
                 Vertex v;
-                v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), 1.0f);
-                v.normal = glm::normalize(glm::vec3(normalsBuff ? glm::make_vec3(&normalsBuff[vert * 3]) : glm::vec3(0.0f)));
-                v.uv = uvBuff ? glm::make_vec2(&uvBuff[vert * 2]) : glm::vec3(0.0f);
+                v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), uv.x);
+                v.normal = glm::vec4(normal, uv.y);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
                 if (hasSkin) {
                     switch (jointType) {
@@ -401,7 +398,6 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
             }
 
             p->indirectInfo.firstIndex = firstIndex + globalIndexOffset;
-            p->indirectInfo.numIndices = currentNumIndices;
             p->indirectInfo.firstInstance = 0;
             p->indirectInfo.instanceCount = 1;
             p->indirectInfo.globalVertexOffset = globalVertexOffset;
@@ -453,12 +449,10 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 currentNumVertices = p->stagingVertices_.size();
             }
 
+            p->indirectInfo.numIndices = currentNumIndices;
+
             totalIndices_ += currentNumIndices;
             totalVertices_ += currentNumVertices;
-
-            for (auto& v : p->stagingVertices_) {
-                v.bitangent = glm::normalize(glm::cross(glm::vec3(v.normal), glm::vec3(glm::normalize(v.tangent)) * v.tangent.w));
-            }
 
             scNode->meshPrimitives.push_back(p);
         }
@@ -657,6 +651,11 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
 
         loadSkins();
         loadAnimations(in, animations_);
+
+        for (auto& skin : skins_) {
+            skin.finalJointMatrices = new std::vector<glm::mat4>();
+            skin.finalJointMatrices->resize(skin.inverseBindMatrices.size());
+        }
 
         for (auto node : pParentNodes)
         {

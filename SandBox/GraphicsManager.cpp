@@ -200,8 +200,13 @@ void GraphicsManager::startVulkan() {
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
 
+    uint32_t globalSkinMatrixOffset = 0;
+
+    globalVertexOffset = 0;
+    globalIndexOffset = 0;
+
     for (std::string s : pAnimatedModelPaths_) {
-        AnimatedGameObject* newAnimGO = new AnimatedGameObject();
+        AnimatedGameObject* newAnimGO = new AnimatedGameObject(pVkR_->pDevHelper_);
         AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
         mod->loadGLTF(globalVertexOffset, globalIndexOffset);
         newAnimGO->setAnimatedGLTFObj(mod);
@@ -210,11 +215,17 @@ void GraphicsManager::startVulkan() {
         pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
         pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-        mod->addVertices(&(pVkR_->animatedVertices_));
-        mod->addIndices(&(pVkR_->animatedIndices_));
+        mod->addVertices(&(newAnimGO->basePoseVertices_));
+        mod->addIndices(&(newAnimGO->basePoseIndices_));
 
-        globalVertexOffset = pVkR_->vertices_.size();
-        globalIndexOffset = pVkR_->indices_.size();
+        mod->globalSkinningMatrixOffset = globalSkinMatrixOffset;
+
+        for (auto& skin : mod->skins_) {
+            for (glm::mat4 matrix : *(skin.finalJointMatrices)) {
+                pVkR_->inverseBindMatrices.push_back(matrix);
+                globalSkinMatrixOffset++;
+            }
+        }
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
@@ -222,6 +233,12 @@ void GraphicsManager::startVulkan() {
     // link renderable objects to member game objects
     pVkR_->gameObjects = &gameObjects;
     pVkR_->animatedObjects = &animatedObjects;
+
+    for (AnimatedGameObject* g : animatedObjects) {
+        g->createVertexBuffer();
+        g->createIndexBuffer();
+        g->createSkinnedBuffer();
+    }
 
     pVkR_->createVertexBuffer();
     pVkR_->createIndexBuffer();
@@ -278,6 +295,10 @@ void GraphicsManager::startVulkan() {
     std::cout << "created semaphores \n" << std::endl;
 
     pVkR_->separateDrawCalls();
+
+    pVkR_->setupCompute();
+
+    return;
 }
 
 void GraphicsManager::loopUpdate() {

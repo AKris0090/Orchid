@@ -15,13 +15,11 @@ layout(push_constant) uniform pushConstant {
     mat4 model;
 } pc;
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec2 inTexCoord;
-layout(location = 2) in vec3 inNormal;
-layout(location = 3) in vec4 inTangent;
-layout(location = 4) in vec3 inBiTangent;
-layout(location = 5) in vec4 jointIndex;
-layout(location = 6) in vec4 jointWeight;
+layout(location = 0) in vec4 inPosition;
+layout(location = 1) in vec4 inNormal;
+layout(location = 2) in vec4 inTangent;
+layout(location = 3) in vec4 jointIndex;
+layout(location = 4) in vec4 jointWeight;
 
 layout(location = 0) out vec4 fragPosition;
 layout(location = 1) out vec2 fragTexCoord;
@@ -38,15 +36,15 @@ void main() {
 		jointWeight.z * jointMatrices[int(jointIndex.z)] +
 		jointWeight.w * jointMatrices[int(jointIndex.w)];
 
-    fragTexCoord = inTexCoord;
+    fragTexCoord = vec2(inPosition.w, inNormal.w);
 
-    vec4 pos = pc.model * skinMat * vec4(inPosition, 1.0f);
+    vec4 pos = pc.model * skinMat * vec4(inPosition.xyz, 1.0f);
     vec3 fragPositionTemp = pos.xyz / pos.w;
 
-    vec3 fragNormal = mat3(pc.model * skinMat) * inNormal;
+    vec3 fragNormal = mat3(pc.model * skinMat) * inNormal.xyz;
     vec4 fragTangent = vec4((pc.model * skinMat * inTangent).xyz, inTangent.w);
 
-    TBNMatrix = mat3(normalize(fragTangent.xyz), inBiTangent, normalize(fragNormal));
+    TBNMatrix = mat3(normalize(fragTangent.xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize(fragNormal));
 
     fragPosition = vec4(fragPositionTemp, (ubo.view * vec4(fragPositionTemp, 1.0f)).z);
 

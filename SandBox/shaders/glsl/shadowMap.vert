@@ -11,9 +11,9 @@ layout(push_constant) uniform pushConstant {
     uint pCascadeIndex;
 };
 
-layout(location = 0) in vec3 inPosition;
+layout(location = 0) in vec4 inPosition;
  
 void main()
 {
-	gl_Position =  ubo.cascadeViewProj[pCascadeIndex] * pCModel * vec4(inPosition, 1.0);
+	gl_Position =  ubo.cascadeViewProj[pCascadeIndex] * pCModel * vec4(inPosition.xyz, 1.0);
 }

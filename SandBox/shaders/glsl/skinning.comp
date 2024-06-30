@@ -2,27 +2,28 @@
 
 struct Vertex {
 	vec3 pos;
-	vec2 tex;
+	float tex_x;
 	vec3 normal;
+	float tex_y;
 	vec4 tangent;
-	vec3 biTangent;
 	vec4 jointIndex;
 	vec4 jointWeight;
-}
+};
+
 
 layout(std430, set = 0, binding = 0) readonly buffer JointMatrices {
 	mat4 jointMatrices[];
 };
 
-layout(std430, set = 0, binding = 1) readonly buffer VertexBuffer {
+layout(set = 0, binding = 1) readonly buffer VertexInputBuffer {
 	Vertex verticesIn[];
 };
 
-layout(std430, set = 0, binding = 2) writeonly buffer VertexBuffer {
+layout(set = 0, binding = 2) writeonly buffer VertexOutputBuffer {
 	Vertex verticesOut[];
 };
 
-layout (push_constant) uniform PushConstants
+layout(push_constant) uniform pushConstant
 {
     uint jointMatricesStart;
     uint numVertices;
@@ -41,17 +42,20 @@ void main()
         return;
     }
 
-    SkinningDataType sd = pcs.skinningData.data[index];
-    mat4 skinMatrix =
-        sd.weights.x * getJointMatrix(sd.jointIds.x) +
-        sd.weights.y * getJointMatrix(sd.jointIds.y) +
-        sd.weights.z * getJointMatrix(sd.jointIds.z) +
-        sd.weights.w * getJointMatrix(sd.jointIds.w);
-
     Vertex v = verticesIn[index];
-    v.pos = vec3(skinMatrix * vec4(v.position, 1.0));
-    v.normal = vec3(skinMatrix * vec4(v.normal,. 1.0));
-    v.tangent = skinMatrix * tangent;
+
+    mat4 skinMatrix =
+        v.jointWeight.x * jointMatrices[int(v.jointIndex.x)] +
+        v.jointWeight.y * jointMatrices[int(v.jointIndex.y)] +
+        v.jointWeight.z * jointMatrices[int(v.jointIndex.z)] +
+        v.jointWeight.w * jointMatrices[int(v.jointIndex.w)];
+
+    v.pos = vec3(skinMatrix * vec4(v.pos.xyz, 1.0));
+
+    mat3 skinMatrix3 = mat3(skinMatrix);
+    v.normal = skinMatrix3 * v.normal;
+
+    v.tangent.xyz = skinMatrix3 * v.tangent.xyz;
 
     verticesOut[index] = v;
 }

@@ -31,6 +31,7 @@ public:
 		void* ssbo;
 		VkDescriptorSet descriptorSet;
 		VkDescriptorSet shadowMapDescriptorSet;
+		std::vector<glm::mat4>* finalJointMatrices;
 	};
 
 	struct AnimationSampler {
@@ -70,6 +71,8 @@ public:
 	std::unordered_map<Material*, std::vector<MeshHelper*>> transparentDraws;
 	std::vector<Skin> skins_;
 
+	uint32_t globalSkinningMatrixOffset;
+
 	std::vector<int32_t> textureIndices_;
 	std::vector<TextureHelper*> images_;
 	std::vector<Material> mats_;
@@ -96,6 +99,7 @@ public:
 	void addIndices(std::vector<uint32_t>* indices);
 
 	uint32_t activeAnimation;
+	std::vector<Animation> animations_;
 	void updateAnimation(float deltaTime);
 
 private:
@@ -109,8 +113,6 @@ private:
 
 	tinygltf::Model* pInputModel_;
 
-	std::vector<Animation> animations_;
-
 	void loadImages();
 	void loadTextures();
 	void loadMaterials();
@@ -118,7 +120,7 @@ private:
 	void loadAnimations(tinygltf::Model& in, std::vector<Animation>& animations);
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
-	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
+	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t& globalVertexOffset, uint32_t& globalIndexOffset);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
