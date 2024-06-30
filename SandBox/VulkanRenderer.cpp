@@ -1973,7 +1973,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         if (gO->renderTarget->transparentDraws.size() > 0) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
             vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentAnimatedPipelineLayout_);
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_);
         }
     }
 }

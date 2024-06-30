@@ -17,6 +17,7 @@ std::vector<std::string> staticModelPaths = {
 
 std::vector<std::string> animatedModelPaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/wolf_animated/Wolf-2.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
@@ -101,10 +102,10 @@ int main(int argc, char* argv[]) {
     graphicsManager.animatedObjects[0]->isPlayerObj = true;
 
     // WOLF
-    // ----- graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
-    // ----- graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
-    graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
-    graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
+     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
+     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
+    //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
+    //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
     //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
