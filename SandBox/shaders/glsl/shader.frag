@@ -22,7 +22,7 @@ layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
-layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
+layout(set = 1, binding = 5) uniform sampler2D brdfTexture;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
@@ -199,7 +199,7 @@ void main()
 
 	vec3 Lo = specularContribution(L, V, N, F0, metallic, roughness);
 
-	vec2 brdf = texture(samplerCubeMap, vec2(NdotV, roughness)).rg;
+	vec2 brdf = texture(brdfTexture, vec2(NdotV, roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
 

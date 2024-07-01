@@ -80,7 +80,6 @@ void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPi
         for (auto& draw : mat.second) {
             glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &(skins_[draw->skinIndex].descriptorSet), 0, nullptr);
             callIndexedDraw(commandBuffer, draw->indirectInfo);
         }
     }
@@ -88,7 +87,6 @@ void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPi
 
 void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
     cascadeBlock.model = modelTransform * node->getAnimatedMatrix();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
         callIndexedDraw(commandBuffer, mesh->indirectInfo);
@@ -199,9 +197,6 @@ void AnimatedGLTFObj::updateJoints(SceneNode* node)
         {
             (*(skin.finalJointMatrices))[i] = inverseTransform * (getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i]);
         }
-
-        // Update ssbo
-        //memcpy(skin.ssbo, jointMatrices.data(), jointMatrices.size() * sizeof(glm::mat4));
     }
 
     for (auto& child : node->children)
@@ -214,17 +209,12 @@ void AnimatedGLTFObj::updateJoints(SceneNode* node)
 void AnimatedGLTFObj::loadImages() {
     for (size_t i = 0; i < pInputModel_->images.size(); i++) {
         TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
-        tex->load();
         images_.push_back(tex);
     }
     TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
     TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
     TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
     TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
-    dummyAO->load();
-    dummyMetallic->load();
-    dummyNormal->load();
-    dummyEmission->load();
     images_.push_back(dummyNormal);
     images_.push_back(dummyMetallic);
     images_.push_back(dummyAO);
@@ -245,7 +235,7 @@ void AnimatedGLTFObj::loadTextures() {
     textureIndices_.push_back(size + 3);
 }
 
-void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t& globalVertexOffset, uint32_t& globalIndexOffset) {
+void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     SMikkTSpaceContext mikktContext = { .m_pInterface = &MikkTInterface };
 
     SceneNode* scNode = new SceneNode{};
@@ -437,10 +427,10 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                         postTVertexCount++;
                         uniqueVertices.insert(std::make_pair(v, vertIndex));
                         p->stagingVertices_[vertIndex] = v;
-                        p->stagingIndices_.push_back(vertIndex);
+                        p->stagingIndices_.push_back(vertIndex + firstVertex);
                     }
                     else {
-                        p->stagingIndices_.push_back(index->second);
+                        p->stagingIndices_.push_back(index->second + firstVertex);
                     }
                 }
                 p->stagingVertices_.resize(postTVertexCount);
@@ -522,12 +512,6 @@ void AnimatedGLTFObj::loadSkins() {
             size_t bufferSize = accessor.count * sizeof(glm::mat4);
 
             memcpy(skins_[i].inverseBindMatrices.data(), &buffer.data[accessor.byteOffset + bufferView.byteOffset], bufferSize);
-
-            VkDeviceMemory bufferMemory;
-            pDevHelper_->createBuffer(sizeof(glm::mat4) * skins_[i].inverseBindMatrices.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, skins_[i].ssboBufferHandle, bufferMemory);
-
-            vkMapMemory(pDevHelper_->getDevice(), bufferMemory, 0, bufferSize, 0, &skins_[i].ssbo);
-            memcpy(skins_[i].ssbo, skins_[i].inverseBindMatrices.data(), bufferSize);
         }
     }
 }
@@ -641,6 +625,10 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
             textureIndices_.resize(pInputModel_->textures.size() + 3);
             loadMaterials();
             loadTextures();
+
+            for (auto& image : images_) {
+                image->load();
+            }
         }
 
         const tinygltf::Scene& scene = in.scenes[0];
@@ -724,7 +712,7 @@ void AnimatedGLTFObj::loadMaterials() {
     std::cout << std::endl << "loaded: " << mats_.size() << " materials" << std::endl;
 }
 
-void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout animDescSetLayout) {
+void AnimatedGLTFObj::createDescriptors() {
     for (Material& m : mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -811,36 +799,6 @@ void AnimatedGLTFObj::createDescriptors(VkDescriptorSetLayout animDescSetLayout)
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
         vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
-    }
-
-    for (auto& skin : skins_)
-    {
-        VkDescriptorSetAllocateInfo allocateInfo{};
-        allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
-        allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout animatedSet = animDescSetLayout;
-        allocateInfo.pSetLayouts = &(animatedSet);
-
-        VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(skin.descriptorSet));
-        if (res != VK_SUCCESS) {
-            std::_Xruntime_error("Failed to allocate descriptor sets!");
-        }
-
-        VkDescriptorBufferInfo descriptorBufferInfo{};
-        descriptorBufferInfo.buffer = skin.ssboBufferHandle;
-        descriptorBufferInfo.offset = 0;
-        descriptorBufferInfo.range = sizeof(glm::mat4) * skin.inverseBindMatrices.size();
-
-        VkWriteDescriptorSet animSkinWriteSet{};
-        animSkinWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        animSkinWriteSet.dstSet = skin.descriptorSet;
-        animSkinWriteSet.dstBinding = 0;
-        animSkinWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        animSkinWriteSet.descriptorCount = 1;
-        animSkinWriteSet.pBufferInfo = &descriptorBufferInfo;
-
-        vkUpdateDescriptorSets(pDevHelper_->getDevice(), 1, &animSkinWriteSet, 0, nullptr);
     }
 }
 

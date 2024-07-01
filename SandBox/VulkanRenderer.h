@@ -165,8 +165,6 @@ public:
 	// Pipeline Layout for "gloabls" to change shaders
 	VkPipelineLayout opaquePipeLineLayout_;
 	VkPipelineLayout transparentPipeLineLayout_;
-	VkPipelineLayout opaqueAnimatedPipelineLayout_;
-	VkPipelineLayout transparentAnimatedPipelineLayout_;
 
 	VkPipeline computePipeline;
 	VkPipelineLayout computePipelineLayout;
@@ -174,8 +172,6 @@ public:
 	// OPAQUE AND TRANSPARENT PIPELINES
 	VkPipeline opaquePipeline;
 	VkPipeline transparentPipeline;
-	VkPipeline animatedOpaquePipeline;
-	VkPipeline animatedTransparentPipeline;
 
 	// Render pass handles
 	VkRenderPass renderPass_;
@@ -194,7 +190,6 @@ public:
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
-	VkDescriptorSetLayout animatedDescriptorSetLayout_;
 	VkDescriptorSetLayout computeDescriptorSetLayout_;
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
@@ -223,7 +218,6 @@ public:
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
 	void createGraphicsPipeline();
-	void createAnimatedGraphicsPipeline();
 	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
@@ -253,7 +247,6 @@ public:
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
 	void setupCompute();
-	void launchCompute();
 	void createVertexBuffer();
 	void createIndexBuffer();
 	void updateBindMatrices();

@@ -275,155 +275,24 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 }
 
 void DirectionalLight::createPipeline() {
-    VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size = sizeof(GLTFObj::cascadeMVP);
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 1;
-	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
-	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
-
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
-    }
-
-    std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
-
-    VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
-    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
-
-    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
-    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportStateCInfo.viewportCount = 1;
-    viewportStateCInfo.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizerCInfo.pNext = nullptr;
-	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_TRUE;
-	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
-	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizerCInfo.depthBiasEnable = VK_FALSE;
-	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
-	rasterizerCInfo.depthBiasClamp = 0.0f;
-	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
-	rasterizerCInfo.lineWidth = 1.0f;
-
-    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencilCInfo.pNext = nullptr;
-	depthStencilCInfo.flags = 0;
-	depthStencilCInfo.depthTestEnable = VK_TRUE;
-	depthStencilCInfo.depthWriteEnable = VK_TRUE;
-	depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
-	depthStencilCInfo.stencilTestEnable = VK_FALSE;
-	depthStencilCInfo.front = {};
-	depthStencilCInfo.back = {};
-	depthStencilCInfo.minDepthBounds = 0.0f;
-	depthStencilCInfo.maxDepthBounds = 1.0f;
-
-    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 0;
-
-    std::vector<VkDynamicState> dynaStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
-    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    dynamicStateCInfo.pDynamicStates = dynaStates.data();
-
-    //std::cout << "pipeline layout created" << std::endl;
-
-    VkPipelineShaderStageCreateInfo sMVertexStageCInfo{};
-    sMVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    sMVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    sMVertexStageCInfo.module = sMVertexShaderModule;
-    sMVertexStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo };
-
-    VkGraphicsPipelineCreateInfo shadowMapPipelineCInfo{};
-    shadowMapPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    shadowMapPipelineCInfo.stageCount = 1;
-    shadowMapPipelineCInfo.pStages = stages;
-
-    // Describing the format of the vertex data to be passed to the vertex shader
-    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
-    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
-
-    vertexInputCInfo.vertexBindingDescriptionCount = 1;
-    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
-    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    shadowMapPipelineCInfo.pVertexInputState = &vertexInputCInfo;
-    shadowMapPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
-    shadowMapPipelineCInfo.pViewportState = &viewportStateCInfo;
-    shadowMapPipelineCInfo.pRasterizationState = &rasterizerCInfo;
-    shadowMapPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    shadowMapPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
-    shadowMapPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
-    shadowMapPipelineCInfo.pDynamicState = &dynamicStateCInfo;
-
-    shadowMapPipelineCInfo.layout = sMPipelineLayout_;
-
-    shadowMapPipelineCInfo.renderPass = sMRenderpass_;
-    shadowMapPipelineCInfo.subpass = 0;
-
-    shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
-
-    //std::cout << "pipeline created" << std::endl;
-}
-
-void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout) {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
 	pcRange.size = sizeof(GLTFObj::cascadeMVP);
 	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	VkDescriptorSetLayout descSetLayouts[] = { animatedDescLayout, cascadeSetLayout };
-
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
 	pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeLineLayoutCInfo.setLayoutCount = 2;
-	pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+	pipeLineLayoutCInfo.setLayoutCount = 1;
+	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
-	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(animatedSmPipelineLayout)) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
 		std::cout << "nah you buggin" << std::endl;
 		std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
 	}
 
-	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/animShadowMapVert.spv");
-
-	//std::cout << "read files" << std::endl;
+	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
 
 	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
 
@@ -437,7 +306,7 @@ void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDesc
 	viewportStateCInfo.viewportCount = 1;
 	viewportStateCInfo.scissorCount = 1;
 
-VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+	VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCInfo.pNext = nullptr;
 	rasterizerCInfo.flags = 0;
@@ -451,11 +320,11 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.depthBiasClamp = 0.0f;
 	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
 	rasterizerCInfo.lineWidth = 1.0f;
-	
+
 	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
 	multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	
+
 	VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
 	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencilCInfo.pNext = nullptr;
@@ -468,6 +337,7 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	depthStencilCInfo.front = {};
 	depthStencilCInfo.back = {};
 	depthStencilCInfo.minDepthBounds = 0.0f;
+	depthStencilCInfo.maxDepthBounds = 1.0f;
 
 	VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
 	colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -503,7 +373,7 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAnimatedPositionDescription();
+	auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
 	vertexInputCInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -519,12 +389,16 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	shadowMapPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
 	shadowMapPipelineCInfo.pDynamicState = &dynamicStateCInfo;
 
-	shadowMapPipelineCInfo.layout = animatedSmPipelineLayout;
+	shadowMapPipelineCInfo.layout = sMPipelineLayout_;
 
 	shadowMapPipelineCInfo.renderPass = sMRenderpass_;
 	shadowMapPipelineCInfo.subpass = 0;
 
-	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &animatedSMPipeline);
+	shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
+
+	//std::cout << "pipeline created" << std::endl;
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp

@@ -27,8 +27,6 @@ public:
 		SceneNode* skeletonRoot = nullptr;
 		std::vector<glm::mat4> inverseBindMatrices;
 		std::vector<SceneNode*> joints;
-		VkBuffer ssboBufferHandle;
-		void* ssbo;
 		VkDescriptorSet descriptorSet;
 		VkDescriptorSet shadowMapDescriptorSet;
 		std::vector<glm::mat4>* finalJointMatrices;
@@ -80,7 +78,7 @@ public:
 	AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 
-	void createDescriptors(VkDescriptorSetLayout descSetLayout);
+	void createDescriptors();
 
 	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
@@ -120,7 +118,7 @@ private:
 	void loadAnimations(tinygltf::Model& in, std::vector<Animation>& animations);
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
-	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t& globalVertexOffset, uint32_t& globalIndexOffset);
+	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);

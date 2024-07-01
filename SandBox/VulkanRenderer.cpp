@@ -717,13 +717,6 @@ void VulkanRenderer::createDescriptorSetLayout() {
     UBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     UBOLayoutBinding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding AnimatedSSBOBinding{};
-    AnimatedSSBOBinding.binding = 0;
-    AnimatedSSBOBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    AnimatedSSBOBinding.descriptorCount = 1;
-    AnimatedSSBOBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    AnimatedSSBOBinding.pImmutableSamplers = nullptr;
-
     VkDescriptorSetLayoutBinding samplerLayoutBindingColor{};
     samplerLayoutBindingColor.binding = 0;
     samplerLayoutBindingColor.descriptorCount = 1;
@@ -796,12 +789,6 @@ void VulkanRenderer::createDescriptorSetLayout() {
 
     if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &uniformDescriptorSetLayout_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
-    }
-
-    layoutCInfo.pBindings = &AnimatedSSBOBinding;
-
-    if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &animatedDescriptorSetLayout_) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to create the animated SSBO descriptor set layout!");
     }
 
     layoutCInfo.bindingCount = 9;
@@ -1118,226 +1105,6 @@ void VulkanRenderer::createGraphicsPipeline() {
     VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(transparentPipeline));
     if (res4 != VK_SUCCESS) {
         std::cout << "failed to create transparent graphics pipeline" << std::endl;
-        std::_Xruntime_error("Failed to create the graphics pipeline!");
-    }
-}
-
-void VulkanRenderer::createAnimatedGraphicsPipeline() {
-    // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/animvert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
-
-    std::cout << "read files" << std::endl;
-
-    // Wrap the bytecode with VkShaderModule objects
-    VkShaderModule vertexShaderModule = createShaderModule(vertexShader);
-    VkShaderModule fragmentShaderModule = createShaderModule(fragmentShader);
-
-    //Create the shader information struct to begin actuall using the shader
-    VkPipelineShaderStageCreateInfo vertexStageCInfo{};
-    vertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertexStageCInfo.module = vertexShaderModule;
-    vertexStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragmentStageCInfo{};
-    fragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragmentStageCInfo.module = fragmentShaderModule;
-    fragmentStageCInfo.pName = "main";
-
-    // Define array to contain the shader create information structs
-    VkPipelineShaderStageCreateInfo stages[] = { vertexStageCInfo, fragmentStageCInfo };
-
-    // Describing the format of the vertex data to be passed to the vertex shader
-    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
-    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAnimatedAttributeDescriptions();
-
-    vertexInputCInfo.vertexBindingDescriptionCount = 1;
-    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
-    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    // Next struct describes what kind of geometry will be drawn from the verts and if primitive restart should be enabled
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
-    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
-
-    // Initialize the viewport information struct, a lot of the size information will come from the swap chain extent factor
-    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
-    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportStateCInfo.viewportCount = 1;
-    viewportStateCInfo.scissorCount = 1;
-
-    // Initialize rasterizer, which takes information from the geometry formed by the vertex shader into fragments to be colored by the fragment shader
-    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-    rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    // Fragments beyond the near and far planes are clamped to those planes, instead of discarding them
-    rasterizerCInfo.depthClampEnable = VK_FALSE;
-    // If set to true, geometry never passes through the rasterization phase, and disables output to framebuffer
-    rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-    // Determines how fragments are generated for geometry, using other modes requires enabling a GPU feature
-    rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    // Linewidth describes thickness of lines in terms of number of fragments 
-    rasterizerCInfo.lineWidth = 1.0f;
-    // Specify type of culling and and the vertex order for the faces to be considered
-    rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    // Alter depth values by adding constant or biasing them based on a fragment's slope
-    rasterizerCInfo.depthBiasEnable = VK_FALSE;
-
-    // Multisampling information struct
-    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.sampleShadingEnable = VK_FALSE;
-    multiSamplingCInfo.rasterizationSamples = this->msaaSamples_;
-
-    // Depth and stencil testing would go here, but not doing this for the triangle
-    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-    depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilCInfo.depthTestEnable = VK_TRUE;
-    depthStencilCInfo.depthWriteEnable = VK_TRUE;
-    depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilCInfo.stencilTestEnable = VK_FALSE;
-
-    // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
-    // If <blendEnable> is set to false, then the color from the fragment shader is passed through to the framebuffer
-    // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    // Array of structures for all of the framebuffers to set blend constants as blend factors
-    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-
-    // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
-    std::vector<VkDynamicState> dynaStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
-    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    dynamicStateCInfo.pDynamicStates = dynaStates.data();
-
-    VkDescriptorSetLayout descSetLayouts[] = { uniformDescriptorSetLayout_, textureDescriptorSetLayout_, animatedDescriptorSetLayout_ };
-
-    VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size = sizeof(glm::mat4);
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkPushConstantRange pcRanges[] = { pcRange };
-
-    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
-    // Initialize the pipeline layout with another create info struct
-    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 3;
-    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-    pipeLineLayoutCInfo.pPushConstantRanges = pcRanges;
-
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &opaqueAnimatedPipelineLayout_) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create pipeline layout!");
-    }
-
-    std::cout << "pipeline layout created" << std::endl;
-
-    // Combine the shader stages, fixed-function state, pipeline layout, and render pass to create the graphics pipeline
-    // First - populate struct with the information
-    VkGraphicsPipelineCreateInfo graphicsPipelineCInfo{};
-    graphicsPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    graphicsPipelineCInfo.stageCount = 2;
-    graphicsPipelineCInfo.pStages = stages;
-
-    graphicsPipelineCInfo.pVertexInputState = &vertexInputCInfo;
-    graphicsPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
-    graphicsPipelineCInfo.pViewportState = &viewportStateCInfo;
-    graphicsPipelineCInfo.pRasterizationState = &rasterizerCInfo;
-    graphicsPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    graphicsPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
-    graphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
-    graphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
-
-    graphicsPipelineCInfo.layout = opaqueAnimatedPipelineLayout_;
-
-    graphicsPipelineCInfo.renderPass = renderPass_;
-    graphicsPipelineCInfo.subpass = 0;
-
-    graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    // Create the object
-    VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(animatedOpaquePipeline));
-    if (res3 != VK_SUCCESS) {
-        std::cout << "failed to create animated opaque graphics pipeline" << std::endl;
-        std::_Xruntime_error("Failed to create the graphics pipeline!");
-    }
-
-    std::vector<char> alphaBlendShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/alphaDiscard.spv");
-
-    VkShaderModule alphaDiscardShaderModule = createShaderModule(alphaBlendShader);
-
-    VkPipelineShaderStageCreateInfo alphaDiscardStageCInfo{};
-    alphaDiscardStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    alphaDiscardStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    alphaDiscardStageCInfo.module = alphaDiscardShaderModule;
-    alphaDiscardStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo otherStages[] = { vertexStageCInfo, alphaDiscardStageCInfo };
-
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-    // Array of structures for all of the framebuffers to set blend constants as blend factors
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.logicOpEnable = VK_FALSE;
-    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-
-    VkPushConstantRange fragRange{};
-    fragRange.offset = sizeof(glm::mat4);
-    fragRange.size = sizeof(int) + sizeof(float);
-    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkPushConstantRange otherPCRanges[] = { pcRange, fragRange };
-
-    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
-    // Initialize the pipeline layout with another create info struct
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 3;
-    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 2;
-    pipeLineLayoutCInfo.pPushConstantRanges = otherPCRanges;
-
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &transparentAnimatedPipelineLayout_) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create pipeline layout!");
-    }
-
-    graphicsPipelineCInfo.pStages = otherStages;
-    graphicsPipelineCInfo.layout = transparentAnimatedPipelineLayout_;
-
-    // Create the object
-    VkResult res4 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(animatedTransparentPipeline));
-    if (res4 != VK_SUCCESS) {
-        std::cout << "failed to create animated transparent graphics pipeline" << std::endl;
         std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
 }
@@ -1880,10 +1647,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
 
-
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipelineLayout_, 0, 1, &(pDirectionalLight->cascades[j].descriptorSet), 0, nullptr);
         for (GameObject* gO : *(gameObjects)) {
            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j, pDirectionalLight->cascades[j].descriptorSet);
         }
@@ -1947,8 +1715,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
     
-    //vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedOpaquePipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaqueAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     for (AnimatedGameObject* gO : *(animatedObjects)) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
         vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
@@ -1966,9 +1732,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         }
     }
     //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
-    // 
-    ///vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, animatedTransparentPipeline);
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentAnimatedPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+
     for (AnimatedGameObject* gO : *(animatedObjects)) {
         if (gO->renderTarget->transparentDraws.size() > 0) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);

@@ -73,11 +73,9 @@ public:
 	Transform transform;
 	VkPipeline sMPipeline_;
 	VkPipelineLayout sMPipelineLayout_;
-	VkPipelineLayout animatedSmPipelineLayout;
 
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
-	VkPipeline animatedSMPipeline;
 
 	std::array<Cascade, SHADOW_MAP_CASCADE_COUNT> cascades;
 
@@ -102,9 +100,7 @@ public:
 	DirectionalLight(glm::vec3 lPos);
 
 	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
-	void createAnimatedPipeline(VkDescriptorSetLayout descLayout);
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
 	void genShadowMap(FPSCam* camera);
 	void updateUniBuffers(FPSCam* camera);
-	glm::mat4 getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio);
 };

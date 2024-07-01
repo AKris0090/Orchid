@@ -141,8 +141,6 @@ void GraphicsManager::startVulkan() {
     pVkR_->createFrameBuffer();
     std::cout << "created frame buffers" << std::endl;
 
-    std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
-
     pVkR_->createDescriptorPool();
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
@@ -180,6 +178,8 @@ void GraphicsManager::startVulkan() {
     }
 
     std::cout << "DONE loading skybox\n" << std::endl;
+
+    std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
 
     for (std::string s : pStaticModelPaths_) {
         GameObject* newGO = new GameObject();
@@ -273,18 +273,13 @@ void GraphicsManager::startVulkan() {
     }
 
     for (AnimatedGameObject* gO : animatedObjects) {
-        gO->renderTarget->createDescriptors(pVkR_->animatedDescriptorSetLayout_);
+        gO->renderTarget->createDescriptors();
     }
 
     pVkR_->updateGeneratedImageDescriptorSets();
 
-    pVkR_->pDirectionalLight->createAnimatedPipeline(pVkR_->animatedDescriptorSetLayout_);
-
     pVkR_->createGraphicsPipeline();
     std::cout << "created material graphics pipeline" << std::endl;
-
-    pVkR_->createAnimatedGraphicsPipeline();
-    std::cout << "created animated material graphics pipeline" << std::endl;
 
     std::cout << "\ncreated descriptor sets" << std::endl;
 

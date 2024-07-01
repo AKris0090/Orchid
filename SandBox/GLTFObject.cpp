@@ -87,7 +87,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
 
 void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
     cascadeBlock.model = modelTransform * node->worldTransform;
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
+    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
         callIndexedDraw(commandBuffer, mesh->indirectInfo);
@@ -114,17 +114,17 @@ void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer) {
 void GLTFObj::loadImages() {
     for (size_t i = 0; i < pInputModel_->images.size(); i++) {
         TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
-        tex->load();
+        //tex->load();
         images_.push_back(tex);
     }
     TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
     TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
     TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
     TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
-    dummyAO->load();
-    dummyMetallic->load();
-    dummyNormal->load();
-    dummyEmission->load();
+    //dummyAO->load();
+    //dummyMetallic->load();
+    //dummyNormal->load();
+    //dummyEmission->load();
     images_.push_back(dummyNormal);
     images_.push_back(dummyMetallic);
     images_.push_back(dummyAO);
@@ -346,6 +346,10 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
             textureIndices_.resize(in.textures.size() + 3);
             loadMaterials();
             loadTextures();
+
+            for (auto& image : images_) {
+                image->load();
+            }
         }
 
         const tinygltf::Scene& scene = in.scenes[0];
