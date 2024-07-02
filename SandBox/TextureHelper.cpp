@@ -309,9 +309,9 @@ void TextureHelper::createTextureImageSampler() {
     samplerCInfo.magFilter = VK_FILTER_LINEAR;
     samplerCInfo.minFilter = VK_FILTER_LINEAR;
     samplerCInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerCInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    samplerCInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    samplerCInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    samplerCInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerCInfo.mipLodBias = 0.0f;
     samplerCInfo.compareOp = VK_COMPARE_OP_NEVER;
     samplerCInfo.minLod = 0.0f;
