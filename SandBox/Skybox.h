@@ -29,7 +29,7 @@ private:
 	void createSkyBoxImageSampler();
 
 	void createSkyBoxDescriptorSetLayout();
-
+	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void skyBoxLoad();
 public:
 	GLTFObj* pSkyBoxModel_;
