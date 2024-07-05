@@ -16,12 +16,12 @@ private:
 	// left-right
 	float yaw_ = 0.0f;
 	glm::mat4 getRotationMatrix();
-	float nearPlane;
-	float farPlane;
 	float aspectRatio;
 	float FOV;
 
 public:
+	float nearPlane;
+	float farPlane;
 	float moveSpeed_; // slow is 0.0015;
 	glm::mat4 viewMatrix;
 	glm::mat4 inverseViewMatrix;

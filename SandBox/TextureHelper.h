@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vulkan/vulkan.hpp>
 #include "DeviceHelper.h"
-
+#include "stb_image.h"
 #include <tiny_gltf.h>
 
 class TextureHelper {
@@ -17,6 +17,8 @@ private:
     VkImage textureImage_;
     VkDeviceMemory textureImageMemory_;
     VkDescriptorSet descriptorSet_;
+    stbi_uc* pixels[6];
+    std::vector<std::string> texPaths_;
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
@@ -55,6 +57,18 @@ public:
         this->pInputModel_ = nullptr;
         this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
         this->texPath_ = texPath;
+        this->index_ = INT_MIN;
+        this->textureImage_ = VK_NULL_HANDLE;
+        this->textureImageMemory_ = VK_NULL_HANDLE;
+        this->descriptorSet_ = VK_NULL_HANDLE;
+    };
+
+    TextureHelper(std::vector<std::string> texPaths, DeviceHelper* pD) {
+        this->pDevHelper_ = pD;
+        this->device_ = pD->getDevice();
+        this->pInputModel_ = nullptr;
+        this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
+        this->texPaths_ = texPaths;
         this->index_ = INT_MIN;
         this->textureImage_ = VK_NULL_HANDLE;
         this->textureImageMemory_ = VK_NULL_HANDLE;

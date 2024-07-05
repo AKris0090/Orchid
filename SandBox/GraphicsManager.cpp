@@ -16,17 +16,16 @@ void GraphicsManager::setupImGUI() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
     ImGui_ImplSDL2_InitForVulkan(pWindow_);
+
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = pVkR_->instance_;
     init_info.PhysicalDevice = pVkR_->GPU_;
     init_info.Device = pVkR_->device_;
-    init_info.QueueFamily = pVkR_->QFIndices_.graphicsFamily.value();
     init_info.Queue = pVkR_->graphicsQueue_;
-    init_info.PipelineCache = VK_NULL_HANDLE;
     init_info.DescriptorPool = pVkR_->descriptorPool_;
     init_info.MSAASamples = pVkR_->msaaSamples_;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = 2;
+    init_info.MinImageCount = 3;
+    init_info.ImageCount = 3;
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, pVkR_->renderPass_);
 }
@@ -50,6 +49,7 @@ void GraphicsManager::setup() {
 }
 
 void GraphicsManager::shutDown() {
+    vkDeviceWaitIdle(pVkR_->device_);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -79,6 +79,8 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight->transform.position.x);
     ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight->transform.position.y);
     ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight->transform.position.z);
+    ImGui::DragFloat("zNear", &pVkR_->camera_.nearPlane);
+    ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
     ImGui::DragFloat("near plane", &pVkR_->pDirectionalLight->zNear);
     ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight->zFar);
     ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
@@ -306,8 +308,6 @@ void GraphicsManager::loopUpdate() {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
 
     pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, MAX_FRAMES_IN_FLIGHT);
-
-    vkDeviceWaitIdle(pVkR_->device_);
 
     frameCount++;
 }

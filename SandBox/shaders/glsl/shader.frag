@@ -32,8 +32,13 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
+layout (depth_unchanged) out float gl_FragDepth;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
+vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
+vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
+vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
+vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO albedoAlpha.rgb
@@ -136,12 +141,10 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 
 vec3 calculateNormal()
 {
-	vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
-
 	return normalize(TBNMatrix * tangentNormal);
 }
 
-float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
+float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
 	float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
 
@@ -169,7 +172,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
+			shadowFactor += ProjectUV(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
 		}
 	
 	}
@@ -188,8 +191,6 @@ void main()
 	float NdotV = max(dot(N, V), 0.0);
 	//float NdotL = max(dot(N, L), 0.0);
 	//float NdotH = max(dot(N, V + L), 0.0);
-
-	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 
 	float metallic = metallicRoughness.b;
 	float roughness = metallicRoughness.g;
@@ -213,7 +214,7 @@ void main()
 
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - metallic;	
-	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
+	vec3 ambient = (kD * diffuse + specular) * aoVec;
 
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
@@ -235,7 +236,7 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	vec3 color = ((ambient + (Lo)) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
+	vec3 color = ((ambient + (Lo)) * shadow) + emissionVec;
 
 	// Tone mapping
 	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure

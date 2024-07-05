@@ -185,8 +185,6 @@ void Skybox::createSkyBoxImage() {
     pDevHelper_->endSingleTimeCommands(copyCommandBuffer);
 
     generateMipmaps(skyBoxImage_, imageFormat_, texWidth, texHeight, this->mipLevels_);
-
-    // transitionImageLayout(copyCommandBuffer, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void Skybox::createSkyBoxImageView() {
@@ -226,7 +224,7 @@ void Skybox::createSkyBoxImageSampler() {
     samplerCInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerCInfo.mipLodBias = 0.0f;
     samplerCInfo.minLod = 0.0f;
-    samplerCInfo.maxLod = 0.0f;
+    samplerCInfo.maxLod = this->mipLevels_;
 
     if (vkCreateSampler(pDevHelper_->getDevice(), &samplerCInfo, nullptr, &skyBoxImageSampler_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture sampler!");
@@ -237,6 +235,12 @@ void Skybox::skyBoxLoad() {
     createSkyBoxImage();
     createSkyBoxImageView();
     createSkyBoxImageSampler();
+
+    //tex = new TextureHelper(texPaths_, pDevHelper_);
+    //tex->loadSkyBoxTex();
+    //this->skyBoxImageView_ = tex->textureImageView_;
+    //this->skyBoxImageSampler_ = tex->textureSampler_;
+
     vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer_, nullptr);
     vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory_, nullptr);
     createSkyBoxDescriptorSetLayout();

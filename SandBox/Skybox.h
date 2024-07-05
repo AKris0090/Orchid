@@ -12,6 +12,7 @@ private:
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
 	stbi_uc* pixels[6];
+	TextureHelper* tex;
 
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;

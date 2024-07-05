@@ -396,8 +396,6 @@ void IrradianceCube::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff,
     vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
     vkDestroyFence(device_, fence, nullptr);
 
-    vkDeviceWaitIdle(device_);
-
     vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
 }
 

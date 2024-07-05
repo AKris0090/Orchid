@@ -79,9 +79,15 @@ private:
 	VkImage depthImage_;
 	VkDeviceMemory depthImageMemory_;
 	VkImageView depthImageView_;
+
+	VkPipeline prepassPipeline_;
+	VkPipelineLayout prepassPipelineLayout_;
+	VkRenderPass depthPrepass;
+
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
+	std::vector<VkFramebuffer> depthFrameBuffers_;
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers_;
 	std::vector<void*> mappedBuffers_;
@@ -218,6 +224,8 @@ public:
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
 	void createGraphicsPipeline();
+	void createAlphaPipeline();
+	void createDepthPipeline();
 	void createSkyBoxPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();

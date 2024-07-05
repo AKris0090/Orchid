@@ -82,7 +82,9 @@ public:
 
 	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor);
+	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex);
+	void drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
+	void renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
 	uint32_t getTotalVertices() { return this->totalVertices_; };
 	uint32_t getTotalIndices() { return this->totalIndices_; };
@@ -119,7 +121,7 @@ private:
 	void updateJoints(SceneNode* node);
 	glm::mat4 getNodeMatrix(SceneNode* node);
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkPipeline animatedShadowPipeline, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node);
+	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node);
 	SceneNode* nodeFromIndex(uint32_t index);
 	SceneNode* findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index);
 	void callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo);

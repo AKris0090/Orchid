@@ -31,8 +31,6 @@ private:
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
 
-	VkRenderPass sMRenderpass_;
-
 	VkDescriptorSetLayout cascadeSetLayout;
 	VkDescriptorPool sMDescriptorPool_;
 
@@ -64,6 +62,7 @@ public:
 		VkPipelineLayout pipelineLayout;
 		VkCommandBuffer commandBuffer;
 	} postRenderPacket;
+	VkRenderPass sMRenderpass_;
 
 	// Keep depth range as small as possible
     // for better shadow map precision
@@ -71,6 +70,7 @@ public:
 	float zFar;
 
 	Transform transform;
+
 	VkPipeline sMPipeline_;
 	VkPipelineLayout sMPipelineLayout_;
 

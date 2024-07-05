@@ -11,23 +11,23 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
 } ubo;
 
-layout(push_constant) uniform pushConstant {
-    layout(offset = 64) int alphaMask;
-    layout(offset = 68) float alphaCutoff;
-} pc;
-
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
 	0.0, 0.5, 0.0, 0.0,
 	0.0, 0.0, 1.0, 0.0,
 	0.5, 0.5, 0.0, 1.0 );
 
+layout(push_constant) uniform pushConstant {
+    layout(offset = 64) int alphaMask;
+    layout(offset = 68) float alphaCutoff;
+} pc;
+
 layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
-layout(set = 1, binding = 5) uniform sampler2D samplerCubeMap;
+layout(set = 1, binding = 5) uniform sampler2D brdfTexture;
 layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
@@ -39,6 +39,10 @@ layout(location = 2) in mat3 TBNMatrix;
 layout(location = 0) out vec4 outColor;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
+vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
+vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
+vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
+vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO albedoAlpha.rgb
@@ -141,12 +145,10 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 
 vec3 calculateNormal()
 {
-	vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
-
 	return normalize(TBNMatrix * tangentNormal);
 }
 
-float textureProj(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
+float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
 	float dist = texture( samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
 
@@ -174,7 +176,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += textureProj(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
+			shadowFactor += ProjectUV(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
 		}
 	
 	}
@@ -184,12 +186,12 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 void main()
 {
+
 	if (pc.alphaMask > 0) {
         	if (ALPHA < pc.alphaCutoff) {
             		discard;
         	}
 	}
-
 	vec3 N = calculateNormal();
 
 	vec3 V = normalize(ubo.viewPos.xyz - fragPosition.xyz);
@@ -200,8 +202,6 @@ void main()
 	//float NdotL = max(dot(N, L), 0.0);
 	//float NdotH = max(dot(N, V + L), 0.0);
 
-	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
-
 	float metallic = metallicRoughness.b;
 	float roughness = metallicRoughness.g;
 
@@ -210,7 +210,7 @@ void main()
 
 	vec3 Lo = specularContribution(L, V, N, F0, metallic, roughness);
 
-	vec2 brdf = texture(samplerCubeMap, vec2(NdotV, roughness)).rg;
+	vec2 brdf = texture(brdfTexture, vec2(NdotV, roughness)).rg;
         vec3 reflected =  prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(irradianceCube, N).rgb;
 
@@ -224,7 +224,7 @@ void main()
 
 	vec3 kD = 1.0 - F;
 	kD *= 1.0 - metallic;	
-	vec3 ambient = (kD * diffuse + specular) * texture(aoSampler, fragTexCoord).rrr;
+	vec3 ambient = (kD * diffuse + specular) * aoVec;
 
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
@@ -246,7 +246,7 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	vec3 color = ((ambient + (Lo)) * shadow) + texture(emissionSampler, fragTexCoord).rgb;
+	vec3 color = ((ambient + (Lo)) * shadow) + emissionVec;
 
 	// Tone mapping
 	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure

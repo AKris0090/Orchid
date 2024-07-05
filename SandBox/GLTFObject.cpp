@@ -76,7 +76,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
         Material* material = mat.first;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
         pcBlock newBlock{ 1, material->alphaCutOff};
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
+        //vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
@@ -85,7 +85,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
     }
 }
 
-void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor, SceneNode* node) {
+void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node) {
     cascadeBlock.model = modelTransform * node->worldTransform;
     //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
@@ -93,15 +93,38 @@ void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelin
         callIndexedDraw(commandBuffer, mesh->indirectInfo);
     }
     for (auto& child : node->children) {
-        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, cascadeDescriptor, child);
+        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, child);
     }
 }
 
-void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, VkDescriptorSet cascadeDescriptor) {
+void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex) {
     cascadeBlock.cascadeIndex = cascadeIndex;
 
     for (auto& node : pParentNodes) {
-        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, cascadeDescriptor, node);
+        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, node);
+    }
+}
+
+void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+    for (auto& mat : opaqueDraws) {
+        for (auto& dC : mat.second) {
+            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
+            callIndexedDraw(commandBuffer, dC->indirectInfo);
+        }
+    }
+    for (auto& mat : transparentDraws) {
+        for (auto& dC : mat.second) {
+            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
+            callIndexedDraw(commandBuffer, dC->indirectInfo);
+        }
+    }
+}
+
+void GLTFObj::renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    for (auto& node : pParentNodes) {
+        drawDepth(commandBuffer, pipelineLayout, node);
     }
 }
 
