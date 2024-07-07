@@ -66,7 +66,7 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		physx::PxControllerFilters data;
 		data.mFilterData = &filterData;
 
-		characterController->move(physx::PxVec3(localDisplacement.x, 0, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
+		characterController->move(physx::PxVec3(localDisplacement.x, -transform.position.y, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
 		playerGameObject->transform.position = transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
 		playerGameObject->setTransform(playerGameObject->transform.to_matrix());
 	}

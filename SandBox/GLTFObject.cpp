@@ -75,7 +75,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
     for (auto& mat : transparentDraws) {
         Material* material = mat.first;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
-        pcBlock newBlock{ 1, material->alphaCutOff};
+        //pcBlock newBlock{ 1, material->alphaCutOff};
         //vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
@@ -87,7 +87,6 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
 
 void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node) {
     cascadeBlock.model = modelTransform * node->worldTransform;
-    //vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cascadeDescriptor, 0, nullptr);
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
         callIndexedDraw(commandBuffer, mesh->indirectInfo);
@@ -107,6 +106,7 @@ void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipel
 
 void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     for (auto& mat : opaqueDraws) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
@@ -114,6 +114,9 @@ void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipeline
         }
     }
     for (auto& mat : transparentDraws) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
+        pcBlock newBlock{ 1, mat.first->alphaCutOff };
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));

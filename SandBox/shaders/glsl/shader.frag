@@ -45,18 +45,6 @@ vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 #define ALPHA albedoAlpha.a
 #define AMBIENT 0.1
 
-// From http://filmicgames.com/archives/75
-vec3 Uncharted2Tonemap(vec3 x)
-{
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
-}
-
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a2     = roughness*roughness*roughness*roughness;
@@ -106,9 +94,7 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 	float lod = roughness * ubo.lightPos.w;
 	float lodf = floor(lod);
 	float lodc = ceil(lod);
-	vec3 a = textureLod(prefilteredEnvMap, R, lodf).rgb;
-	vec3 b = textureLod(prefilteredEnvMap, R, lodc).rgb;
-	return mix(a, b, lod - lodf);
+	return mix(textureLod(prefilteredEnvMap, R, lodf).rgb, textureLod(prefilteredEnvMap, R, lodc).rgb, lod - lodf);
 }
 
 vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness)
@@ -118,11 +104,6 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 	float dotNH = clamp(dot(N, H), 0.0, 1.0);
 	float dotNV = clamp(dot(N, V), 0.0, 1.0);
 	float dotNL = clamp(dot(N, L), 0.0, 1.0);
-
-	// Light color fixed
-	vec3 lightColor = vec3(1.0);
-
-	vec3 color = vec3(0.0);
 
 	if (dotNL > 0.0) {
 		// D = Normal distribution (Distribution of the microfacets)
@@ -156,12 +137,12 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 	return 1.0;
 }
 
-ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
 const int range = 1;
 const int kernelRange = (2 * range + 1) * (2 * range + 1);
 
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
 {
+	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
 	float scale = 0.75;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
@@ -195,26 +176,16 @@ void main()
 	float metallic = metallicRoughness.b;
 	float roughness = metallicRoughness.g;
 
-	vec3 F0 = vec3(0.04); 
-	F0 = mix(F0, ALBEDO, metallic);
-
-	vec3 Lo = specularContribution(L, V, N, F0, metallic, roughness);
+	vec3 F0 = mix(vec3(0.04), ALBEDO, metallic);
 
 	vec2 brdf = texture(brdfTexture, vec2(NdotV, roughness)).rg;
-        vec3 reflected =  prefilteredReflection(R, roughness).rgb;
-        vec3 irradiance = texture(irradianceCube, N).rgb;
 
-	// Diffuse based on irradiance
-	vec3 diffuse = irradiance * ALBEDO;
-
-        vec3 F = F_SchlickR(NdotV, F0, roughness);	
+	vec3 F = F_SchlickR(NdotV, F0, roughness);
 
 	// Specular reflectance
-	vec3 specular = reflected * (F * brdf.x + brdf.y);
+	vec3 specular = prefilteredReflection(R, roughness).rgb * (F * brdf.x + brdf.y);
 
-	vec3 kD = 1.0 - F;
-	kD *= 1.0 - metallic;	
-	vec3 ambient = (kD * diffuse + specular) * aoVec;
+	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;	
 
 	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
@@ -236,7 +207,7 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	vec3 color = ((ambient + (Lo)) * shadow) + emissionVec;
+	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * shadow) + emissionVec;
 
 	// Tone mapping
 	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure

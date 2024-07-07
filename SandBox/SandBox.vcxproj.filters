@@ -144,6 +144,9 @@
     <ClCompile Include="AnimatedGameObject.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
+    <ClCompile Include="VulkanUtils.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -232,6 +235,9 @@
     </ClInclude>
     <ClInclude Include="Time.h">
       <Filter>Header Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanUtils.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

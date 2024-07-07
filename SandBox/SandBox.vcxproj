@@ -165,6 +165,7 @@
     <ClCompile Include="TextureHelper.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
+    <ClCompile Include="VulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AnimatedGameObject.h" />
@@ -196,6 +197,7 @@
     <ClInclude Include="TextureHelper.h" />
     <ClInclude Include="Time.h" />
     <ClInclude Include="VulkanRenderer.h" />
+    <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

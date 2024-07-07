@@ -76,20 +76,20 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::End();
 
     ImGui::Begin("Var Editor");
-    ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight->transform.position.x);
-    ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight->transform.position.y);
-    ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight->transform.position.z);
+    ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
+    ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight_->transform.position.y);
+    ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight_->transform.position.z);
     ImGui::DragFloat("zNear", &pVkR_->camera_.nearPlane);
     ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
-    ImGui::DragFloat("near plane", &pVkR_->pDirectionalLight->zNear);
-    ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight->zFar);
+    ImGui::DragFloat("near plane", &pVkR_->pDirectionalLight_->zNear);
+    ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight_->zFar);
     ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
     ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
-    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight->cascadeSplitLambda, 0.01f);
-    ImGui::DragFloat("bias", &pVkR_->depthBias);
-    ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD);
+    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight_->cascadeSplitLambda, 0.01f);
+    ImGui::DragFloat("bias", &pVkR_->depthBias_);
+    ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD_);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
 
@@ -147,10 +147,10 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
     std::cout << "created descriptor pool" << std::endl;
 
-    pVkR_->pDirectionalLight->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
+    pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     pVkR_->camera_.setProjectionMatrix();
-    pVkR_->pDirectionalLight->genShadowMap(&(pVkR_->camera_));
+    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_));
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 

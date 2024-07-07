@@ -31,19 +31,18 @@ const std::vector<const char*> deviceExts = {
 
 // Queue family struct
 struct QueueFamilyIndices {
-	// Graphics families initialization
+	// Graphics family index
 	std::optional<uint32_t> graphicsFamily;
 
-	// Present families initialization as well
+	// Present family index
 	std::optional<uint32_t> presentFamily;
 	
+	// Compute family index
 	std::optional<uint32_t> computeFamily;
 
-	// General check to make things a bit more conveneient
 	bool isComplete() { return (graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value()); }
 };
 
-// Swap chain support details struct - holds information to create the swapchain
 struct SWChainSuppDetails {
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
@@ -59,7 +58,6 @@ class VulkanRenderer {
 private:
 	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT = nullptr;
 	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT = nullptr;
-
 	uint32_t imageIndex_;
 
 	// SDL Surface handle
@@ -82,7 +80,6 @@ private:
 
 	VkPipeline prepassPipeline_;
 	VkPipelineLayout prepassPipelineLayout_;
-	VkRenderPass depthPrepass;
 
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
@@ -124,22 +121,22 @@ private:
 public:
 	int numModels_;
 	int numTextures_;
-	bool rotate_ = false;
-	bool frBuffResized_ = false;
-	DirectionalLight* pDirectionalLight;
+	bool rotate_;
+	bool frBuffResized_;
+	DirectionalLight* pDirectionalLight_;
 	FPSCam camera_;
-	float depthBias;
-	float maxReflectionLOD;
+	float depthBias_;
+	float maxReflectionLOD_;
 	VkExtent2D SWChainExtent_;
-
-	std::vector<Vertex> vertices_;
-	std::vector<uint32_t>indices_;
 
 	VkBuffer vertexBuffer_;
 	VkDeviceMemory vertexBufferMemory_;
 
 	VkBuffer indexBuffer_;
 	VkDeviceMemory indexBufferMemory_;
+
+	std::vector<Vertex> vertices_;
+	std::vector<uint32_t>indices_;
 
 	std::vector<glm::mat4> inverseBindMatrices;
 
@@ -182,6 +179,7 @@ public:
 	// Render pass handles
 	VkRenderPass renderPass_;
 	VkRenderPass skyboxRenderPass_;
+	VkRenderPass depthPrepass_;
 	// Handle for the list of command buffers
 	std::vector<VkCommandBuffer> commandBuffers_;
 	VkCommandBuffer computeBuffer_;

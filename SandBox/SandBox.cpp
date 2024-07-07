@@ -57,13 +57,13 @@ int main(int argc, char* argv[]) {
     GraphicsManager graphicsManager = GraphicsManager(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths, WINDOW_WIDTH, WINDOW_HEIGHT);
     graphicsManager.pVkR_ = new VulkanRenderer();
 
-    graphicsManager.pVkR_->pDirectionalLight = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
-    graphicsManager.pVkR_->depthBias = 0.0003f;
+    graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
+    graphicsManager.pVkR_->depthBias_ = 0.0003f;
     graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
     graphicsManager.pVkR_->camera_.setFarPlane(50.0f);
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
-    graphicsManager.pVkR_->maxReflectionLOD = 7.0f;
+    graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
 
     PhysicsManager physicsManager = PhysicsManager();
 
@@ -139,6 +139,7 @@ int main(int argc, char* argv[]) {
                 break;
             case SDL_WINDOWEVENT_RESIZED:
                 graphicsManager.pVkR_->frBuffResized_ = true;
+                break;
             case SDL_KEYDOWN:
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     graphicsManager.mousemode_ = !graphicsManager.mousemode_;
@@ -152,6 +153,7 @@ int main(int argc, char* argv[]) {
                 else if (event.key.keysym.sym == SDLK_TAB) {
                     graphicsManager.pVkR_->camera_.isAttatched = !graphicsManager.pVkR_->camera_.isAttatched;
                 }
+                break;
             default:
                 break;
             }
@@ -162,7 +164,6 @@ int main(int argc, char* argv[]) {
 
         // player update -----------
         player->loopUpdate(&(graphicsManager.pVkR_->camera_));
-        // --------- std::cout << "X: " << player->transform.rotation.x << "Y: " << player->transform.rotation.y << "Z: " << player->transform.rotation.z << std::endl;
 
         // update camera ------------
         if (graphicsManager.pVkR_->camera_.isAttatched) {
@@ -176,7 +177,6 @@ int main(int argc, char* argv[]) {
         if (player->isWalking) {
             graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
             graphicsManager.pVkR_->updateBindMatrices();
-            //graphicsManager.animatedObjects[0]->renderTarget->updateAnimation(Time::getDeltaTime());
         }
 
         // update physics -------------------

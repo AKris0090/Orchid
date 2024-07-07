@@ -75,7 +75,7 @@ void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPi
     for (auto& mat : transparentDraws) {
         Material* material = mat.first;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
-        pcBlock newBlock{ 1, material->alphaCutOff };
+        //pcBlock newBlock{ 1, material->alphaCutOff };
         //vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& draw : mat.second) {
             glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
@@ -106,6 +106,7 @@ void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayo
 
 void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     for (auto& mat : opaqueDraws) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
@@ -113,6 +114,9 @@ void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout 
         }
     }
     for (auto& mat : transparentDraws) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
+        pcBlock newBlock{ 1, mat.first->alphaCutOff };
+        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));

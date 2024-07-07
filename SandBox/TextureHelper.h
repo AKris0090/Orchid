@@ -62,16 +62,4 @@ public:
         this->textureImageMemory_ = VK_NULL_HANDLE;
         this->descriptorSet_ = VK_NULL_HANDLE;
     };
-
-    TextureHelper(std::vector<std::string> texPaths, DeviceHelper* pD) {
-        this->pDevHelper_ = pD;
-        this->device_ = pD->getDevice();
-        this->pInputModel_ = nullptr;
-        this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
-        this->texPaths_ = texPaths;
-        this->index_ = INT_MIN;
-        this->textureImage_ = VK_NULL_HANDLE;
-        this->textureImageMemory_ = VK_NULL_HANDLE;
-        this->descriptorSet_ = VK_NULL_HANDLE;
-    };
 };

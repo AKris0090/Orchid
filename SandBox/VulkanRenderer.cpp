@@ -6,36 +6,35 @@
 VulkanRenderer::VulkanRenderer() {}
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
-    UniformBufferObject ubo;
-
     this->camera_.setProjectionMatrix();
-    ubo.view = this->camera_.getViewMatrix();
-    ubo.proj = this->camera_.getProjectionMatrix();
-    ubo.viewPos = glm::vec4(this->camera_.transform.position, this->depthBias);
-    ubo.lightPos = glm::vec4(pDirectionalLight->transform.position, this->maxReflectionLOD);
-    pDirectionalLight->updateUniBuffers(&(this->camera_));
-    for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-        ubo.cascadeSplits[i] = pDirectionalLight->cascades[i].splitDepth;
-        ubo.cascadeViewProjMat[i] = pDirectionalLight->cascades[i].viewProjectionMatrix;
+
+    UniformBufferObject ubo{
+        .view = camera_.getViewMatrix(),
+        .proj = camera_.getProjectionMatrix(),
+        .lightPos = glm::vec4(pDirectionalLight_->transform.position, maxReflectionLOD_),
+        .viewPos = glm::vec4(camera_.transform.position, depthBias_),
+    };
+
+    pDirectionalLight_->updateUniBuffers(&(this->camera_));
+    for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+        ubo.cascadeSplits[i] = pDirectionalLight_->cascades[i].splitDepth;
+        ubo.cascadeViewProjMat[i] = pDirectionalLight_->cascades[i].viewProjectionMatrix;
     }
 
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
 void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
-    // Wait for the frame to be finished, with the fences
     vkWaitForFences(this->device_, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
 
-    // Acquire an image from the swap chain, execute the command buffer with the image attached in the framebuffer, and return to swap chain as ready to present
-    // Disable the timeout with UINT64_MAX
-    VkResult res1 = vkAcquireNextImageKHR(this->device_, this->swapChain_, UINT64_MAX, this->imageAcquiredSema_[currentFrame_], VK_NULL_HANDLE, &imageIndex_);
+    VkResult result = vkAcquireNextImageKHR(this->device_, this->swapChain_, UINT64_MAX, this->imageAcquiredSema_[currentFrame_], VK_NULL_HANDLE, &imageIndex_);
 
-    if (res1 == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         this->recreateSwapChain(window);
         return;
     }
-    else if (res1 != VK_SUCCESS && res1 != VK_SUBOPTIMAL_KHR) {
-        std::cout << "no swap chain image, bum!" << std::endl;
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        std::cout << "no swap chain image, ya bum!" << std::endl;
         std::_Xruntime_error("Failed to acquire a swap chain image!");
     }
 
@@ -45,6 +44,248 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
 
     vkResetCommandBuffer(commandBuffers_[currentFrame_], 0);
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
+}
+
+void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    VkCommandBufferBeginInfo CBBeginInfo{};
+    CBBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    CBBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(commandBuffer, &CBBeginInfo) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to start recording with the command buffer!");
+    }
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeDescriptorSet_, 0, nullptr);
+
+    for (AnimatedGameObject* g : *animatedObjects) {
+        const auto cs = ComputePushConstant{
+            .jointMatrixStart = g->renderTarget->globalSkinningMatrixOffset,
+            .numVertices = g->renderTarget->getTotalVertices()
+        };
+        vkCmdPushConstants(commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstant), &cs);
+
+        static const auto workgroupSize = 256;
+        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->getTotalVertices() / (float)workgroupSize);
+        vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
+    }
+
+    VkMemoryBarrier2 memoryBarrier{};
+    memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    memoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+
+    VkDependencyInfo dependencyInfo{};
+    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependencyInfo.memoryBarrierCount = 1;
+    dependencyInfo.pMemoryBarriers = &memoryBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+    VkBuffer vertexBuffers[] = { vertexBuffer_ };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
+    // DEPTH PREPASS //////////////////////////////////////////////////////////////////////////////////////////////
+    VkClearValue clearValues[2];
+    clearValues[0].color = clearValue_.color;
+    clearValues[1].depthStencil = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo depthPassBeginInfo{};
+    depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    depthPassBeginInfo.renderPass = depthPrepass_;
+    depthPassBeginInfo.renderArea.extent.width = SWChainExtent_.width;
+    depthPassBeginInfo.renderArea.extent.height = SWChainExtent_.height;
+    depthPassBeginInfo.clearValueCount = 2;
+    depthPassBeginInfo.pClearValues = clearValues;
+    depthPassBeginInfo.framebuffer = depthFrameBuffers_[currentFrame_];
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)SWChainExtent_.width;
+    viewport.height = (float)SWChainExtent_.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = SWChainExtent_;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdBeginRenderPass(commandBuffer, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    for (GameObject* gO : *(gameObjects)) {
+        gO->renderTarget->renderDepth(commandBuffer, prepassPipelineLayout_);
+    }
+    for (AnimatedGameObject* animGO : *(animatedObjects)) {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+        animGO->renderTarget->renderDepth(commandBuffer, prepassPipelineLayout_);
+    }
+    vkCmdEndRenderPass(commandBuffer);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+
+        DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight_->render(commandBuffer, j);
+
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_);
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipelineLayout_, 0, 1, &(pDirectionalLight_->cascades[j].descriptorSet), 0, nullptr);
+        for (GameObject* gO : *(gameObjects)) {
+            gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight_->sMPipelineLayout_, j);
+        }
+        for (AnimatedGameObject* animGO : *(animatedObjects)) {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight_->sMPipelineLayout_, j);
+        }
+        vkCmdEndRenderPass(cmdBuf.commandBuffer);
+
+        //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+    }
+
+    // Start the scene render pass
+    VkRenderPassBeginInfo RPBeginInfo{};
+    // Create the render pass
+    RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    RPBeginInfo.renderPass = renderPass_;
+    RPBeginInfo.framebuffer = SWChainFrameBuffers_[imageIndex];
+    // Define the size of the render area
+    RPBeginInfo.renderArea.offset = { 0, 0 };
+    RPBeginInfo.renderArea.extent = SWChainExtent_;
+
+    //std::array<VkClearValue, 2> clearValues{};
+    //clearValues[0].color = clearValue_.color;
+    //clearValues[1].depthStencil = { 1.0f, 0 };
+
+    // Define the clear values to use
+    RPBeginInfo.clearValueCount = 2;
+    RPBeginInfo.pClearValues = clearValues;
+
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Finally, begin the render pass
+    vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
+    recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+
+    //VkDebugUtilsLabelEXT debugLabelOpaque{}; debugLabelOpaque.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelOpaque.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
+    for (GameObject* gO : *(gameObjects)) {
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
+    }
+    //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
+
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
+    }
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    ////VkDebugUtilsLabelEXT debugLabelTransparent{}; debugLabelTransparent.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelTransparent.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
+    for (GameObject* gO : *(gameObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_); // should be transparent
+        }
+    }
+    ////vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
+
+    for (AnimatedGameObject* gO : *(animatedObjects)) {
+        if (gO->renderTarget->transparentDraws.size() > 0) {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_); // should be transparent
+        }
+    }
+}
+
+void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
+    // After drawing is over, end the render pass
+    vkCmdEndRenderPass(commandBuffer);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        std::cout << "recording failed, you bum!" << std::endl;
+        std::_Xruntime_error("Failed to record back the command buffer!");
+    }
+
+    // Submit the command buffer with the semaphore
+    VkSubmitInfo queueSubmitInfo{};
+    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = { this->imageAcquiredSema_[currentFrame_] };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    queueSubmitInfo.waitSemaphoreCount = 1;
+    queueSubmitInfo.pWaitSemaphores = waitSemaphores;
+    queueSubmitInfo.pWaitDstStageMask = waitStages;
+
+    // Specify the command buffers to actually submit for execution
+    queueSubmitInfo.commandBufferCount = 1;
+    queueSubmitInfo.pCommandBuffers = &this->commandBuffers_[currentFrame_];
+
+    // Specify which semaphores to signal once command buffers have finished execution
+    VkSemaphore signaledSemaphores[] = { this->renderedSema_[currentFrame_] };
+    queueSubmitInfo.signalSemaphoreCount = 1;
+    queueSubmitInfo.pSignalSemaphores = signaledSemaphores;
+
+    // Finally, submit the queue info
+    if (vkQueueSubmit(this->graphicsQueue_, 1, &queueSubmitInfo, inFlightFences_[currentFrame_]) != VK_SUCCESS) {
+        std::cout << "failed submit the draw command buffer, ???" << std::endl;
+        std::_Xruntime_error("Failed to submit the draw command buffer to the graphics queue!");
+    }
+
+    // Present the frame from the queue
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    // Specify the semaphores to wait on before presentation happens
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signaledSemaphores;
+
+    // Specify the swap chains to present images and the image index for each chain
+    VkSwapchainKHR swapChains[] = { this->swapChain_ };
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+
+    presentInfo.pImageIndices = &imageIndex_;
+
+    VkResult res2 = vkQueuePresentKHR(this->presentQueue_, &presentInfo);
+
+    if (res2 == VK_ERROR_OUT_OF_DATE_KHR || res2 == VK_SUBOPTIMAL_KHR || this->frBuffResized_) {
+        this->frBuffResized_ = false;
+        this->recreateSwapChain(window);
+    }
+    else if (res2 != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to present a swap chain image!");
+    }
+
+    currentFrame_ = (currentFrame_ + 1) % maxFramesInFlight;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -749,7 +990,7 @@ void VulkanRenderer::createRenderPass() {
     depthPrePassCInfo.dependencyCount = 2;
     depthPrePassCInfo.pDependencies = zDependencies.data();
 
-    if (vkCreateRenderPass(device_, &depthPrePassCInfo, nullptr, &depthPrepass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(device_, &depthPrePassCInfo, nullptr, &depthPrepass_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create render pass!");
     }
 }
@@ -967,7 +1208,7 @@ void VulkanRenderer::createAlphaPipeline() {
     }
 
     std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
-    std::vector<char> alphaBlendShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/alphaDiscard.spv");
+    std::vector<char> alphaBlendShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
 
     VkShaderModule vertexShaderModule = createShaderModule(vertexShader);
     VkShaderModule fragmentShaderModule = createShaderModule(alphaBlendShader);
@@ -1090,17 +1331,26 @@ void VulkanRenderer::createAlphaPipeline() {
 }
 
 void VulkanRenderer::createDepthPipeline() {
+    VkDescriptorSetLayout descSetLayouts[] = { uniformDescriptorSetLayout_, textureDescriptorSetLayout_ };
+
     VkPushConstantRange pcdepthRange{};
     pcdepthRange.offset = 0;
     pcdepthRange.size = sizeof(glm::mat4);
     pcdepthRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+    VkPushConstantRange fragRange{};
+    fragRange.offset = sizeof(glm::mat4);
+    fragRange.size = sizeof(int) + sizeof(float);
+    fragRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange otherPCRanges[] = { pcdepthRange, fragRange };
+
     VkPipelineLayoutCreateInfo depthPipelineLayoutCInfo{};
     depthPipelineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    depthPipelineLayoutCInfo.setLayoutCount = 1;
-    depthPipelineLayoutCInfo.pSetLayouts = &uniformDescriptorSetLayout_;
-    depthPipelineLayoutCInfo.pushConstantRangeCount = 1;
-    depthPipelineLayoutCInfo.pPushConstantRanges = &pcdepthRange;
+    depthPipelineLayoutCInfo.setLayoutCount = 2;
+    depthPipelineLayoutCInfo.pSetLayouts = descSetLayouts;
+    depthPipelineLayoutCInfo.pushConstantRangeCount = 2;
+    depthPipelineLayoutCInfo.pPushConstantRanges = otherPCRanges;
 
     if (vkCreatePipelineLayout(device_, &depthPipelineLayoutCInfo, nullptr, &(prepassPipelineLayout_)) != VK_SUCCESS) {
         std::cout << "nah you buggin" << std::endl;
@@ -1108,8 +1358,10 @@ void VulkanRenderer::createDepthPipeline() {
     }
 
     std::vector<char> vertPass = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPass.spv");
+    std::vector<char> fragPass = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPassAlpha.spv");
 
     VkShaderModule depthPass = createShaderModule(vertPass);
+    VkShaderModule alphaPass = createShaderModule(fragPass);
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
     inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1166,14 +1418,20 @@ void VulkanRenderer::createDepthPipeline() {
     VkPipelineShaderStageCreateInfo depthPassVertexStageCInfo{};
     depthPassVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     depthPassVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    depthPassVertexStageCInfo.module = depthPass; //depth pass
+    depthPassVertexStageCInfo.module = depthPass;
     depthPassVertexStageCInfo.pName = "main";
 
-    VkPipelineShaderStageCreateInfo depthStages[] = { depthPassVertexStageCInfo };
+    VkPipelineShaderStageCreateInfo alphaPassFragmentStageCInfo{};
+    alphaPassFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    alphaPassFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    alphaPassFragmentStageCInfo.module = alphaPass;
+    alphaPassFragmentStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo depthStages[] = { depthPassVertexStageCInfo, alphaPassFragmentStageCInfo };
 
     VkGraphicsPipelineCreateInfo depthPassPipelineCInfo{};
     depthPassPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    depthPassPipelineCInfo.stageCount = 1;
+    depthPassPipelineCInfo.stageCount = 2;
     depthPassPipelineCInfo.pStages = depthStages;
 
     // Describing the format of the vertex data to be passed to the vertex shader
@@ -1181,7 +1439,7 @@ void VulkanRenderer::createDepthPipeline() {
     depthVertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     auto depthBindingDescription = Vertex::getBindingDescription();
-    auto depthAttributeDescriptions = Vertex::getPositionAttributeDescription();
+    auto depthAttributeDescriptions = Vertex::getDepthAttributeDescription();
 
     depthVertexInputCInfo.vertexBindingDescriptionCount = 1;
     depthVertexInputCInfo.pVertexBindingDescriptions = &depthBindingDescription;
@@ -1199,7 +1457,7 @@ void VulkanRenderer::createDepthPipeline() {
 
     depthPassPipelineCInfo.layout = prepassPipelineLayout_;
 
-    depthPassPipelineCInfo.renderPass = depthPrepass;
+    depthPassPipelineCInfo.renderPass = depthPrepass_;
 
     depthPassPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -1608,7 +1866,7 @@ void VulkanRenderer::createFrameBuffer() {
 
         VkFramebufferCreateInfo depthFrameBufferCInfo{};
         depthFrameBufferCInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        depthFrameBufferCInfo.renderPass = depthPrepass;
+        depthFrameBufferCInfo.renderPass = depthPrepass_;
         depthFrameBufferCInfo.attachmentCount = 1;
         depthFrameBufferCInfo.pAttachments = &depthImageView_;
         depthFrameBufferCInfo.width = SWChainExtent_.width;
@@ -1716,8 +1974,8 @@ void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
 
     VkDescriptorImageInfo shadowMpaInfo{};
     shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-    shadowMpaInfo.imageView = pDirectionalLight->sMImageView_;
-    shadowMpaInfo.sampler = pDirectionalLight->sMImageSampler_;
+    shadowMpaInfo.imageView = pDirectionalLight_->sMImageView_;
+    shadowMpaInfo.sampler = pDirectionalLight_->sMImageSampler_;
 
     VkWriteDescriptorSet BRDFLutWrite{};
     BRDFLutWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1858,249 +2116,6 @@ void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, ui
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipelineLayout_, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
     pSkyBox_->pSkyBoxModel_->drawSkyBoxIndexed(commandBuffer);
-}
-
-void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-    // Start command buffer recording
-    VkCommandBufferBeginInfo CBBeginInfo{};
-    CBBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    CBBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (vkBeginCommandBuffer(commandBuffer, &CBBeginInfo) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to start recording with the command buffer!");
-    }
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeDescriptorSet_, 0, nullptr);
-
-    for (AnimatedGameObject* g : *animatedObjects) {
-        const auto cs = ComputePushConstant{
-            .jointMatrixStart = g->renderTarget->globalSkinningMatrixOffset,
-            .numVertices = g->renderTarget->getTotalVertices()
-        };
-        vkCmdPushConstants(commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstant), &cs);
-
-        static const auto workgroupSize = 256;
-        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->getTotalVertices() / (float)workgroupSize);
-        vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
-    }
-
-    VkMemoryBarrier2 memoryBarrier{};
-    memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-    memoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
-
-    VkDependencyInfo dependencyInfo{};
-    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    dependencyInfo.memoryBarrierCount = 1;
-    dependencyInfo.pMemoryBarriers = &memoryBarrier;
-
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
-
-    VkBuffer vertexBuffers[] = { vertexBuffer_ };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
-    // DEPTH PREPASS //////////////////////////////////////////////////////////////////////////////////////////////
-    VkClearValue clearValues[2];
-    clearValues[0].color = clearValue_.color;
-    clearValues[1].depthStencil = { 1.0f, 0 };
-
-    VkRenderPassBeginInfo depthPassBeginInfo{};
-    depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    depthPassBeginInfo.renderPass = depthPrepass;
-    depthPassBeginInfo.renderArea.extent.width = SWChainExtent_.width;
-    depthPassBeginInfo.renderArea.extent.height = SWChainExtent_.height;
-    depthPassBeginInfo.clearValueCount = 2;
-    depthPassBeginInfo.pClearValues = clearValues;
-    depthPassBeginInfo.framebuffer = depthFrameBuffers_[currentFrame_];
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)SWChainExtent_.width;
-    viewport.height = (float)SWChainExtent_.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = SWChainExtent_;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    vkCmdBeginRenderPass(commandBuffer, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_);
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipelineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->renderDepth(commandBuffer, prepassPipelineLayout_);
-    }
-    for (AnimatedGameObject* animGO : *(animatedObjects)) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-        animGO->renderTarget->renderDepth(commandBuffer, prepassPipelineLayout_);
-    }
-    vkCmdEndRenderPass(commandBuffer);
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
-
-        DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight->render(commandBuffer, j);
-
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipeline_);
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight->sMPipelineLayout_, 0, 1, &(pDirectionalLight->cascades[j].descriptorSet), 0, nullptr);
-        for (GameObject* gO : *(gameObjects)) {
-           gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j);
-        }
-        for (AnimatedGameObject* animGO : *(animatedObjects)) {
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-            animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight->sMPipelineLayout_, j);
-        }
-        vkCmdEndRenderPass(cmdBuf.commandBuffer);
-
-        //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
-    }
-
-    // Start the scene render pass
-    VkRenderPassBeginInfo RPBeginInfo{};
-    // Create the render pass
-    RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    RPBeginInfo.renderPass = renderPass_;
-    RPBeginInfo.framebuffer = SWChainFrameBuffers_[imageIndex];
-    // Define the size of the render area
-    RPBeginInfo.renderArea.offset = { 0, 0 };
-    RPBeginInfo.renderArea.extent = SWChainExtent_;
-
-    //std::array<VkClearValue, 2> clearValues{};
-    //clearValues[0].color = clearValue_.color;
-    //clearValues[1].depthStencil = { 1.0f, 0 };
-
-    // Define the clear values to use
-    RPBeginInfo.clearValueCount = 2;
-    RPBeginInfo.pClearValues = clearValues;
-
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    // Finally, begin the render pass
-    vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
-    recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-
-    //VkDebugUtilsLabelEXT debugLabelOpaque{}; debugLabelOpaque.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelOpaque.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
-    for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
-    }
-    //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelOpaque);
-    
-    for (AnimatedGameObject* gO : *(animatedObjects)) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-        gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeLineLayout_);
-    }
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, transparentPipeLineLayout_, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    ////VkDebugUtilsLabelEXT debugLabelTransparent{}; debugLabelTransparent.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabelTransparent.pLabelName = std::string("Opaque Draws").c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
-    for (GameObject* gO : *(gameObjects)) {
-        if (gO->renderTarget->transparentDraws.size() > 0) {
-            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_); // should be transparent
-        }
-    }
-    ////vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabelTransparent);
-
-    for (AnimatedGameObject* gO : *(animatedObjects)) {
-        if (gO->renderTarget->transparentDraws.size() > 0) {
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-            gO->renderTarget->drawIndexedTransparent(commandBuffer, transparentPipeLineLayout_); // should be transparent
-        }
-    }
-}
-
-void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
-    // After drawing is over, end the render pass
-    vkCmdEndRenderPass(commandBuffer);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-        std::cout << "recording failed, you bum!" << std::endl;
-        std::_Xruntime_error("Failed to record back the command buffer!");
-    }
-
-    // Submit the command buffer with the semaphore
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemaphores[] = { this->imageAcquiredSema_[currentFrame_] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    queueSubmitInfo.waitSemaphoreCount = 1;
-    queueSubmitInfo.pWaitSemaphores = waitSemaphores;
-    queueSubmitInfo.pWaitDstStageMask = waitStages;
-
-    // Specify the command buffers to actually submit for execution
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &this->commandBuffers_[currentFrame_];
-
-    // Specify which semaphores to signal once command buffers have finished execution
-    VkSemaphore signaledSemaphores[] = { this->renderedSema_[currentFrame_] };
-    queueSubmitInfo.signalSemaphoreCount = 1;
-    queueSubmitInfo.pSignalSemaphores = signaledSemaphores;
-
-    // Finally, submit the queue info
-    if (vkQueueSubmit(this->graphicsQueue_, 1, &queueSubmitInfo, inFlightFences_[currentFrame_]) != VK_SUCCESS) {
-        std::cout << "failed submit the draw command buffer, ???" << std::endl;
-        std::_Xruntime_error("Failed to submit the draw command buffer to the graphics queue!");
-    }
-
-    // Present the frame from the queue
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    // Specify the semaphores to wait on before presentation happens
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signaledSemaphores;
-
-    // Specify the swap chains to present images and the image index for each chain
-    VkSwapchainKHR swapChains[] = { this->swapChain_ };
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-
-    presentInfo.pImageIndices = &imageIndex_;
-
-    VkResult res2 = vkQueuePresentKHR(this->presentQueue_, &presentInfo);
-
-    if (res2 == VK_ERROR_OUT_OF_DATE_KHR || res2 == VK_SUBOPTIMAL_KHR || this->frBuffResized_) {
-        this->frBuffResized_ = false;
-        this->recreateSwapChain(window);
-    }
-    else if (res2 != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to present a swap chain image!");
-    }
-
-    currentFrame_ = (currentFrame_ + 1) % maxFramesInFlight;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

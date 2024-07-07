@@ -10,6 +10,7 @@
 #include <PxPhysicsAPI.h>
 #include <PxCooking.h>
 #include <characterkinematic/PxControllerManager.h>
+#include "VulkanUtils.h"
 
 constexpr auto PI = 3.141592653589793;
 constexpr auto SHADOW_MAP_CASCADE_COUNT = 3;
