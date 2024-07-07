@@ -1,9 +1,9 @@
 # ORCHID
 
 ## My goals for this project
-* Create an engine I can use as a base for a third person shooter game demo
+* Create an engine I can use as a base for a third person rpg game demo
 * Have a space I can use to try to implement various graphics programming concepts
-* Create a portfolio piece I can use to both demonstrate my game engine and graphics programming knowledge
+* Create a portfolio piece I can use to demonstrate both my game engine and graphics programming knowledge
 
 ## Current Features
 ### PBR Textures
@@ -43,13 +43,13 @@ Basic area light shadowmapping by rendering the scene from the light's perspecti
 
 One common downside to shadow maps is that they are notoriously bad for detailed shadows and they take up a lot of GPU memory. By splitting the large shadow map into pieces, only rendering what is in view from the camera, we can address both issues at once. This technique is called Cascaded Shadow Mapping, where you split the camera's view frustrum into smaller frustra, and for each frustra you render a shadow map with its respective center and extents. The subfrustra furthest will have the widest extent (meaning lower level of detail), and the one closer to the camera will have a smaller extent (meaning a higher level of detail).
 
-### Animations
+### Animations / Compute skinning
 
 https://github.com/AKris0090/Orchid/assets/58652090/a1662d30-31e1-4b9d-9ecd-0a9f098e5afa
 
 https://github.com/AKris0090/Orchid/assets/58652090/cb83ed30-a5de-4a8e-af59-68d82ffc80a4
 
-GLTF files have the ability to store bone data and skinning information, and the gltf loader library I use (tinygltf) has a way to access these. I load and pass the bone weights and skinning matrices to the vertex shader to update the vertex position every frame, animating the objects. 
+GLTF files have the ability to store bone data and skinning information, and the gltf loader library I use (tinygltf) has a way to access these. I felt it was beneficial to have the vertex data be of the same format as the other static objects (to reduce overall complicatedness at draw time), so I implemented a compute shader in order to modify the vertex buffer itself, which I then pass into   
 
 ### Nvidia PhysX Implementation
 I have set up a physics simulation that represents the actors in the scene, and by mapping the transform of the physics objects to the objects in my scene, I can represent physics interactions between them. I have also made use of the built-in character controller class, and plan to implement a third person camera.
