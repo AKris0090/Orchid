@@ -98,8 +98,7 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 }
 
 vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness)
-{
-	// Precalculate vectors and dot products	
+{	
 	vec3 H = normalize (V + L);
 	float dotNH = clamp(dot(N, H), 0.0, 1.0);
 	float dotNV = clamp(dot(N, V), 0.0, 1.0);
@@ -170,8 +169,6 @@ void main()
 	vec3 R = -normalize(reflect(V, N));
 
 	float NdotV = max(dot(N, V), 0.0);
-	//float NdotL = max(dot(N, L), 0.0);
-	//float NdotH = max(dot(N, V + L), 0.0);
 
 	float metallic = metallicRoughness.b;
 	float roughness = metallicRoughness.g;
@@ -182,12 +179,10 @@ void main()
 
 	vec3 F = F_SchlickR(NdotV, F0, roughness);
 
-	// Specular reflectance
 	vec3 specular = prefilteredReflection(R, roughness).rgb * (F * brdf.x + brdf.y);
 
 	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;	
 
-	// Get cascade index for the current fragment's view position
 	uint cascadeIndex = 0;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
 		if(fragPosition.w < ubo.cascadeSplits[i]) {	
@@ -209,10 +204,6 @@ void main()
 	
 	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * shadow) + emissionVec;
 
-	// Tone mapping
-	//color = Uncharted2Tonemap(color * 2.5f); // 4.5f is exposure
-	//color = color * (1.0f / Uncharted2Tonemap(vec3(9.0f)));	
-	// Gamma correction
 	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
 
 	outColor = vec4(color, ALPHA);
