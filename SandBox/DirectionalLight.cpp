@@ -527,7 +527,7 @@ void DirectionalLight::genShadowMap(FPSCam* camera) {
 	
 	imageFormat_ = findSupportedFormat(pDevHelper_->getPhysicalDevice());
 
-	cascadeSplitLambda = 0.89f;
+	cascadeSplitLambda = 0.77f;
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 

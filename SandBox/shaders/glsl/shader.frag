@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define SHADOW_MAP_CASCADE_COUNT 3
 
@@ -183,20 +183,12 @@ void main()
 
 	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;	
 
-	uint cascadeIndex = 0;
-	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-		if(fragPosition.w < ubo.cascadeSplits[i]) {	
-			cascadeIndex = i + 1;
-		}
-	}
+	vec3 res = step(ubo.cascadeSplits.xyz, vec3(fragPosition.w));
+	int cascadeIndex = SHADOW_MAP_CASCADE_COUNT - int(res.x + res.y + res.z);
 
 	float newBias = max(0.05 * (1.0 - dot(N, ubo.lightPos.xyz)), ubo.viewPos.w);
 
-	if(cascadeIndex == SHADOW_MAP_CASCADE_COUNT) {
-		newBias *= 1 / (((ubo.proj[2][3] / ubo.proj[2][2]) + 1.0) * 0.5);
-	} else {
 		newBias *= 1 / (ubo.cascadeSplits[cascadeIndex] * 0.5);
-	}
 
 	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz, 1.0);
 

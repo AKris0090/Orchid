@@ -2162,7 +2162,7 @@ void VulkanRenderer::setupCompute() {
     vkMapMemory(pDevHelper_->getDevice(), skinBindMatricesBufferMemory, 0, bufferSize, 0, &mappedSkinBuffer);
     memcpy(mappedSkinBuffer, inverseBindMatrices.data(), bufferSize);
 
-    // TODO: implement buffer device addresses so that you can launch multiple compute shaders
+    // TODO: implement buffer device addresses so that you can launch multiple compute shaders+
     VkDescriptorSetLayoutBinding jointMatrixLayout{};
     jointMatrixLayout.binding = 0;
     jointMatrixLayout.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
         }
 
         // update physics -------------------
-        // includes game object position updates
+        // includes game object position updates TODO: REMOVE FROM HERE
         physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
         
         // update graphics -------------------
