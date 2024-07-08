@@ -9,14 +9,10 @@ layout(push_constant) uniform pushConstant {
 
 layout(location = 0) in vec2 fragTexCoord;
 
-vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
-
-#define ALPHA albedoAlpha.a
-
 void main()
 {
 	if (pc.alphaMask > 0) {
-        	if (ALPHA < (pc.alphaCutoff + 0.38)) {
+        	if ((texture(colorSampler, fragTexCoord).a) < (pc.alphaCutoff + 0.38)) {
             		discard;
         	}
 	}

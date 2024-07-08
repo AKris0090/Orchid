@@ -30,10 +30,7 @@ void main() {
 
     vec4 pos = pc.model * vec4(inPosition.xyz, 1.0f);
 
-    vec3 fragNormal = mat3(pc.model) * inNormal.xyz;
-    vec4 fragTangent = vec4((pc.model * inTangent).xyz, inTangent.w);
-
-    TBNMatrix = mat3(normalize(fragTangent.xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize(fragNormal));
+    TBNMatrix = mat3(normalize((vec4((pc.model * inTangent).xyz, inTangent.w)).xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize((mat3(pc.model) * inNormal.xyz)));
 
     fragPosition = vec4(pos.xyz, (ubo.view * pos).z);
 
