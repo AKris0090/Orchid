@@ -21,6 +21,9 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
         ubo.cascadeViewProjMat[i] = pDirectionalLight_->cascades[i].viewProjectionMatrix;
     }
 
+    ubo.gammaExposure.x = gamma_;
+    ubo.gammaExposure.y = exposure_;
+
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
@@ -488,7 +491,7 @@ SWAP CHAIN METHODS
 VkSurfaceFormatKHR SWChainSuppDetails::chooseSwSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     for (const auto& availableFormat : availableFormats) {
         // If it has the right color space and format, return it. UNORM for color mode of imgui
-        if (availableFormat.format == VK_FORMAT_R8G8B8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (availableFormat.format == VK_FORMAT_R16G16B16A16_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return availableFormat;
         }
     }

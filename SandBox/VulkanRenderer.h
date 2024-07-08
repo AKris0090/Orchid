@@ -127,6 +127,8 @@ public:
 	FPSCam camera_;
 	float depthBias_;
 	float maxReflectionLOD_;
+	float gamma_;
+	float exposure_;
 	VkExtent2D SWChainExtent_;
 
 	VkBuffer vertexBuffer_;
@@ -263,6 +265,7 @@ public:
 		glm::mat4 proj;
 		glm::vec4 lightPos;
 		glm::vec4 viewPos;
+		glm::vec4 gammaExposure;
 		float cascadeSplits[4];
 		glm::mat4 cascadeViewProjMat[4];
 	};

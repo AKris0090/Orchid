@@ -7,6 +7,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 proj;
     vec4 lightPos;
     vec4 viewPos;
+    vec4 gammaExposure;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
 } ubo;
@@ -196,7 +197,11 @@ void main()
 	
 	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * shadow) + emissionVec;
 
-	color = pow(color, vec3(1.0f / 2.2f)); // 2.2 is gamma
+    	// exposure tone mapping
+    	vec3 mapped = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
 
-	outColor = vec4(color, ALPHA);
+    	// gamma correction 
+    	mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x)); // 2.2 is gamma
+
+	outColor = vec4(mapped, ALPHA);
 }
