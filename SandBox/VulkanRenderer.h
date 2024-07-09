@@ -129,6 +129,7 @@ public:
 	float maxReflectionLOD_;
 	float gamma_;
 	float exposure_;
+	bool applyTonemap;
 	VkExtent2D SWChainExtent_;
 
 	VkBuffer vertexBuffer_;

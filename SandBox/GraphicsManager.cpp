@@ -85,6 +85,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight_->zFar);
     ImGui::DragFloat("gamma", &pVkR_->gamma_);
     ImGui::DragFloat("exposure", &pVkR_->exposure_);
+    ImGui::Checkbox("tonemap", &pVkR_->applyTonemap);
     ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);

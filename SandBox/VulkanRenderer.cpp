@@ -23,6 +23,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.x = gamma_;
     ubo.gammaExposure.y = exposure_;
+    ubo.gammaExposure.z = applyTonemap;
 
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
@@ -2064,11 +2065,9 @@ VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& potent
     std::_Xruntime_error("Failed to find a supported format!");
 }
 
-void VulkanRenderer::createColorResources() {
-    VkFormat colorFormat = SWChainImageFormat_;
-    
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, this->msaaSamples_, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
-    colorImageView_ = pDevHelper_->createImageView(colorImage_, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+void VulkanRenderer::createColorResources() { 
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, this->msaaSamples_, SWChainImageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
+    colorImageView_ = pDevHelper_->createImageView(colorImage_, SWChainImageFormat_, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void VulkanRenderer::createDepthResources() {

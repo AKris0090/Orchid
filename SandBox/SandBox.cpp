@@ -65,7 +65,8 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
     graphicsManager.pVkR_->gamma_ = 2.2f;
-    graphicsManager.pVkR_->exposure_ = 2.5f;
+    graphicsManager.pVkR_->exposure_ = 1.0f;
+    graphicsManager.pVkR_->applyTonemap = true;
 
     PhysicsManager physicsManager = PhysicsManager();
 

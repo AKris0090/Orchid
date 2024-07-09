@@ -2,6 +2,8 @@
 
 #define SHADOW_MAP_CASCADE_COUNT 3
 
+#include "aces.glsl"
+
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
@@ -203,5 +205,9 @@ void main()
     	// gamma correction 
     	mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x)); // 2.2 is gamma
 
-	outColor = vec4(mapped, ALPHA);
+	if(ubo.gammaExposure.z > 0) {
+		outColor = vec4(ACESFilm(mapped), ALPHA);
+	} else {
+		outColor = vec4(mapped, ALPHA);
+	}
 }
