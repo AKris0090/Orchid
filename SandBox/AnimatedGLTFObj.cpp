@@ -252,7 +252,7 @@ void AnimatedGLTFObj::loadImages() {
 
 void AnimatedGLTFObj::loadTextures() {
     textureIndices_.resize(pInputModel_->textures.size());
-    uint32_t size = static_cast<uint32_t>(textureIndices_.size());
+    uint32_t size = static_cast<uint32_t>(images_.size() - 4);
     for (size_t i = 0; i < pInputModel_->textures.size(); i++) {
         textureIndices_[i] = pInputModel_->textures[i].source;
     }
@@ -649,9 +649,9 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
     if (loadedFile) {
         if (in.images.size() != 0) {
             loadImages();
-            textureIndices_.resize(pInputModel_->textures.size() + 3);
-            loadMaterials();
+            textureIndices_.resize(pInputModel_->images.size() + 3);
             loadTextures();
+            loadMaterials();
 
             for (auto& image : images_) {
                 image->load();
@@ -683,7 +683,7 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
 }
 
 void AnimatedGLTFObj::loadMaterials() {
-    uint32_t numImages = static_cast<uint32_t>(pInputModel_->images.size());
+    uint32_t numImages = static_cast<uint32_t>(pInputModel_->textures.size());
     uint32_t dummyNormalIndex = numImages;
     uint32_t dummyMetallicRoughnessIndex = numImages + 1;
     uint32_t dummyAOIndex = numImages + 2;
