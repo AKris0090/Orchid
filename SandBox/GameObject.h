@@ -12,6 +12,7 @@ public:
 	Transform transform;
 	GLTFObj* renderTarget;
 	bool isDynamic;
+	bool isOutline;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;

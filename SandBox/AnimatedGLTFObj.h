@@ -82,6 +82,7 @@ public:
 
 	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+	void drawIndexedOutline(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex);
 	void drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
 	void renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);

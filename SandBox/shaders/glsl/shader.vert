@@ -10,6 +10,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 gammaExposure;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
+    float specularCont;
 } ubo;
 
 layout(push_constant) uniform pushConstant {

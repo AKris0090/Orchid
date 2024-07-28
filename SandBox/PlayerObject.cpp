@@ -15,7 +15,7 @@ void PlayerObject::setupPhysicsController() {
 	desc.height = PLAYER_CAP_HEIGHT;
 	desc.position = physx::PxExtendedVec3(0.0, (double) ((cap_height / 2) + (cap_radius * 2)), 0.0);
 	desc.material = pMaterial_;
-	desc.stepOffset = 0.1f;
+	desc.stepOffset = 0.5f;
 	desc.contactOffset = 0.001;
 	desc.scaleCoeff = .99f;
 	characterController = manager->createController(desc);

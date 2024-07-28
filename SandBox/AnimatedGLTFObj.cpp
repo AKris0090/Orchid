@@ -71,6 +71,16 @@ void AnimatedGLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelin
     }
 }
 
+void AnimatedGLTFObj::drawIndexedOutline(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    for (auto& mat : opaqueDraws) {
+        for (auto& draw : mat.second) {
+            glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
+            callIndexedDraw(commandBuffer, draw->indirectInfo);
+        }
+    }
+}
+
 void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
     for (auto& mat : transparentDraws) {
         Material* material = mat.first;

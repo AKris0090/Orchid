@@ -197,17 +197,19 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * shadow) + emissionVec;
+	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * (shadow * ubo.gammaExposure.w)) + emissionVec;
 
     	// exposure tone mapping
-    	vec3 mapped = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
+    	//vec3 mapped = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
 
     	// gamma correction 
-    	mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x)); // 2.2 is gamma
+    	//mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x)); // 2.2 is gamma
 
-	if(ubo.gammaExposure.z > 0) {
-		outColor = vec4(ACESFilm(mapped), ALPHA);
-	} else {
-		outColor = vec4(mapped, ALPHA);
-	}
+	//if(ubo.gammaExposure.z > 0) {
+	//	outColor = vec4(ACESFilm(mapped), ALPHA);
+	//} else {
+	//	outColor = vec4(mapped, ALPHA);
+	//}
+
+	outColor = vec4(color, ALPHA);
 }

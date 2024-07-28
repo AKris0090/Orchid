@@ -28,8 +28,9 @@ public:
 
 	PhysicsManager() {};
 
-	physx::PxShape* createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale);
+	std::vector<physx::PxShape*> createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale);
 	void addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent);
+	void addPlane();
 	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale);
 	void recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices);
 

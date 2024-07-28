@@ -81,6 +81,12 @@ private:
 	VkPipeline prepassPipeline_;
 	VkPipelineLayout prepassPipelineLayout_;
 
+	VkPipeline outlinePipeline;
+	VkPipelineLayout outlinePipelineLayout;
+
+	VkPipeline toonPipeline;
+	VkPipelineLayout toonPipelineLayout;
+
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
@@ -225,9 +231,10 @@ public:
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
 	void createGraphicsPipeline();
-	void createAlphaPipeline();
 	void createDepthPipeline();
+	void createOutlinePipeline();
 	void createSkyBoxPipeline();
+	void createToonPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function
@@ -260,6 +267,11 @@ public:
 	void createIndexBuffer();
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
+
+	void createAOResources();
+
+	float specularCont;
+	float nDotVSpec;
 
 	struct UniformBufferObject {
 		glm::mat4 view;

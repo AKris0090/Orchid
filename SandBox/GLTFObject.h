@@ -29,6 +29,9 @@ public:
 	std::vector<TextureHelper*> images_;
 	std::vector<Material> mats_;
 
+	std::vector<Vertex> vertices_;
+	std::vector<uint32_t> indices_;
+
 	bool isSkyBox_ = false;
 
 	std::vector<SceneNode*> pParentNodes;

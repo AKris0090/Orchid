@@ -28,6 +28,8 @@ void GraphicsManager::setupImGUI() {
     init_info.ImageCount = 3;
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, pVkR_->renderPass_);
+
+    //m_Dset = ImGui_ImplVulkan_AddTexture(pVkR_->pDirectionalLight_->sMImageSampler_, pVkR_->pDirectionalLight_->sMImageView_, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 }
 
 void GraphicsManager::startSDL() {
@@ -76,6 +78,9 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::End();
 
     ImGui::Begin("Var Editor");
+
+    ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
+    ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
     ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight_->transform.position.y);
     ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight_->transform.position.z);
@@ -202,6 +207,8 @@ void GraphicsManager::startVulkan() {
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();
 
+        newGO->isOutline = false;
+
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
 
@@ -231,6 +238,7 @@ void GraphicsManager::startVulkan() {
                 globalSkinMatrixOffset++;
             }
         }
+        newAnimGO->isOutline = true;
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
@@ -297,6 +305,10 @@ void GraphicsManager::startVulkan() {
     pVkR_->separateDrawCalls();
 
     pVkR_->setupCompute();
+
+    // setup AO image
+
+    // for each object, update ambient occlusion descriptor set
 
     return;
 }

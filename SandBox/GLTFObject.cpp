@@ -339,6 +339,14 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             totalVertices_ += currentNumVertices;
 
             scNode->meshPrimitives.push_back(p);
+
+            for (auto m : p->stagingVertices_) {
+                vertices_.push_back(m);
+            }
+
+            for (auto i : p->stagingIndices_) {
+                indices_.push_back(i);
+            }
         }
     }
 

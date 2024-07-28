@@ -13,6 +13,7 @@ public:
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
 	bool isDynamic;
+	bool isOutline;
 	bool isPlayerObj;
 	DeviceHelper* pDevHelper;
 	VkDevice device_;
