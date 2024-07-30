@@ -35,6 +35,7 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 bloomColor;
 layout (depth_unchanged) out float gl_FragDepth;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
@@ -210,6 +211,14 @@ void main()
 	//} else {
 	//	outColor = vec4(mapped, ALPHA);
 	//}
+
+	vec4 brightColor = vec4(color, 1.0f);
+
+	if(dot(brightColor.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0f) {
+		bloomColor = vec4(brightColor.rgb, 1.0f);
+	} else {
+		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
 
 	outColor = vec4(color, ALPHA);
 }

@@ -25,7 +25,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.x = gamma_;
     ubo.gammaExposure.y = exposure_;
-    ubo.gammaExposure.z = applyTonemap;
+    ubo.gammaExposure.z = specularCont;
 
     ubo.gammaExposure.w = nDotVSpec;
 
@@ -173,7 +173,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Create the render pass
     RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     RPBeginInfo.renderPass = renderPass_;
-    RPBeginInfo.framebuffer = SWChainFrameBuffers_[imageIndex];
+    RPBeginInfo.framebuffer = toneMappingFrameeBuffers_[imageIndex];
     // Define the size of the render area
     RPBeginInfo.renderArea.offset = { 0, 0 };
     RPBeginInfo.renderArea.extent = SWChainExtent_;
@@ -253,6 +253,38 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
             gO->renderTarget->drawIndexedOutline(commandBuffer, outlinePipelineLayout);
         }
     }
+
+    vkCmdEndRenderPass(commandBuffer);
+
+    // tonemapping renderpass
+
+    VkRenderPassBeginInfo tonemapRenderPassBI{};
+    tonemapRenderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    tonemapRenderPassBI.renderPass = toneMapPass_;
+    tonemapRenderPassBI.framebuffer = SWChainFrameBuffers_[imageIndex];
+    tonemapRenderPassBI.renderArea.offset = { 0, 0 };
+    tonemapRenderPassBI.renderArea.extent = SWChainExtent_;
+
+    tonemapRenderPassBI.clearValueCount = 2;
+    tonemapRenderPassBI.pClearValues = clearValues;
+
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdBeginRenderPass(commandBuffer, &tonemapRenderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &screenQuadVertexBuffer, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, screenQuadIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipelineLayout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipelineLayout, 1, 1, &toneMappingDescriptorSet_, 0, nullptr);
+
+    vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
+
+    //vkCmdBindDescriptorSets
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
@@ -860,7 +892,7 @@ CREATING THE RENDER PASS
 
 void VulkanRenderer::createRenderPass() {
     VkAttachmentDescription colorAttachmentDescription{};
-    colorAttachmentDescription.format = SWChainImageFormat_;
+    colorAttachmentDescription.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     colorAttachmentDescription.samples = this->msaaSamples_;
     colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -868,6 +900,16 @@ void VulkanRenderer::createRenderPass() {
     colorAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentDescription bloomAttachmentDescription{};
+    bloomAttachmentDescription.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    bloomAttachmentDescription.samples = this->msaaSamples_;
+    bloomAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    bloomAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    bloomAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    bloomAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    bloomAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    bloomAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription depthAttachmentDescription{};
     depthAttachmentDescription.format = findDepthFormat();
@@ -880,45 +922,59 @@ void VulkanRenderer::createRenderPass() {
     depthAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription colorAttachmentResolve{};
-    colorAttachmentResolve.format = this->SWChainImageFormat_;
+    colorAttachmentResolve.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentDescription bloomResolveAttachment{};
+    bloomResolveAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    bloomResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    bloomResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    bloomResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    bloomResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    bloomResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    bloomResolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    bloomResolveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // One render pass consists of multiple render subpasses, but we are only going to use 1 for the triangle
     VkAttachmentReference colorAttachmentReference{};
     colorAttachmentReference.attachment = 0;
     colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference bloomAttachmentReference{};
+    bloomAttachmentReference.attachment = 1;
+    bloomAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference depthAttachmentReference{};
-    depthAttachmentReference.attachment = 1;
+    depthAttachmentReference.attachment = 2;
     depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorAttachmentResolveRef{};
-    colorAttachmentResolveRef.attachment = 2;
+    colorAttachmentResolveRef.attachment = 3;
     colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference bloomAttachmentResolveRef{};
+    bloomAttachmentResolveRef.attachment = 4;
+    bloomAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    std::vector<VkAttachmentReference> colorRefs = { colorAttachmentReference, bloomAttachmentReference };
+    std::vector<VkAttachmentReference> resolveRefs = { colorAttachmentResolveRef, bloomAttachmentResolveRef };
 
     // Create the subpass
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    // Have to be explicit about this subpass being a graphics subpass
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorAttachmentReference;
+    subpass.colorAttachmentCount = 2;
+    subpass.pColorAttachments = colorRefs.data();
     subpass.pDepthStencilAttachment = &depthAttachmentReference;
-    subpass.pResolveAttachments = &colorAttachmentResolveRef;
-
-    //VkSubpassDependency dependency{};
-    //dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    //dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    //dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    //dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    subpass.pResolveAttachments = resolveRefs.data();
 
     // Create information struct for the render pass
-    std::array<VkAttachmentDescription, 3> attachments = { colorAttachmentDescription, depthAttachmentDescription, colorAttachmentResolve };
+    std::array<VkAttachmentDescription, 5> attachments = { colorAttachmentDescription, bloomAttachmentDescription, depthAttachmentDescription, colorAttachmentResolve, bloomResolveAttachment };
 
     const uint32_t numDependencies = 4;
     VkSubpassDependency subpassDependencies[numDependencies];
@@ -974,6 +1030,57 @@ void VulkanRenderer::createRenderPass() {
         std::_Xruntime_error("Failed to create render pass!");
     }
 
+    VkAttachmentDescription swAttachmentDescription{};
+    swAttachmentDescription.format = this->SWChainImageFormat_;
+    swAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+    swAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    swAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    swAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    swAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    swAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    swAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference toneMapReference{};
+    toneMapReference.attachment = 0;
+    toneMapReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    // Create the subpass
+    VkSubpassDescription toneSubpass{};
+    toneSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    toneSubpass.colorAttachmentCount = 1;
+    toneSubpass.pColorAttachments = &toneMapReference;
+
+    std::array<VkSubpassDependency, 2> tondependencies;
+
+    tondependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    tondependencies[0].dstSubpass = 0;
+    tondependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    tondependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    tondependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    tondependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    tondependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    tondependencies[1].srcSubpass = 0;
+    tondependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    tondependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    tondependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    tondependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    tondependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    tondependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    VkRenderPassCreateInfo toneMapRenderPassCInfo{};
+    toneMapRenderPassCInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    toneMapRenderPassCInfo.attachmentCount = 1;
+    toneMapRenderPassCInfo.pAttachments = &swAttachmentDescription;
+    toneMapRenderPassCInfo.subpassCount = 1;
+    toneMapRenderPassCInfo.pSubpasses = &toneSubpass;
+    toneMapRenderPassCInfo.dependencyCount = 2;
+    toneMapRenderPassCInfo.pDependencies = tondependencies.data();
+
+    if (vkCreateRenderPass(device_, &toneMapRenderPassCInfo, nullptr, &toneMapPass_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create render pass!");
+    }
+
     VkAttachmentDescription depthZAttachmentDescription{};
     depthZAttachmentDescription.format = findDepthFormat();
     depthZAttachmentDescription.samples = this->msaaSamples_;
@@ -1022,6 +1129,8 @@ void VulkanRenderer::createRenderPass() {
     if (vkCreateRenderPass(device_, &depthPrePassCInfo, nullptr, &depthPrepass_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create render pass!");
     }
+
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1118,6 +1227,22 @@ void VulkanRenderer::createDescriptorSetLayout() {
     if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &textureDescriptorSetLayout_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture descriptor set layout!");
     }
+
+    VkDescriptorSetLayoutBinding tonemappingBinding{};
+    tonemappingBinding.binding = 0;
+    tonemappingBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    tonemappingBinding.descriptorCount = 1;
+    tonemappingBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    tonemappingBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo tonemappingLayoutCInfo{};
+    tonemappingLayoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    tonemappingLayoutCInfo.bindingCount = 1;
+    tonemappingLayoutCInfo.pBindings = &tonemappingBinding;
+
+    if (vkCreateDescriptorSetLayout(device_, &tonemappingLayoutCInfo, nullptr, &tonemappingDescriptorSetLayout_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the texture descriptor set layout!");
+    }
 }
 
 void VulkanRenderer::createVertexBuffer() {
@@ -1135,8 +1260,7 @@ void VulkanRenderer::createVertexBuffer() {
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize);
 
-    //vkDestroyBuffer(device_, stagingBuffer, nullptr);
-    //vkFreeMemory(device_, stagingBufferMemory, nullptr);
+    createQuadVertexBuffer();
 }
 
 void VulkanRenderer::createIndexBuffer() {
@@ -1154,8 +1278,51 @@ void VulkanRenderer::createIndexBuffer() {
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer_, indexBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, indexBuffer_, bufferSize);
 
-    //vkDestroyBuffer(device_, stagingBuffer, nullptr);
-    //vkFreeMemory(device_, stagingBufferMemory, nullptr);
+    createQuadIndexBuffer();
+}
+
+void VulkanRenderer::createQuadVertexBuffer() {
+    screenQuadVertices = { Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
+                           Vertex(glm::vec2(-1.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
+                           Vertex(glm::vec2(1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+                           Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
+                           Vertex(glm::vec2(1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+                           Vertex(glm::vec2(1.0f, -1.0f), glm::vec2(1.0f, 0.0f))
+    };
+
+    VkDeviceSize bufferSize = sizeof(Vertex) * screenQuadVertices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, screenQuadVertices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device_, stagingBufferMemory);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadVertexBuffer, screenQuadVertexBufferMemory);
+    pDevHelper_->copyBuffer(stagingBuffer, this->screenQuadVertexBuffer, bufferSize);
+}
+
+void VulkanRenderer::createQuadIndexBuffer() {
+    for (int i = 0; i < 6; i++) {
+        screenQuadIndices.push_back(i);
+    }
+
+    VkDeviceSize bufferSize = sizeof(screenQuadIndices[0]) * screenQuadIndices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, screenQuadIndices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device_, stagingBufferMemory);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadIndexBuffer, screenQuadIndexBufferMemory);
+    pDevHelper_->copyBuffer(stagingBuffer, screenQuadIndexBuffer, bufferSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1434,11 +1601,17 @@ void VulkanRenderer::createOutlinePipeline() {
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
+    VkPipelineColorBlendAttachmentState secondBlendAttachment{};
+    secondBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    secondBlendAttachment.blendEnable = VK_FALSE;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = { colorBlendAttachment, secondBlendAttachment };
+
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+    colorBlendingCInfo.attachmentCount = 2;
+    colorBlendingCInfo.pAttachments = blendAttachments.data();
 
     // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
@@ -1598,11 +1771,17 @@ void VulkanRenderer::createToonPipeline() {
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
+    VkPipelineColorBlendAttachmentState secondBlendAttachment{};
+    secondBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    secondBlendAttachment.blendEnable = VK_FALSE;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = { colorBlendAttachment, secondBlendAttachment };
+
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+    colorBlendingCInfo.attachmentCount = 2;
+    colorBlendingCInfo.pAttachments = blendAttachments.data();
 
     // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
@@ -1672,6 +1851,160 @@ void VulkanRenderer::createToonPipeline() {
     VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(toonPipeline));
     if (res3 != VK_SUCCESS) {
         std::cout << "failed to create cartoon graphics pipeline" << std::endl;
+        std::_Xruntime_error("Failed to create the graphics pipeline!");
+    }
+}
+
+void VulkanRenderer::createToneMappingPipeline() {
+    // Read the file for the bytecodfe of the shaders
+    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/screenQuadVert.spv");
+    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/tonemappingFrag.spv");
+
+    std::cout << "read files" << std::endl;
+
+    // Wrap the bytecode with VkShaderModule objects
+    VkShaderModule vertexShaderModule = createShaderModule(vertexShader);
+    VkShaderModule fragmentShaderModule = createShaderModule(fragmentShader);
+
+    //Create the shader information struct to begin actuall using the shader
+    VkPipelineShaderStageCreateInfo vertexStageCInfo{};
+    vertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertexStageCInfo.module = vertexShaderModule;
+    vertexStageCInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragmentStageCInfo{};
+    fragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragmentStageCInfo.module = fragmentShaderModule;
+    fragmentStageCInfo.pName = "main";
+
+    // Define array to contain the shader create information structs
+    VkPipelineShaderStageCreateInfo stages[] = { vertexStageCInfo, fragmentStageCInfo };
+
+    // Describing the format of the vertex data to be passed to the vertex shader
+    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
+    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
+
+    vertexInputCInfo.vertexBindingDescriptionCount = 1;
+    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
+    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    // Next struct describes what kind of geometry will be drawn from the verts and if primitive restart should be enabled
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
+    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
+
+    // Initialize the viewport information struct, a lot of the size information will come from the swap chain extent factor
+    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
+    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportStateCInfo.viewportCount = 1;
+    viewportStateCInfo.scissorCount = 1;
+
+    // Initialize rasterizer, which takes information from the geometry formed by the vertex shader into fragments to be colored by the fragment shader
+    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+    rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    // Fragments beyond the near and far planes are clamped to those planes, instead of discarding them
+    rasterizerCInfo.depthClampEnable = VK_FALSE;
+    // If set to true, geometry never passes through the rasterization phase, and disables output to framebuffer
+    rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
+    // Determines how fragments are generated for geometry, using other modes requires enabling a GPU feature
+    rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    // Linewidth describes thickness of lines in terms of number of fragments 
+    rasterizerCInfo.lineWidth = 1.0f;
+    // Specify type of culling and and the vertex order for the faces to be considered
+    rasterizerCInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    // Alter depth values by adding constant or biasing them based on a fragment's slope
+    rasterizerCInfo.depthBiasEnable = VK_FALSE;
+
+    // Multisampling information struct
+    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
+    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    // Depth and stencil testing would go here, but not doing this for the triangle
+    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
+    depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilCInfo.depthTestEnable = VK_FALSE;
+    depthStencilCInfo.depthWriteEnable = VK_FALSE;
+    depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
+    depthStencilCInfo.stencilTestEnable = VK_FALSE;
+    depthStencilCInfo.minDepthBounds = 0.0f;
+    depthStencilCInfo.maxDepthBounds = 1.0f;
+
+    // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
+    // If <blendEnable> is set to false, then the color from the fragment shader is passed through to the framebuffer
+    // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    // Array of structures for all of the framebuffers to set blend constants as blend factors
+    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
+    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendingCInfo.attachmentCount = 1;
+    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+
+    // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
+    std::vector<VkDynamicState> dynaStates = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
+    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
+    dynamicStateCInfo.pDynamicStates = dynaStates.data();
+
+    VkDescriptorSetLayout descSetLayouts[] = { uniformDescriptorSetLayout_, tonemappingDescriptorSetLayout_ };
+
+    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
+    // Initialize the pipeline layout with another create info struct
+    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 2;
+    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &toneMappingPipelineLayout) != VK_SUCCESS) {
+        std::cout << "nah you buggin" << std::endl;
+        std::_Xruntime_error("Failed to create pipeline layout!");
+    }
+
+    std::cout << "pipeline layout created" << std::endl;
+
+    // Combine the shader stages, fixed-function state, pipeline layout, and render pass to create the graphics pipeline
+    // First - populate struct with the information
+    VkGraphicsPipelineCreateInfo graphicsPipelineCInfo{};
+    graphicsPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    graphicsPipelineCInfo.stageCount = 2;
+    graphicsPipelineCInfo.pStages = stages;
+
+    graphicsPipelineCInfo.pVertexInputState = &vertexInputCInfo;
+    graphicsPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
+    graphicsPipelineCInfo.pViewportState = &viewportStateCInfo;
+    graphicsPipelineCInfo.pRasterizationState = &rasterizerCInfo;
+    graphicsPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
+    graphicsPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
+    graphicsPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
+    graphicsPipelineCInfo.pDynamicState = &dynamicStateCInfo;
+
+    graphicsPipelineCInfo.layout = toneMappingPipelineLayout;
+
+    graphicsPipelineCInfo.renderPass = toneMapPass_;
+    graphicsPipelineCInfo.subpass = 0;
+
+    graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+    // Create the object
+    VkResult res3 = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(toneMappingPipeline));
+    if (res3 != VK_SUCCESS) {
+        std::cout << "failed to create toneMapping graphics pipeline" << std::endl;
         std::_Xruntime_error("Failed to create the graphics pipeline!");
     }
 }
@@ -1767,11 +2100,17 @@ void VulkanRenderer::createGraphicsPipeline() {
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
+    VkPipelineColorBlendAttachmentState secondBlendAttachment{};
+    secondBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    secondBlendAttachment.blendEnable = VK_FALSE;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = { colorBlendAttachment, secondBlendAttachment };
+
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+    colorBlendingCInfo.attachmentCount = 2;
+    colorBlendingCInfo.pAttachments = blendAttachments.data();
 
     // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
     std::vector<VkDynamicState> dynaStates = {
@@ -1849,6 +2188,8 @@ void VulkanRenderer::createGraphicsPipeline() {
     createToonPipeline();
 
     createOutlinePipeline();
+
+    createToneMappingPipeline();
 }
 
 void VulkanRenderer::createSkyBoxPipeline() {
@@ -1920,13 +2261,26 @@ void VulkanRenderer::createSkyBoxPipeline() {
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
+
+    VkPipelineColorBlendAttachmentState secondBlendAttachment{};
+    secondBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    secondBlendAttachment.blendEnable = VK_FALSE;
+    secondBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    secondBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    secondBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    secondBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    secondBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+    secondBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments = { colorBlendAttachment, secondBlendAttachment };
+
     // Array of structures for all of the framebuffers to set blend constants as blend factors
     VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
     colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlendingCInfo.logicOpEnable = VK_FALSE;
     colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
+    colorBlendingCInfo.attachmentCount = 2;
+    colorBlendingCInfo.pAttachments = blendAttachments.data();
     colorBlendingCInfo.blendConstants[0] = 0.0f;
     colorBlendingCInfo.blendConstants[1] = 0.0f;
     colorBlendingCInfo.blendConstants[2] = 0.0f;
@@ -2066,9 +2420,11 @@ void VulkanRenderer::createFrameBuffer() {
     
     depthFrameBuffers_.resize(SWChainImageViews_.size());
 
+    toneMappingFrameeBuffers_.resize(SWChainImageViews_.size());
+
     // Iterate through the image views and create framebuffers from them
     for (size_t i = 0; i < SWChainImageViews_.size(); i++) {
-        std::array<VkImageView, 3> attachmentsStandard = { colorImageView_, depthImageView_, SWChainImageViews_[i] };
+        std::array<VkImageView, 5> attachmentsStandard = { colorImageView_, bloomImageView_, depthImageView_, resolveImageView_, bloomResolveImageView_};
 
         VkFramebufferCreateInfo frameBufferCInfo{};
         frameBufferCInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -2079,7 +2435,7 @@ void VulkanRenderer::createFrameBuffer() {
         frameBufferCInfo.height = SWChainExtent_.height;
         frameBufferCInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device_, &frameBufferCInfo, nullptr, &SWChainFrameBuffers_[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(device_, &frameBufferCInfo, nullptr, &toneMappingFrameeBuffers_[i]) != VK_SUCCESS) {
             std::_Xruntime_error("Failed to create a framebuffer for an image view!");
         }
 
@@ -2093,6 +2449,19 @@ void VulkanRenderer::createFrameBuffer() {
         depthFrameBufferCInfo.layers = 1;
 
         if (vkCreateFramebuffer(device_, &depthFrameBufferCInfo, nullptr, &depthFrameBuffers_[i]) != VK_SUCCESS) {
+            std::_Xruntime_error("Failed to create a framebuffer for an image view!");
+        }
+
+        VkFramebufferCreateInfo toneBufferCInfo{};
+        toneBufferCInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        toneBufferCInfo.renderPass = toneMapPass_;
+        toneBufferCInfo.attachmentCount = 1;
+        toneBufferCInfo.pAttachments = &(SWChainImageViews_[i]);
+        toneBufferCInfo.width = SWChainExtent_.width;
+        toneBufferCInfo.height = SWChainExtent_.height;
+        toneBufferCInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device_, &toneBufferCInfo, nullptr, &SWChainFrameBuffers_[i]) != VK_SUCCESS) {
             std::_Xruntime_error("Failed to create a framebuffer for an image view!");
         }
     }
@@ -2173,6 +2542,59 @@ void VulkanRenderer::createDescriptorSets() {
 
         vkUpdateDescriptorSets(device_, 1, &descriptorWriteSet, 0, nullptr);
     }
+
+    VkDescriptorSetAllocateInfo toneMappingAllocateInfo{};
+    toneMappingAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    toneMappingAllocateInfo.descriptorPool = descriptorPool_;
+    toneMappingAllocateInfo.descriptorSetCount = 1;
+    toneMappingAllocateInfo.pSetLayouts = &tonemappingDescriptorSetLayout_;
+
+    VkResult res2 = vkAllocateDescriptorSets(device_, &toneMappingAllocateInfo, &toneMappingDescriptorSet_);
+    if (res2 != VK_SUCCESS) {
+        std::cout << res2 << std::endl;
+        std::_Xruntime_error("Failed to allocate descriptor sets!");
+    }
+
+    VkSamplerCreateInfo samplerCInfo{};
+    samplerCInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCInfo.mipLodBias = 0.0f;
+    samplerCInfo.compareOp = VK_COMPARE_OP_NEVER;
+    samplerCInfo.minLod = 0.0f;
+    samplerCInfo.maxLod = 1.0f;
+    samplerCInfo.anisotropyEnable = VK_TRUE;
+
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(pDevHelper_->getPhysicalDevice(), &properties);
+
+    samplerCInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerCInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerCInfo.mipLodBias = 0.0f;
+
+    if (vkCreateSampler(pDevHelper_->getDevice(), &samplerCInfo, nullptr, &toneMappingSampler_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the texture sampler!");
+    }
+
+    VkDescriptorImageInfo descriptorImageInfo{};
+    descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    descriptorImageInfo.imageView = resolveImageView_;
+    descriptorImageInfo.sampler = toneMappingSampler_;
+
+    VkWriteDescriptorSet descriptorWriteSet{};
+    descriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWriteSet.dstSet = toneMappingDescriptorSet_;
+    descriptorWriteSet.dstBinding = 0;
+    descriptorWriteSet.dstArrayElement = 0;
+    descriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWriteSet.descriptorCount = 1;
+    descriptorWriteSet.pImageInfo = &descriptorImageInfo;
+
+    vkUpdateDescriptorSets(device_, 1, &descriptorWriteSet, 0, nullptr);
 }
 
 void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
@@ -2281,8 +2703,17 @@ VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& potent
 }
 
 void VulkanRenderer::createColorResources() { 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, this->msaaSamples_, SWChainImageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
-    colorImageView_ = pDevHelper_->createImageView(colorImage_, SWChainImageFormat_, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, this->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
+    colorImageView_ = pDevHelper_->createImageView(colorImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, this->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomImage_, bloomImageMemory_);
+    bloomImageView_ = pDevHelper_->createImageView(bloomImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolveImage_, resolveImageMemory_);
+    resolveImageView_ = pDevHelper_->createImageView(resolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
+    bloomResolveImageView_ = pDevHelper_->createImageView(bloomResolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void VulkanRenderer::createDepthResources() {

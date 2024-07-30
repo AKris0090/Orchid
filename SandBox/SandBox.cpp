@@ -19,7 +19,8 @@ std::vector<std::string> staticModelPaths = {
 std::vector<std::string> animatedModelPaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/wolf_animated/Wolf-2.glb"
-   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"
+   //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"
+   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
@@ -38,19 +39,19 @@ std::vector<std::string> skyboxTexturePaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/posz.bmp",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/negz.bmp"
 
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posx.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negx.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posy.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negy.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posx.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negx.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posy.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negy.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
 
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
 };
 
 std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.glb";
@@ -67,11 +68,11 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
-    graphicsManager.pVkR_->gamma_ = 2.2f;
+    graphicsManager.pVkR_->gamma_ = 1.0f;
     graphicsManager.pVkR_->exposure_ = 1.0f;
     graphicsManager.pVkR_->applyTonemap = true;
-    graphicsManager.pVkR_->specularCont = 25.0f;
-    graphicsManager.pVkR_->nDotVSpec = 50.0f;
+    graphicsManager.pVkR_->specularCont = 2.0f;
+    graphicsManager.pVkR_->nDotVSpec = 35.0f;
 
     PhysicsManager physicsManager = PhysicsManager();
 
@@ -127,12 +128,14 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->vertices_.clear();
     graphicsManager.pVkR_->vertices_.shrink_to_fit();
 
-     // Player setup
-     PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
-     player->playerGameObject = graphicsManager.animatedObjects[0];
-     player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
-     player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
-     player->playerGameObject = graphicsManager.animatedObjects[0];
+    // Player setup
+    PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
+    player->playerGameObject = graphicsManager.animatedObjects[0];
+    player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
+    player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
+    player->playerGameObject = graphicsManager.animatedObjects[0];
+
+    graphicsManager.player = player;
 
     bool running = true;
     while (running) {

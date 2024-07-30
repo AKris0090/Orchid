@@ -39,6 +39,7 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 bloomColor;
 layout (depth_unchanged) out float gl_FragDepth;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
@@ -94,6 +95,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 const vec3 lightColor = vec3(0.7333f, 0.8666f, 0.9921f);
 
+//vec3 mapped = ACESFilm(color * ubo.gammaExposure.y);//mapped = mapped * (1.0f / ACESFilm(vec3(11.2)));//mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x));
+
 void main()
 {
 	vec3 N = calculateNormal();
@@ -112,18 +115,21 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	float ambientVAL = ubo.gammaExposure.y;
+	float ambientVAL = 1.0f;
 
 	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f) * 5.0f;
 
 	vec3 color = vec3(ambientVAL + (inner * clamp(dot(N, L), 0.0f, 1.0f)));
 
-	color *= ALBEDO * max(0.5f, shadow) * max(1.0f, (shadow * 0.2f));
+	color *= ALBEDO * max(0.5f, (shadow)) * max(1.0f, (shadow * ubo.gammaExposure.z));
 
-    	//vec3 mapped = ACESFilm(color * ubo.gammaExposure.y);
-	//mapped = mapped * (1.0f / ACESFilm(vec3(11.2)));
+	vec4 brightColor = vec4(color, 1.0f);
 
-    	//mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x));
+	if(dot(brightColor.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0f) {
+		bloomColor = vec4(brightColor.rgb, 1.0f);
+	} else {
+		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
 
 	outColor = vec4(color, ALPHA);
 }

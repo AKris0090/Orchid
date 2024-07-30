@@ -118,6 +118,15 @@ struct Vertex {
 	bool operator==(const Vertex& other) const {
 		return pos == other.pos && normal == other.normal && tangent == other.tangent;
 	}
+
+	Vertex(glm::vec2 pos, glm::vec2 tex) {
+		this->pos.x = pos.x;
+		this->pos.y = pos.y;
+		this->pos.z = tex.x;
+		this->pos.w = tex.y;
+	}
+
+	Vertex() {};
 };
 
 class MeshHelper {

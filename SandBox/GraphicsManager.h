@@ -4,6 +4,7 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 #include "VulkanRenderer.h"
+#include "PlayerObject.h"
 #include "Time.h"
 
 class GraphicsManager {
@@ -33,6 +34,8 @@ public:
 	SDL_Window* pWindow_;
 	SDL_Renderer* pRenderer_;
 	VkDescriptorSet m_Dset;
+
+	PlayerObject* player;
 
 	std::vector<GameObject*> gameObjects = {};
 	std::vector<AnimatedGameObject*> animatedObjects = {};

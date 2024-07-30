@@ -147,6 +147,9 @@
     <ClCompile Include="VulkanUtils.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
+    <ClCompile Include="Bloom.cpp">
+      <Filter>Source Files\Engine\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -238,6 +241,9 @@
     </ClInclude>
     <ClInclude Include="VulkanUtils.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Bloom.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -2,11 +2,11 @@
 
 #include <iostream>
 #include <vector>
-#include "PlayerObject.h"
 #include "GameObject.h"
 #include "AnimatedGameObject.h"
 #include "Input.h"
 #include "GLTFObject.h"
+#include "PlayerObject.h"
 
 class PhysicsManager {
 private:

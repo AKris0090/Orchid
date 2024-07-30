@@ -23,11 +23,11 @@ void GraphicsManager::setupImGUI() {
     init_info.Device = pVkR_->device_;
     init_info.Queue = pVkR_->graphicsQueue_;
     init_info.DescriptorPool = pVkR_->descriptorPool_;
-    init_info.MSAASamples = pVkR_->msaaSamples_;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;
     init_info.CheckVkResultFn = check_vk_result;
-    ImGui_ImplVulkan_Init(&init_info, pVkR_->renderPass_);
+    ImGui_ImplVulkan_Init(&init_info, pVkR_->toneMapPass_);
 
     //m_Dset = ImGui_ImplVulkan_AddTexture(pVkR_->pDirectionalLight_->sMImageSampler_, pVkR_->pDirectionalLight_->sMImageView_, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 }
@@ -79,6 +79,7 @@ void GraphicsManager::imGUIUpdate() {
 
     ImGui::Begin("Var Editor");
 
+    ImGui::DragFloat("playerSpeed", &player->playerSpeed);
     ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
     ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);

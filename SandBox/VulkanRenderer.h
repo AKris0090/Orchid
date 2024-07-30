@@ -73,6 +73,21 @@ private:
 	VkImage colorImage_;
 	VkDeviceMemory colorImageMemory_;
 	VkImageView colorImageView_;
+
+	VkImage bloomImage_;
+	VkDeviceMemory bloomImageMemory_;
+	VkImageView bloomImageView_;
+
+	// Resolve image and mem handles
+	
+	VkImage resolveImage_;
+	VkDeviceMemory resolveImageMemory_;
+	VkImageView resolveImageView_;
+
+	VkImage bloomResolveImage_;
+	VkDeviceMemory bloomResolveImageMemory_;
+	VkImageView bloomResolveImageView_;
+
 	// Depth image and mem handles
 	VkImage depthImage_;
 	VkDeviceMemory depthImageMemory_;
@@ -87,10 +102,14 @@ private:
 	VkPipeline toonPipeline;
 	VkPipelineLayout toonPipelineLayout;
 
+	VkPipeline toneMappingPipeline;
+	VkPipelineLayout toneMappingPipelineLayout;
+
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
 	std::vector<VkFramebuffer> depthFrameBuffers_;
+	std::vector<VkFramebuffer> toneMappingFrameeBuffers_;
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers_;
 	std::vector<void*> mappedBuffers_;
@@ -98,6 +117,7 @@ private:
 	// Descriptor set handles
 	std::vector<VkDescriptorSet> descriptorSets_;
 	VkDescriptorSet computeDescriptorSet_;
+	VkDescriptorSet toneMappingDescriptorSet_;
 	// Handles for the two semaphores - one for if the image is available and the other to present the image
 	std::vector<VkSemaphore> imageAcquiredSema_;
 	std::vector<VkSemaphore> renderedSema_;
@@ -144,6 +164,15 @@ public:
 	VkBuffer indexBuffer_;
 	VkDeviceMemory indexBufferMemory_;
 
+	VkBuffer screenQuadVertexBuffer;
+	VkDeviceMemory screenQuadVertexBufferMemory;
+
+	VkBuffer screenQuadIndexBuffer;
+	VkDeviceMemory screenQuadIndexBufferMemory;
+
+	std::vector<Vertex> screenQuadVertices;
+	std::vector<uint32_t> screenQuadIndices;
+
 	std::vector<Vertex> vertices_;
 	std::vector<uint32_t>indices_;
 
@@ -189,6 +218,7 @@ public:
 	VkRenderPass renderPass_;
 	VkRenderPass skyboxRenderPass_;
 	VkRenderPass depthPrepass_;
+	VkRenderPass toneMapPass_;
 	// Handle for the list of command buffers
 	std::vector<VkCommandBuffer> commandBuffers_;
 	VkCommandBuffer computeBuffer_;
@@ -204,6 +234,11 @@ public:
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
 	VkDescriptorSetLayout computeDescriptorSetLayout_;
+
+	VkDescriptorSetLayout tonemappingDescriptorSetLayout_;
+
+	VkSampler toneMappingSampler_;
+
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
@@ -235,6 +270,7 @@ public:
 	void createOutlinePipeline();
 	void createSkyBoxPipeline();
 	void createToonPipeline();
+	void createToneMappingPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function
@@ -264,7 +300,9 @@ public:
 	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
 	void setupCompute();
 	void createVertexBuffer();
+	void createQuadVertexBuffer();
 	void createIndexBuffer();
+	void createQuadIndexBuffer();
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
 

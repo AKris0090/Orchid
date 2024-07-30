@@ -22,7 +22,7 @@ public:
 	float cap_height = PLAYER_CAP_HEIGHT;
 	float cap_radius = PLAYER_CAP_RADIUS;
 	physx::PxController* characterController;
-	float playerSpeed = 0.02f;
+	float playerSpeed = 0.0075f;
 	bool isWalking;
 	AnimatedGameObject* playerGameObject;
 

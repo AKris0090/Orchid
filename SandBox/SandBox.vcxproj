@@ -141,6 +141,7 @@
   <ItemGroup>
     <ClCompile Include="AnimatedGameObject.cpp" />
     <ClCompile Include="AnimatedGLTFObj.cpp" />
+    <ClCompile Include="Bloom.cpp" />
     <ClCompile Include="BRDFLut.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DeviceHelper.cpp" />
@@ -170,6 +171,7 @@
   <ItemGroup>
     <ClInclude Include="AnimatedGameObject.h" />
     <ClInclude Include="AnimatedGLTFObj.h" />
+    <ClInclude Include="Bloom.h" />
     <ClInclude Include="BRDFLut.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeviceHelper.h" />
