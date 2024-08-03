@@ -150,6 +150,9 @@
     <ClCompile Include="Bloom.cpp">
       <Filter>Source Files\Engine\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="Animation.cpp">
+      <Filter>Source Files\Engine\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imstb_rectpack.h">
@@ -243,6 +246,9 @@
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
     <ClInclude Include="Bloom.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation.h">
       <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
   </ItemGroup>

@@ -68,11 +68,12 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
-    graphicsManager.pVkR_->gamma_ = 1.0f;
+    graphicsManager.pVkR_->gamma_ = 1.2f;
     graphicsManager.pVkR_->exposure_ = 1.0f;
     graphicsManager.pVkR_->applyTonemap = true;
-    graphicsManager.pVkR_->specularCont = 2.0f;
-    graphicsManager.pVkR_->nDotVSpec = 35.0f;
+    graphicsManager.pVkR_->specularCont = 6.0f;
+    graphicsManager.pVkR_->nDotVSpec = 2.0f;
+    graphicsManager.pVkR_->bloomRadius = 0.00001f;
 
     PhysicsManager physicsManager = PhysicsManager();
 
@@ -112,6 +113,8 @@ int main(int argc, char* argv[]) {
      
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.0075f, 0.0075f, 0.0075f);
+    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
     //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -193,9 +196,19 @@ int main(int argc, char* argv[]) {
 
         // player animation -------------
         if (player->isWalking) {
-            graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
-            graphicsManager.pVkR_->updateBindMatrices();
+            if (player->isRunning) {
+                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->runAnim);
+            }
+            else {
+                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->walkAnim);
+            }
         }
+        else {
+            graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
+        }
+
+        graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
+        graphicsManager.pVkR_->updateBindMatrices();
 
         // update physics -------------------
         // includes game object position updates TODO: REMOVE FROM HERE

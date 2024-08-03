@@ -1,9 +1,9 @@
 #include "AnimatedGameObject.h"
 
-glm::mat4 AnimatedGameObject::getNodeMatrix(AnimatedGLTFObj::SceneNode* node)
+glm::mat4 AnimatedGameObject::getNodeMatrix(AnimSceneNode* node)
 {
     glm::mat4 nodeMatrix = node->getAnimatedMatrix();
-    AnimatedGLTFObj::SceneNode* currentParent = node->parent;
+    AnimSceneNode* currentParent = node->parent;
     while (currentParent)
     {
         nodeMatrix = currentParent->getAnimatedMatrix() * nodeMatrix;
@@ -12,7 +12,7 @@ glm::mat4 AnimatedGameObject::getNodeMatrix(AnimatedGLTFObj::SceneNode* node)
     return nodeMatrix;
 }
 
-void AnimatedGameObject::updateJoints(AnimatedGLTFObj::SceneNode* node, std::vector<glm::mat4>& bindMatrices) {
+void AnimatedGameObject::updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices) {
     if (node->skinIndex > -1)
     {
         // Update the joint matrices
@@ -33,21 +33,16 @@ void AnimatedGameObject::updateJoints(AnimatedGLTFObj::SceneNode* node, std::vec
 }
 
 void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime) {
-    if (renderTarget->activeAnimation > static_cast<uint32_t>(renderTarget->animations_.size()) - 1)
+    Animation* animation = activeAnimation;
+    animation->currentTime += deltaTime;
+    if (animation->currentTime > animation->end)
     {
-        std::cout << "No animation with index " << renderTarget->activeAnimation << std::endl;
-        return;
-    }
-    AnimatedGLTFObj::Animation& animation = renderTarget->animations_[renderTarget->activeAnimation];
-    animation.currentTime += deltaTime;
-    if (animation.currentTime > animation.end)
-    {
-        animation.currentTime -= animation.end;
+        animation->currentTime -= animation->end;
     }
 
-    for (auto& channel : animation.channels)
+    for (auto& channel : animation->channels)
     {
-        AnimatedGLTFObj::AnimationSampler& sampler = animation.samplers[channel.samplerIndex];
+        Animation::AnimationSampler& sampler = animation->samplers[channel.samplerIndex];
         for (size_t i = 0; i < sampler.inputs.size() - 1; i++)
         {
             if (sampler.interpolation != "LINEAR")
@@ -57,9 +52,9 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
             }
 
             // Get the input keyframe values for the current time stamp
-            if ((animation.currentTime >= sampler.inputs[i]) && (animation.currentTime <= sampler.inputs[i + 1]))
+            if ((animation->currentTime >= sampler.inputs[i]) && (animation->currentTime <= sampler.inputs[i + 1]))
             {
-                float a = (animation.currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
+                float a = (animation->currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
                 if (channel.path == "translation")
                 {
                     channel.node->translation = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);

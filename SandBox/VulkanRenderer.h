@@ -11,8 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "GameObject.h"
-#include "AnimatedGameObject.h"
+#include "Bloom.h"
 #include "Camera.h"
 
 #ifdef NDEBUG
@@ -84,10 +83,6 @@ private:
 	VkDeviceMemory resolveImageMemory_;
 	VkImageView resolveImageView_;
 
-	VkImage bloomResolveImage_;
-	VkDeviceMemory bloomResolveImageMemory_;
-	VkImageView bloomResolveImageView_;
-
 	// Depth image and mem handles
 	VkImage depthImage_;
 	VkDeviceMemory depthImageMemory_;
@@ -156,6 +151,7 @@ public:
 	float gamma_;
 	float exposure_;
 	bool applyTonemap;
+	float bloomRadius;
 	VkExtent2D SWChainExtent_;
 
 	VkBuffer vertexBuffer_;
@@ -189,6 +185,8 @@ public:
 		uint32_t jointMatrixStart;
 		uint32_t numVertices;
 	};
+
+	BloomHelper* bloomHelper;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
@@ -238,6 +236,11 @@ public:
 	VkDescriptorSetLayout tonemappingDescriptorSetLayout_;
 
 	VkSampler toneMappingSampler_;
+	VkSampler toneMappingBloomSampler_;
+
+	VkImage bloomResolveImage_;
+	VkDeviceMemory bloomResolveImageMemory_;
+	VkImageView bloomResolveImageView_;
 
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
@@ -297,7 +300,7 @@ public:
 	void freeEverything(int framesInFlight);
 	void separateDrawCalls();
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
-	void sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node);
+	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
 	void setupCompute();
 	void createVertexBuffer();
 	void createQuadVertexBuffer();
@@ -305,8 +308,7 @@ public:
 	void createQuadIndexBuffer();
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
-
-	void createAOResources();
+	void renderBloom(VkCommandBuffer& commandBuffer);
 
 	float specularCont;
 	float nDotVSpec;

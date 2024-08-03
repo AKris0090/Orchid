@@ -117,11 +117,11 @@ void main()
 	
 	float ambientVAL = 1.0f;
 
-	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f) * 5.0f;
+	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f) * ubo.gammaExposure.z;
 
 	vec3 color = vec3(ambientVAL + (inner * clamp(dot(N, L), 0.0f, 1.0f)));
 
-	color *= ALBEDO * max(0.5f, (shadow)) * max(1.0f, (shadow * ubo.gammaExposure.z));
+	color *= ALBEDO * max(0.5f, (shadow)) * max(1.0f, (shadow * 0.2f));
 
 	vec4 brightColor = vec4(color, 1.0f);
 

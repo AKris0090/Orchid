@@ -54,6 +54,61 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
+
+void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &screenQuadVertexBuffer, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, screenQuadIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    // down -------------------------------------------------------------------------------------------------------------
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineDown);
+    
+    int mipLevel = 0;
+    for (int i = 0; i < NUMBER_OF_DOWNSAMPLED_IMAGES; ++i) {
+        bloomHelper->startBloomRenderPass(commandBuffer, &(bloomHelper->bloomRenderPassDown), &(bloomHelper->frameBuffersDown[i]));
+        VkExtent2D extent{ SWChainExtent_.width >> (mipLevel + 1), SWChainExtent_.height >> (mipLevel + 1) };
+        bloomHelper->setViewport(commandBuffer, extent);
+    
+        BloomHelper::pushConstantBloom push{};
+    
+        push.resolutionRadius = glm::vec4(extent.width, extent.height, this->bloomRadius, 0.0f);
+    
+        vkCmdPushConstants(commandBuffer, bloomHelper->bloomPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BloomHelper::pushConstantBloom), &push);
+    
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
+    
+        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+        //vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
+
+        vkCmdEndRenderPass(commandBuffer);
+        ++mipLevel;
+    }
+
+    // up -------------------------------------------------------------------------------------------------------------
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineUp);
+
+    mipLevel = NUMBER_OF_DOWNSAMPLED_IMAGES;
+    for (int i = 0; i < NUMBER_OF_DOWNSAMPLED_IMAGES; ++i) {
+        bloomHelper->startBloomRenderPass(commandBuffer, &(bloomHelper->bloomRenderPassUp), &(bloomHelper->frameBuffersUp[i]));
+        VkExtent2D extent{ SWChainExtent_.width >> (mipLevel - 1), SWChainExtent_.height >> (mipLevel - 1) };
+        bloomHelper->setViewport(commandBuffer, extent);
+
+        BloomHelper::pushConstantBloom push{};
+
+        push.resolutionRadius = glm::vec4(extent.width, extent.height, this->bloomRadius, 0.0f);
+
+        vkCmdPushConstants(commandBuffer, bloomHelper->bloomPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BloomHelper::pushConstantBloom), &push);
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
+
+        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+        //vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
+
+        vkCmdEndRenderPass(commandBuffer);
+        --mipLevel;
+    }
+}
+
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo CBBeginInfo{};
     CBBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -99,16 +154,15 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
 
     // DEPTH PREPASS //////////////////////////////////////////////////////////////////////////////////////////////
-    VkClearValue clearValues[2];
-    clearValues[0].color = clearValue_.color;
-    clearValues[1].depthStencil = { 1.0f, 0 };
+    VkClearValue clearValues[1];
+    clearValues[0].depthStencil = { 1.0f, 0 };
 
     VkRenderPassBeginInfo depthPassBeginInfo{};
     depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     depthPassBeginInfo.renderPass = depthPrepass_;
     depthPassBeginInfo.renderArea.extent.width = SWChainExtent_.width;
     depthPassBeginInfo.renderArea.extent.height = SWChainExtent_.height;
-    depthPassBeginInfo.clearValueCount = 2;
+    depthPassBeginInfo.clearValueCount = 1;
     depthPassBeginInfo.pClearValues = clearValues;
     depthPassBeginInfo.framebuffer = depthFrameBuffers_[currentFrame_];
 
@@ -178,12 +232,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     RPBeginInfo.renderArea.offset = { 0, 0 };
     RPBeginInfo.renderArea.extent = SWChainExtent_;
 
-    //std::array<VkClearValue, 2> clearValues{};
-    //clearValues[0].color = clearValue_.color;
-    //clearValues[1].depthStencil = { 1.0f, 0 };
+    std::array<VkClearValue, 5> newClearValues{};
+    newClearValues[0].color = clearValue_.color;
+    newClearValues[1].color = clearValue_.color;
+    newClearValues[3].color = clearValue_.color;
+    newClearValues[4].color = clearValue_.color;
 
     // Define the clear values to use
-    RPBeginInfo.clearValueCount = 2;
+    RPBeginInfo.clearValueCount = 5;
     RPBeginInfo.pClearValues = clearValues;
 
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -256,6 +312,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdEndRenderPass(commandBuffer);
 
+    // render bloom
+
+    renderBloom(commandBuffer);
+
     // tonemapping renderpass
 
     VkRenderPassBeginInfo tonemapRenderPassBI{};
@@ -265,7 +325,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     tonemapRenderPassBI.renderArea.offset = { 0, 0 };
     tonemapRenderPassBI.renderArea.extent = SWChainExtent_;
 
-    tonemapRenderPassBI.clearValueCount = 2;
+    tonemapRenderPassBI.clearValueCount = 1;
     tonemapRenderPassBI.pClearValues = clearValues;
 
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -283,8 +343,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
     vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
-
-    //vkCmdBindDescriptorSets
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
@@ -924,7 +982,7 @@ void VulkanRenderer::createRenderPass() {
     VkAttachmentDescription colorAttachmentResolve{};
     colorAttachmentResolve.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -934,7 +992,7 @@ void VulkanRenderer::createRenderPass() {
     VkAttachmentDescription bloomResolveAttachment{};
     bloomResolveAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     bloomResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    bloomResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    bloomResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     bloomResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     bloomResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     bloomResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -976,46 +1034,28 @@ void VulkanRenderer::createRenderPass() {
     // Create information struct for the render pass
     std::array<VkAttachmentDescription, 5> attachments = { colorAttachmentDescription, bloomAttachmentDescription, depthAttachmentDescription, colorAttachmentResolve, bloomResolveAttachment };
 
-    const uint32_t numDependencies = 4;
+    const uint32_t numDependencies = 2;
     VkSubpassDependency subpassDependencies[numDependencies];
 
-    VkSubpassDependency& depBegToDepthBuffer = subpassDependencies[0];
-    depBegToDepthBuffer = {};
-    depBegToDepthBuffer.srcSubpass = VK_SUBPASS_EXTERNAL;
-    depBegToDepthBuffer.dstSubpass = 0;
-    depBegToDepthBuffer.srcStageMask = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-    depBegToDepthBuffer.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depBegToDepthBuffer.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    depBegToDepthBuffer.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    depBegToDepthBuffer.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    VkSubpassDependency& depEndFromDepthBuffer = subpassDependencies[1];
-    depEndFromDepthBuffer = {};
-    depEndFromDepthBuffer.srcSubpass = 0;
-    depEndFromDepthBuffer.dstSubpass = VK_SUBPASS_EXTERNAL;
-    depEndFromDepthBuffer.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    depEndFromDepthBuffer.dstStageMask = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-    depEndFromDepthBuffer.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    depEndFromDepthBuffer.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    depEndFromDepthBuffer.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    VkSubpassDependency& depBegToColorBuffer = subpassDependencies[2];
+    VkSubpassDependency& depBegToColorBuffer = subpassDependencies[0];
     depBegToColorBuffer = {};
     depBegToColorBuffer.srcSubpass = VK_SUBPASS_EXTERNAL;
     depBegToColorBuffer.dstSubpass = 0;
     depBegToColorBuffer.srcStageMask = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
     depBegToColorBuffer.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     depBegToColorBuffer.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    depBegToColorBuffer.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    depBegToColorBuffer.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    depBegToColorBuffer.dependencyFlags = 0;
 
-    VkSubpassDependency& depEndFromColorBuffer = subpassDependencies[3];
+    VkSubpassDependency& depEndFromColorBuffer = subpassDependencies[1];
     depEndFromColorBuffer = {};
     depEndFromColorBuffer.srcSubpass = 0;
     depEndFromColorBuffer.dstSubpass = VK_SUBPASS_EXTERNAL;
     depEndFromColorBuffer.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    depEndFromColorBuffer.dstStageMask = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
-    depEndFromColorBuffer.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    depEndFromColorBuffer.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    depEndFromColorBuffer.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    depEndFromColorBuffer.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    depEndFromColorBuffer.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    depEndFromColorBuffer.dependencyFlags = 0;
 
     VkRenderPassCreateInfo renderPassCInfo{};
     renderPassCInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -1023,7 +1063,7 @@ void VulkanRenderer::createRenderPass() {
     renderPassCInfo.pAttachments = attachments.data();
     renderPassCInfo.subpassCount = 1;
     renderPassCInfo.pSubpasses = &subpass;
-    renderPassCInfo.dependencyCount = numDependencies;
+    renderPassCInfo.dependencyCount = 2;
     renderPassCInfo.pDependencies = subpassDependencies;
 
     if (vkCreateRenderPass(device_, &renderPassCInfo, nullptr, &renderPass_) != VK_SUCCESS) {
@@ -1050,23 +1090,15 @@ void VulkanRenderer::createRenderPass() {
     toneSubpass.colorAttachmentCount = 1;
     toneSubpass.pColorAttachments = &toneMapReference;
 
-    std::array<VkSubpassDependency, 2> tondependencies;
+    std::array<VkSubpassDependency, 1> tondependencies;
 
     tondependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     tondependencies[0].dstSubpass = 0;
     tondependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     tondependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    tondependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    tondependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    tondependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    tondependencies[1].srcSubpass = 0;
-    tondependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    tondependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    tondependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    tondependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    tondependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    tondependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    tondependencies[0].srcAccessMask = 0;
+    tondependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    tondependencies[0].dependencyFlags = 0;
 
     VkRenderPassCreateInfo toneMapRenderPassCInfo{};
     toneMapRenderPassCInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -1074,7 +1106,7 @@ void VulkanRenderer::createRenderPass() {
     toneMapRenderPassCInfo.pAttachments = &swAttachmentDescription;
     toneMapRenderPassCInfo.subpassCount = 1;
     toneMapRenderPassCInfo.pSubpasses = &toneSubpass;
-    toneMapRenderPassCInfo.dependencyCount = 2;
+    toneMapRenderPassCInfo.dependencyCount = 1;
     toneMapRenderPassCInfo.pDependencies = tondependencies.data();
 
     if (vkCreateRenderPass(device_, &toneMapRenderPassCInfo, nullptr, &toneMapPass_) != VK_SUCCESS) {
@@ -1235,10 +1267,19 @@ void VulkanRenderer::createDescriptorSetLayout() {
     tonemappingBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     tonemappingBinding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding tonemappingBloomBinding{};
+    tonemappingBloomBinding.binding = 1;
+    tonemappingBloomBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    tonemappingBloomBinding.descriptorCount = 1;
+    tonemappingBloomBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    tonemappingBloomBinding.pImmutableSamplers = nullptr;
+
+    std::array< VkDescriptorSetLayoutBinding, 2> tonemappingBindings = { tonemappingBinding, tonemappingBloomBinding };
+
     VkDescriptorSetLayoutCreateInfo tonemappingLayoutCInfo{};
     tonemappingLayoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    tonemappingLayoutCInfo.bindingCount = 1;
-    tonemappingLayoutCInfo.pBindings = &tonemappingBinding;
+    tonemappingLayoutCInfo.bindingCount = 2;
+    tonemappingLayoutCInfo.pBindings = tonemappingBindings.data();
 
     if (vkCreateDescriptorSetLayout(device_, &tonemappingLayoutCInfo, nullptr, &tonemappingDescriptorSetLayout_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture descriptor set layout!");
@@ -1346,7 +1387,7 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
     }
 }
 
-void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimatedGLTFObj::SceneNode* node) {
+void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node) {
     for (auto& mesh : node->meshPrimitives) {
         Material* mat = &(animObj->mats_[mesh->materialIndex]);
         if (mat->alphaMode == "OPAQUE") {
@@ -2580,10 +2621,36 @@ void VulkanRenderer::createDescriptorSets() {
         std::_Xruntime_error("Failed to create the texture sampler!");
     }
 
+    VkSamplerCreateInfo bloomSamplerCInfo{};
+    bloomSamplerCInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    bloomSamplerCInfo.magFilter = VK_FILTER_LINEAR;
+    bloomSamplerCInfo.minFilter = VK_FILTER_LINEAR;
+    bloomSamplerCInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    bloomSamplerCInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    bloomSamplerCInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    bloomSamplerCInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    bloomSamplerCInfo.mipLodBias = 0.0f;
+    bloomSamplerCInfo.compareOp = VK_COMPARE_OP_NEVER;
+    bloomSamplerCInfo.minLod = 0.0f;
+    bloomSamplerCInfo.maxLod = 1.0f;
+    bloomSamplerCInfo.anisotropyEnable = VK_TRUE;
+    bloomSamplerCInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    bloomSamplerCInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    bloomSamplerCInfo.mipLodBias = 0.0f;
+
+    if (vkCreateSampler(pDevHelper_->getDevice(), &bloomSamplerCInfo, nullptr, &toneMappingBloomSampler_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the texture sampler!");
+    }
+
     VkDescriptorImageInfo descriptorImageInfo{};
     descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     descriptorImageInfo.imageView = resolveImageView_;
     descriptorImageInfo.sampler = toneMappingSampler_;
+
+    VkDescriptorImageInfo descriptorImageBloomInfo{};
+    descriptorImageBloomInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    descriptorImageBloomInfo.imageView = bloomResolveImageView_;
+    descriptorImageBloomInfo.sampler = toneMappingBloomSampler_;
 
     VkWriteDescriptorSet descriptorWriteSet{};
     descriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2594,7 +2661,18 @@ void VulkanRenderer::createDescriptorSets() {
     descriptorWriteSet.descriptorCount = 1;
     descriptorWriteSet.pImageInfo = &descriptorImageInfo;
 
-    vkUpdateDescriptorSets(device_, 1, &descriptorWriteSet, 0, nullptr);
+    VkWriteDescriptorSet bloomDescriptorWriteSet{};
+    bloomDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    bloomDescriptorWriteSet.dstSet = toneMappingDescriptorSet_;
+    bloomDescriptorWriteSet.dstBinding = 1;
+    bloomDescriptorWriteSet.dstArrayElement = 0;
+    bloomDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bloomDescriptorWriteSet.descriptorCount = 1;
+    bloomDescriptorWriteSet.pImageInfo = &descriptorImageBloomInfo;
+
+    std::array<VkWriteDescriptorSet, 2> descWrites = { descriptorWriteSet, bloomDescriptorWriteSet };
+
+    vkUpdateDescriptorSets(device_, 2, descWrites.data(), 0, nullptr);
 }
 
 void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
@@ -2712,7 +2790,7 @@ void VulkanRenderer::createColorResources() {
     pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolveImage_, resolveImageMemory_);
     resolveImageView_ = pDevHelper_->createImageView(resolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, BLOOM_LEVELS, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
     bloomResolveImageView_ = pDevHelper_->createImageView(bloomResolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 

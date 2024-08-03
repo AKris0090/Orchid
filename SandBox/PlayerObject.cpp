@@ -45,7 +45,15 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		}
 
 		if (glm::length(localDisplacement) != 0.0f) {
-			isWalking = true;
+			if (Input::shiftKeyDown()) {
+				isRunning = true;
+				playerSpeed = 0.0130f;
+			}
+			else {
+				isWalking = true;
+				isRunning = false;
+				playerSpeed = 0.0065f;
+			}
 			localDisplacement = glm::normalize(localDisplacement);
 			localDisplacement *= playerSpeed;
 			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
@@ -59,6 +67,7 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		}
 		else {
 			isWalking = false;
+			isRunning = false;
 		}
 
 		physx::PxFilterData filterData;

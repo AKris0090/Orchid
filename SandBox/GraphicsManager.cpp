@@ -80,6 +80,7 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::Begin("Var Editor");
 
     ImGui::DragFloat("playerSpeed", &player->playerSpeed);
+    ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
     ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
     ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
@@ -241,6 +242,8 @@ void GraphicsManager::startVulkan() {
         }
         newAnimGO->isOutline = true;
 
+        newAnimGO->activeAnimation = &(mod->walkAnim);
+
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }
 
@@ -307,9 +310,10 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->setupCompute();
 
-    // setup AO image
-
-    // for each object, update ambient occlusion descriptor set
+    pVkR_->bloomHelper = new BloomHelper(pVkR_->pDevHelper_);
+        
+    pVkR_->bloomHelper->setupBloom(&(pVkR_->bloomResolveImage_), &(pVkR_->bloomResolveImageView_), VK_FORMAT_R16G16B16A16_SFLOAT, pVkR_->SWChainExtent_);
+    std::cout << "setup bloom" << std::endl;
 
     return;
 }

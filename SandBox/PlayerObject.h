@@ -22,8 +22,9 @@ public:
 	float cap_height = PLAYER_CAP_HEIGHT;
 	float cap_radius = PLAYER_CAP_RADIUS;
 	physx::PxController* characterController;
-	float playerSpeed = 0.0075f;
+	float playerSpeed = 0.0065f;
 	bool isWalking;
+	bool isRunning;
 	AnimatedGameObject* playerGameObject;
 
 	inline glm::vec3 PxVec3toGlmVec3(physx::PxExtendedVec3 vec) {

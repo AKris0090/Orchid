@@ -16,4 +16,6 @@ C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/outline.frag -o spv/outlineFrag.spv -O
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/persona.frag -o spv/toonFrag.spv -O
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/screenQuad.vert -o spv/screenQuadVert.spv -O
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/tonemapping.frag -o spv/tonemappingFrag.spv -O
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/downSample.frag -o spv/downSample.spv -O
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/upSample.frag -o spv/upSample.spv -O
 pause

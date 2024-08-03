@@ -95,7 +95,7 @@ void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPi
     }
 }
 
-void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node) {
+void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, AnimSceneNode* node) {
     cascadeBlock.model = modelTransform * node->getAnimatedMatrix();
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
@@ -114,7 +114,7 @@ void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayo
     }
 }
 
-void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
+void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, AnimSceneNode* node) {
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
@@ -141,78 +141,15 @@ void AnimatedGLTFObj::renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayou
     }
 }
 
-glm::mat4 AnimatedGLTFObj::SceneNode::getAnimatedMatrix() {
+glm::mat4 AnimSceneNode::getAnimatedMatrix() {
     return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
 }
 
-// From: Sascha Willems' gltfskinning example
-void AnimatedGLTFObj::updateAnimation(float deltaTime)
-{
-    if (activeAnimation > static_cast<uint32_t>(animations_.size()) - 1)
-    {
-        std::cout << "No animation with index " << activeAnimation << std::endl;
-        return;
-    }
-    Animation& animation = animations_[activeAnimation];
-    animation.currentTime += deltaTime;
-    if (animation.currentTime > animation.end)
-    {
-        animation.currentTime -= animation.end;
-    }
-
-    for (auto& channel : animation.channels)
-    {
-        AnimationSampler& sampler = animation.samplers[channel.samplerIndex];
-        for (size_t i = 0; i < sampler.inputs.size() - 1; i++)
-        {
-            if (sampler.interpolation != "LINEAR")
-            {
-                std::cout << "This sample only supports linear interpolations\n";
-                continue;
-            }
-
-            // Get the input keyframe values for the current time stamp
-            if ((animation.currentTime >= sampler.inputs[i]) && (animation.currentTime <= sampler.inputs[i + 1]))
-            {
-                float a = (animation.currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
-                if (channel.path == "translation")
-                {
-                    channel.node->translation = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
-                }
-                if (channel.path == "rotation")
-                {
-                    glm::quat q1;
-                    q1.x = sampler.outputsVec4[i].x;
-                    q1.y = sampler.outputsVec4[i].y;
-                    q1.z = sampler.outputsVec4[i].z;
-                    q1.w = sampler.outputsVec4[i].w;
-
-                    glm::quat q2;
-                    q2.x = sampler.outputsVec4[i + 1].x;
-                    q2.y = sampler.outputsVec4[i + 1].y;
-                    q2.z = sampler.outputsVec4[i + 1].z;
-                    q2.w = sampler.outputsVec4[i + 1].w;
-
-                    channel.node->rotation = glm::normalize(glm::slerp(q1, q2, a));
-                }
-                if (channel.path == "scale")
-                {
-                    channel.node->scale = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
-                }
-            }
-        }
-    }
-    for (auto& node : pParentNodes)
-    {
-        updateJoints(node);
-    }
-}
-
 // Also from Sascha Willems' gltfskinning example
-glm::mat4 AnimatedGLTFObj::getNodeMatrix(SceneNode* node)
+glm::mat4 AnimatedGLTFObj::getNodeMatrix(AnimSceneNode* node)
 {
     glm::mat4 nodeMatrix = node->getAnimatedMatrix();
-    SceneNode* currentParent = node->parent;
+    AnimSceneNode* currentParent = node->parent;
     while (currentParent)
     {
         nodeMatrix = currentParent->getAnimatedMatrix() * nodeMatrix;
@@ -222,7 +159,7 @@ glm::mat4 AnimatedGLTFObj::getNodeMatrix(SceneNode* node)
 }
 
 // Also from Sascha Willems' gltfskinning example
-void AnimatedGLTFObj::updateJoints(SceneNode* node)
+void AnimatedGLTFObj::updateJoints(AnimSceneNode* node)
 {
     if (node->skinIndex > -1)
     {
@@ -272,10 +209,10 @@ void AnimatedGLTFObj::loadTextures() {
     textureIndices_.push_back(size + 3);
 }
 
-void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, SceneNode* parent, std::vector<SceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t nodeIndex, AnimSceneNode* parent, std::vector<AnimSceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     SMikkTSpaceContext mikktContext = { .m_pInterface = &MikkTInterface };
 
-    SceneNode* scNode = new SceneNode{};
+    AnimSceneNode* scNode = new AnimSceneNode{};
     scNode->matrix = glm::mat4(1.0f);
     scNode->skinIndex = nodeIn.skin;
     scNode->parent = parent;
@@ -493,9 +430,9 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
     }
 }
 
-AnimatedGLTFObj::SceneNode* AnimatedGLTFObj::findNode(AnimatedGLTFObj::SceneNode* parent, uint32_t index)
+AnimSceneNode* AnimatedGLTFObj::findNode(AnimSceneNode* parent, uint32_t index)
 {
-    AnimatedGLTFObj::SceneNode* nodeFound = nullptr;
+    AnimSceneNode* nodeFound = nullptr;
     if (parent->index == index)
     {
         return parent;
@@ -511,9 +448,9 @@ AnimatedGLTFObj::SceneNode* AnimatedGLTFObj::findNode(AnimatedGLTFObj::SceneNode
     return nodeFound;
 }
 
-AnimatedGLTFObj::SceneNode* AnimatedGLTFObj::nodeFromIndex(uint32_t index)
+AnimSceneNode* AnimatedGLTFObj::nodeFromIndex(uint32_t index)
 {
-    AnimatedGLTFObj::SceneNode* nodeFound = nullptr;
+    AnimSceneNode* nodeFound = nullptr;
     for (auto& node : pParentNodes)
     {
         nodeFound = findNode(node, index);
@@ -535,7 +472,7 @@ void AnimatedGLTFObj::loadSkins() {
         skins_[i].skeletonRoot = nodeFromIndex(gltfSkin.skeleton);
 
         for (int jointInd : gltfSkin.joints) {
-            SceneNode* node = nodeFromIndex(jointInd);
+            AnimSceneNode* node = nodeFromIndex(jointInd);
             if (node) {
                 skins_[i].joints.push_back(node);
             }
@@ -549,93 +486,6 @@ void AnimatedGLTFObj::loadSkins() {
             size_t bufferSize = accessor.count * sizeof(glm::mat4);
 
             memcpy(skins_[i].inverseBindMatrices.data(), &buffer.data[accessor.byteOffset + bufferView.byteOffset], bufferSize);
-        }
-    }
-}
-
-void AnimatedGLTFObj::loadAnimations(tinygltf::Model& in, std::vector<Animation>& animations) {
-
-    animations.resize(in.animations.size());
-
-    for (size_t i = 0; i < in.animations.size(); i++)
-    {
-        tinygltf::Animation glTFAnimation = in.animations[i];
-        animations[i].name = glTFAnimation.name;
-
-        // Samplers
-        animations[i].samplers.resize(glTFAnimation.samplers.size());
-        for (size_t j = 0; j < glTFAnimation.samplers.size(); j++)
-        {
-            tinygltf::AnimationSampler glTFSampler = glTFAnimation.samplers[j];
-            AnimationSampler& dstSampler = animations[i].samplers[j];
-            dstSampler.interpolation = glTFSampler.interpolation;
-
-            // Read sampler keyframe input time values
-            {
-                const tinygltf::Accessor& accessor = in.accessors[glTFSampler.input];
-                const tinygltf::BufferView& bufferView = in.bufferViews[accessor.bufferView];
-                const tinygltf::Buffer& buffer = in.buffers[bufferView.buffer];
-                const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                const float* buf = static_cast<const float*>(dataPtr);
-                for (size_t index = 0; index < accessor.count; index++)
-                {
-                    dstSampler.inputs.push_back(buf[index]);
-                }
-                // Adjust animation's start and end times
-                for (auto input : animations[i].samplers[j].inputs)
-                {
-                    if (input < animations[i].start)
-                    {
-                        animations[i].start = input;
-                    };
-                    if (input > animations[i].end)
-                    {
-                        animations[i].end = input;
-                    }
-                }
-            }
-
-            // Read sampler keyframe output translate/rotate/scale values
-            {
-                const tinygltf::Accessor& accessor = in.accessors[glTFSampler.output];
-                const tinygltf::BufferView& bufferView = in.bufferViews[accessor.bufferView];
-                const tinygltf::Buffer& buffer = in.buffers[bufferView.buffer];
-                const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                switch (accessor.type)
-                {
-                case TINYGLTF_TYPE_VEC3: {
-                    const glm::vec3* buf = static_cast<const glm::vec3*>(dataPtr);
-                    for (size_t index = 0; index < accessor.count; index++)
-                    {
-                        dstSampler.outputsVec4.push_back(glm::vec4(buf[index], 0.0f));
-                    }
-                    break;
-                }
-                case TINYGLTF_TYPE_VEC4: {
-                    const glm::vec4* buf = static_cast<const glm::vec4*>(dataPtr);
-                    for (size_t index = 0; index < accessor.count; index++)
-                    {
-                        dstSampler.outputsVec4.push_back(buf[index]);
-                    }
-                    break;
-                }
-                default: {
-                    std::cout << "unknown type" << std::endl;
-                    break;
-                }
-                }
-            }
-        }
-
-        // Channels
-        animations[i].channels.resize(glTFAnimation.channels.size());
-        for (size_t j = 0; j < glTFAnimation.channels.size(); j++)
-        {
-            tinygltf::AnimationChannel glTFChannel = glTFAnimation.channels[j];
-            AnimationChannel& dstChannel = animations[i].channels[j];
-            dstChannel.path = glTFChannel.target_path;
-            dstChannel.samplerIndex = glTFChannel.sampler;
-            dstChannel.node = nodeFromIndex(glTFChannel.target_node);
         }
     }
 }
@@ -675,7 +525,8 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
         }
 
         loadSkins();
-        loadAnimations(in, animations_);
+        walkAnim.loadAnimation(gltfPath_, pParentNodes);
+        //loadAnimations(in, animations_);
 
         for (auto& skin : skins_) {
             skin.finalJointMatrices = new std::vector<glm::mat4>();
@@ -839,7 +690,7 @@ void AnimatedGLTFObj::createDescriptors() {
     }
 }
 
-void AnimatedGLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNode* parentNode) {
+void AnimatedGLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, AnimSceneNode* parentNode) {
     for (auto& mesh : parentNode->meshPrimitives) {
         for (int i = 0; i < mesh->stagingVertices_.size(); i++) {
             vertices->push_back(mesh->stagingVertices_[i]);
@@ -851,7 +702,7 @@ void AnimatedGLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNod
     }
 }
 
-void AnimatedGLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, SceneNode* parentNode) {
+void AnimatedGLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, AnimSceneNode* parentNode) {
     for (auto& mesh : parentNode->meshPrimitives) {
         for (int i = 0; i < mesh->stagingIndices_.size(); i++) {
             indices->push_back(mesh->stagingIndices_[i]);
@@ -875,7 +726,7 @@ void AnimatedGLTFObj::addIndices(std::vector<uint32_t>* indices) {
     }
 }
 
-void AnimatedGLTFObj::recursiveRemove(SceneNode* parentNode) {
+void AnimatedGLTFObj::recursiveRemove(AnimSceneNode* parentNode) {
     for (auto& mesh : parentNode->meshPrimitives) {
         mesh->stagingVertices_.clear();
         mesh->stagingVertices_.shrink_to_fit();

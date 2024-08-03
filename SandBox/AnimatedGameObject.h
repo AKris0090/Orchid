@@ -10,6 +10,7 @@ class AnimatedGameObject {
 private:
 
 public:
+	Animation* activeAnimation;
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
 	bool isDynamic;
@@ -53,8 +54,8 @@ public:
 	}
 
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
-	glm::mat4 getNodeMatrix(AnimatedGLTFObj::SceneNode* node);
-	void updateJoints(AnimatedGLTFObj::SceneNode* node, std::vector<glm::mat4>& bindMatrices);
+	glm::mat4 getNodeMatrix(AnimSceneNode* node);
+	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
 
 	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
 	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
