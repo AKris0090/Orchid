@@ -10,13 +10,35 @@ class AnimatedGameObject {
 private:
 
 public:
+	Animation* activeAnimation;
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
+	bool isDynamic;
+	bool isOutline;
+	bool isPlayerObj;
+	DeviceHelper* pDevHelper;
+	VkDevice device_;
+
+	std::vector<Vertex> basePoseVertices_;
+	std::vector<uint32_t> basePoseIndices_;
+
+	VkBuffer vertexBuffer_;
+	VkDeviceMemory vertexBufferMemory_;
+
+	VkBuffer indexBuffer_;
+	VkDeviceMemory indexBufferMemory_;
+
+	VkBuffer skinnedBuffer_;
+	VkDeviceMemory skinnedBufferDeviceMemory_;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	AnimatedGameObject() {};
+	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; this->device_ = pD->getDevice(); };
+
+	void createVertexBuffer();
+	void createSkinnedBuffer();
+	void createIndexBuffer();
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);
@@ -31,7 +53,14 @@ public:
 		return vector;
 	}
 
+	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
+	glm::mat4 getNodeMatrix(AnimSceneNode* node);
+	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
+
 	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
 	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
-	void setPos(glm::vec3* newPos) { this->renderTarget->pos = newPos; };
+
+	void loopUpdate() {
+		setTransform(transform.to_matrix());
+	}
 };;

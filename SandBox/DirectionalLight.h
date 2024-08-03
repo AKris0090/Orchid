@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PrefilteredEnvMap.h"
+#include "Camera.h"
 
 class DirectionalLight {
 private:
@@ -18,37 +19,31 @@ private:
 		glm::mat4 viewProjectionMatrix;
 	};
 
+	std::vector<float> shadowCascadeLevels{};
+
 	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_ = VK_FORMAT_D16_UNORM;
 
-	uint32_t width_ = 1024, height_ = 1024;
+	uint32_t width_, height_;
 
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
 
-	VkRenderPass sMRenderpass_;
-
 	VkDescriptorSetLayout cascadeSetLayout;
 	VkDescriptorPool sMDescriptorPool_;
 
-	VkPipeline sMPipeline_;
 	VkAttachmentDescription sMAttachment;
 	VkDescriptorImageInfo sMImageInfo;
 
 	VkQueue* pGraphicsQueue_;
 	VkCommandPool* pCommandPool_;
 
-	uint32_t numModels_;
-	std::vector<GLTFObj*> pModels_;
-
-	glm::vec4* lightPos;
-
 	void findDepthFormat(VkPhysicalDevice GPU_);
-	VkFormat findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkFormat findSupportedFormat(VkPhysicalDevice GPU_);
 
-	void createSMDescriptors(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio);
+	void createSMDescriptors(FPSCam* camera);
 
 	void createRenderPass();
 	void createFrameBuffer();
@@ -60,8 +55,6 @@ private:
 	std::vector<char> readFile(const std::string& filename);
 
 	std::vector<glm::vec4> getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view);
-
-	void endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_);
 public:
 	struct PostRenderPacket {
 		VkRenderPassBeginInfo rpBeginInfo;
@@ -69,18 +62,20 @@ public:
 		VkPipelineLayout pipelineLayout;
 		VkCommandBuffer commandBuffer;
 	} postRenderPacket;
+	VkRenderPass sMRenderpass_;
 
 	// Keep depth range as small as possible
     // for better shadow map precision
 	float zNear;
 	float zFar;
 
+	Transform transform;
+
+	VkPipeline sMPipeline_;
 	VkPipelineLayout sMPipelineLayout_;
-	VkPipelineLayout animatedSmPipelineLayout;
 
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
-	VkPipeline animatedSMPipeline;
 
 	std::array<Cascade, SHADOW_MAP_CASCADE_COUNT> cascades;
 
@@ -102,12 +97,10 @@ public:
 	float swapChainWidth;
 	float swapChainHeight;
 
-	DirectionalLight(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_, float swapChainWidth, float swapChainHeight);
+	DirectionalLight(glm::vec3 lPos);
 
-	void createAnimatedPipeline(VkDescriptorSetLayout descLayout);
-
+	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
-	void genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio);
-	void updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio);
-	glm::mat4 getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio);
+	void genShadowMap(FPSCam* camera);
+	void updateUniBuffers(FPSCam* camera);
 };

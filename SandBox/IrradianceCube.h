@@ -58,9 +58,8 @@ private:
 
 	void createRenderPass();
 	void createFrameBuffer();
-
+	void render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	void createPipeline();
-	void render();
 
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
 	void transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage prefImage);
@@ -73,6 +72,6 @@ public:
 
 	IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox);
 
-	void geniRCube();
+	void geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	VkDescriptorSet getDescriptorSet() { return this->iRCubeDescriptorSet_; };
 };

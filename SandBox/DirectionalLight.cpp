@@ -5,30 +5,6 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-std::vector<glm::vec4> DirectionalLight::getFrustrumWorldCoordinates(const glm::mat4& proj, const glm::mat4& view) {
-	const auto inv = glm::inverse(proj * view);
-
-	std::vector<glm::vec4> frustumCorners;
-	for (unsigned int x = 0; x < 2; ++x)
-	{
-		for (unsigned int y = 0; y < 2; ++y)
-		{
-			for (unsigned int z = 0; z < 2; ++z)
-			{
-				const glm::vec4 pt =
-					inv * glm::vec4(
-						2.0f * x - 1.0f,
-						2.0f * y - 1.0f,
-						2.0f * z - 1.0f,
-						1.0f);
-				frustumCorners.push_back(pt / pt.w);
-			}
-		}
-	}
-
-	return frustumCorners;
-}
-
 uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
@@ -42,19 +18,17 @@ uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFi
 	std::_Xruntime_error("Failed to find a suitable memory type!");
 }
 
-void DirectionalLight::findDepthFormat(VkPhysicalDevice GPU_) {
-	imageFormat_ = findSupportedFormat(GPU_, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
-
-VkFormat DirectionalLight::findSupportedFormat(VkPhysicalDevice GPU_, const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features) {
-	for (VkFormat format : potentialFormats) {
+VkFormat DirectionalLight::findSupportedFormat(VkPhysicalDevice GPU_) {
+	std::vector<VkFormat> potentialFormats = { VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM };
+	for (VkFormat& format : potentialFormats) {
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(GPU_, format, &props);
 
-		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-			return format;
-		}
-		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+		{
+			if (!(props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
+				continue;
+			}
 			return format;
 		}
 	}
@@ -197,7 +171,7 @@ void DirectionalLight::createFrameBuffer() {
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void DirectionalLight::createSMDescriptors(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	VkDeviceSize bufferSize = sizeof(UBO);
 
 	uniformBuffer.resize(1);
@@ -207,7 +181,7 @@ void DirectionalLight::createSMDescriptors(glm::mat4 camProj, glm::mat4 camView,
 	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[0], uniformMemory[0]);
 	VkResult res1 = vkMapMemory(pDevHelper_->getDevice(), uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
 	
-	updateUniBuffers(camProj, camView, camNear, camFar, aspectRatio);
+	updateUniBuffers(camera);
 
 	VkDescriptorSetLayoutBinding UBOLayoutBinding{};
 	UBOLayoutBinding.binding = 0;
@@ -301,169 +275,26 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 }
 
 void DirectionalLight::createPipeline() {
-    VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size = sizeof(GLTFObj::cascadeMVP);
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 1;
-	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
-	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
-
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
-    }
-
-    std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
-	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMapFrag.spv");
-
-	//std::cout << "read files" << std::endl;
-
-    VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
-	VkShaderModule sMFragShaderModule = createShaderModule(device_, sMFragShader);
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
-    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
-
-    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
-    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportStateCInfo.viewportCount = 1;
-    viewportStateCInfo.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizerCInfo.pNext = nullptr;
-	rasterizerCInfo.flags = 0;
-	rasterizerCInfo.depthClampEnable = VK_TRUE;
-	rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-	rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
-	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizerCInfo.depthBiasEnable = VK_FALSE;
-	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
-	rasterizerCInfo.depthBiasClamp = 0.0f;
-	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
-	rasterizerCInfo.lineWidth = 1.0f;
-
-    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencilCInfo.pNext = nullptr;
-	depthStencilCInfo.flags = 0;
-	depthStencilCInfo.depthTestEnable = VK_TRUE;
-	depthStencilCInfo.depthWriteEnable = VK_TRUE;
-	depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
-	depthStencilCInfo.stencilTestEnable = VK_FALSE;
-	depthStencilCInfo.front = {};
-	depthStencilCInfo.back = {};
-	depthStencilCInfo.minDepthBounds = 0.0f;
-	depthStencilCInfo.maxDepthBounds = 1.0f;
-
-    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 0;
-
-    std::vector<VkDynamicState> dynaStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
-    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    dynamicStateCInfo.pDynamicStates = dynaStates.data();
-
-    //std::cout << "pipeline layout created" << std::endl;
-
-    VkPipelineShaderStageCreateInfo sMVertexStageCInfo{};
-    sMVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    sMVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    sMVertexStageCInfo.module = sMVertexShaderModule;
-    sMVertexStageCInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo sMFragmentStageCInfo{};
-	sMFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	sMFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	sMFragmentStageCInfo.module = sMFragShaderModule;
-	sMFragmentStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo, sMFragmentStageCInfo };
-
-    VkGraphicsPipelineCreateInfo shadowMapPipelineCInfo{};
-    shadowMapPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    shadowMapPipelineCInfo.stageCount = 2;
-    shadowMapPipelineCInfo.pStages = stages;
-
-    // Describing the format of the vertex data to be passed to the vertex shader
-    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
-    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
-
-    vertexInputCInfo.vertexBindingDescriptionCount = 1;
-    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
-    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    shadowMapPipelineCInfo.pVertexInputState = &vertexInputCInfo;
-    shadowMapPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
-    shadowMapPipelineCInfo.pViewportState = &viewportStateCInfo;
-    shadowMapPipelineCInfo.pRasterizationState = &rasterizerCInfo;
-    shadowMapPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    shadowMapPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
-    shadowMapPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
-    shadowMapPipelineCInfo.pDynamicState = &dynamicStateCInfo;
-
-    shadowMapPipelineCInfo.layout = sMPipelineLayout_;
-
-    shadowMapPipelineCInfo.renderPass = sMRenderpass_;
-    shadowMapPipelineCInfo.subpass = 0;
-
-    shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
-
-    //std::cout << "pipeline created" << std::endl;
-}
-
-void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDescLayout) {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
 	pcRange.size = sizeof(GLTFObj::cascadeMVP);
 	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	VkDescriptorSetLayout descSetLayouts[] = { animatedDescLayout, cascadeSetLayout };
-
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
 	pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeLineLayoutCInfo.setLayoutCount = 2;
-	pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+	pipeLineLayoutCInfo.setLayoutCount = 1;
+	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
-	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(animatedSmPipelineLayout)) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
 		std::cout << "nah you buggin" << std::endl;
 		std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
 	}
 
-	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/animShadowMapVert.spv");
-	std::vector<char> sMFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMapFrag.spv");
-
-	//std::cout << "read files" << std::endl;
+	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
 
 	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
-	VkShaderModule sMFragShaderModule = createShaderModule(device_, sMFragShader);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
 	inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -475,7 +306,7 @@ void DirectionalLight::createAnimatedPipeline(VkDescriptorSetLayout animatedDesc
 	viewportStateCInfo.viewportCount = 1;
 	viewportStateCInfo.scissorCount = 1;
 
-VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
+	VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizerCInfo.pNext = nullptr;
 	rasterizerCInfo.flags = 0;
@@ -489,11 +320,11 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	rasterizerCInfo.depthBiasClamp = 0.0f;
 	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
 	rasterizerCInfo.lineWidth = 1.0f;
-	
+
 	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
 	multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	
+
 	VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
 	depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencilCInfo.pNext = nullptr;
@@ -506,6 +337,7 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	depthStencilCInfo.front = {};
 	depthStencilCInfo.back = {};
 	depthStencilCInfo.minDepthBounds = 0.0f;
+	depthStencilCInfo.maxDepthBounds = 1.0f;
 
 	VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
 	colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -529,25 +361,19 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	sMVertexStageCInfo.module = sMVertexShaderModule;
 	sMVertexStageCInfo.pName = "main";
 
-	VkPipelineShaderStageCreateInfo sMFragmentStageCInfo{};
-	sMFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	sMFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	sMFragmentStageCInfo.module = sMFragShaderModule;
-	sMFragmentStageCInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo, sMFragmentStageCInfo };
+	VkPipelineShaderStageCreateInfo stages[] = { sMVertexStageCInfo };
 
 	VkGraphicsPipelineCreateInfo shadowMapPipelineCInfo{};
 	shadowMapPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	shadowMapPipelineCInfo.stageCount = 2;
+	shadowMapPipelineCInfo.stageCount = 1;
 	shadowMapPipelineCInfo.pStages = stages;
 
 	// Describing the format of the vertex data to be passed to the vertex shader
 	VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
 	vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-	auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-	auto attributeDescriptions = MeshHelper::Vertex::getAnimatedPositionDescription();
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
 	vertexInputCInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -563,40 +389,16 @@ VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
 	shadowMapPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
 	shadowMapPipelineCInfo.pDynamicState = &dynamicStateCInfo;
 
-	shadowMapPipelineCInfo.layout = animatedSmPipelineLayout;
+	shadowMapPipelineCInfo.layout = sMPipelineLayout_;
 
 	shadowMapPipelineCInfo.renderPass = sMRenderpass_;
 	shadowMapPipelineCInfo.subpass = 0;
 
 	shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &animatedSMPipeline);
+	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
 
 	//std::cout << "pipeline created" << std::endl;
-}
-
-
-void DirectionalLight::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(*(pGraphicsQueue_), 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-
-    vkDeviceWaitIdle(device_);
-
-    vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -628,109 +430,27 @@ DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdB
 
 	vkCmdBeginRenderPass(cmdBuf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, sMPipeline_);
-
 	return { renderPassBeginInfo, sMPipeline_, sMPipelineLayout_, cmdBuf };
 }
 
+void DirectionalLight::updateUniBuffers(FPSCam* camera) {
+	float clipRange = camera->getFarPlane() - camera->getNearPlane();
 
-std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& projview)
-{
-	const auto inv = glm::inverse(projview);
-
-	std::vector<glm::vec4> frustumCorners;
-	for (unsigned int x = 0; x < 2; ++x)
-	{
-		for (unsigned int y = 0; y < 2; ++y)
-		{
-			for (unsigned int z = 0; z < 2; ++z)
-			{
-				const glm::vec4 pt = inv * glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
-				frustumCorners.push_back(pt / pt.w);
-			}
-		}
-	}
-
-	return frustumCorners;
-}
-
-std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view)
-{
-	return getFrustumCornersWorldSpace(proj * view);
-}
-
-glm::mat4 DirectionalLight::getLightSpaceMatrix(float nearPlane, float farPlane, glm::mat4 camView, float aspectRatio) {
-	const auto proj = glm::perspective(75.0f,aspectRatio, nearPlane,farPlane);
-	const auto corners = getFrustumCornersWorldSpace(proj, camView);
-
-	glm::vec3 center = glm::vec3(0, 0, 0);
-	for (const auto& v : corners)
-	{
-		center += glm::vec3(v);
-	}
-	center /= corners.size();
-
-	const auto lightView = glm::lookAt(center + glm::vec3(*lightPos), center, glm::vec3(0.0f, 1.0f, 0.0f));
-
-	float minX = std::numeric_limits<float>::max();
-	float maxX = std::numeric_limits<float>::lowest();
-	float minY = std::numeric_limits<float>::max();
-	float maxY = std::numeric_limits<float>::lowest();
-	float minZ = std::numeric_limits<float>::max();
-	float maxZ = std::numeric_limits<float>::lowest();
-	for (const auto& v : corners)
-	{
-		const auto trf = lightView * v;
-		minX = std::min(minX, trf.x);
-		maxX = std::max(maxX, trf.x);
-		minY = std::min(minY, trf.y);
-		maxY = std::max(maxY, trf.y);
-		minZ = std::min(minZ, trf.z);
-		maxZ = std::max(maxZ, trf.z);
-	}
-
-	// Tune this parameter according to the scene
-	constexpr float zMult = 10.0f;
-	if (minZ < 0)
-	{
-		minZ *= zMult;
-	}
-	else
-	{
-		minZ /= zMult;
-	}
-	if (maxZ < 0)
-	{
-		maxZ /= zMult;
-	}
-	else
-	{
-		maxZ *= zMult;
-	}
-
-	glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-	lightProjection[1][1] *= -1;
-	return lightProjection * lightView;
-}
-
-void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView, float cameraNearPlane, float cameraFarPlane, float aspectRatio) {
-	float clipRange = cameraFarPlane - cameraNearPlane;
-
-	float minZ = cameraNearPlane;
-	float maxZ = cameraNearPlane + clipRange;
+	float minZ = camera->getNearPlane();
+	float maxZ = minZ + clipRange;
 
 	float range = maxZ - minZ;
 	float ratio = maxZ / minZ;
 
 	std::vector<float> shadowCascadeLevels{};
-	shadowCascadeLevels.resize(4);
+	shadowCascadeLevels.resize(3);
 
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
 		float log = minZ * std::pow(ratio, p);
 		float uniform = minZ + range * p;
 		float d = cascadeSplitLambda * (log - uniform) + uniform;
-		shadowCascadeLevels[i] = (d - cameraNearPlane) / clipRange;
+		shadowCascadeLevels[i] = (d - minZ) / clipRange;
 	}
 
 	// Calculate orthographic projection matrix for each cascade
@@ -750,7 +470,7 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		};
 
 		// Project frustum corners into world space
-		glm::mat4 invCam = glm::inverse(cameraProj * camView);
+		glm::mat4 invCam = glm::inverse(camera->getProjectionMatrix() * camera->getViewMatrix());
 		for (uint32_t j = 0; j < 8; j++) {
 			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
 			frustumCorners[j] = invCorner / invCorner.w;
@@ -779,12 +499,12 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 		glm::vec3 maxExtents = glm::vec3(radius);
 		glm::vec3 minExtents = -maxExtents;
 
-		glm::vec3 lightDir = normalize(-(*lightPos));
+		glm::vec3 lightDir = normalize(-(transform.position));
 		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
 		// Store split distance and matrix in cascade
-		cascades[i].splitDepth = (cameraNearPlane + splitDist * clipRange) * -1.0f;
+		cascades[i].splitDepth = (minZ + splitDist * clipRange) * -1.0f;
 		lightOrthoMatrix[1][1] *= -1.0f;
 		cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
 
@@ -799,30 +519,32 @@ void DirectionalLight::updateUniBuffers(glm::mat4 cameraProj, glm::mat4 camView,
 	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));
 }
 
-void DirectionalLight::genShadowMap(glm::mat4 camProj, glm::mat4 camView, float camNear, float camFar, float aspectRatio) {
+void DirectionalLight::genShadowMap(FPSCam* camera) {
 	width_ = 4096;
 	height_ = 4096;
 	zNear = 1.f;
 	zFar = 100.0f;
-	imageFormat_ = VK_FORMAT_D16_UNORM;
-	cascadeSplitLambda = 0.95f;
+	
+	imageFormat_ = findSupportedFormat(pDevHelper_->getPhysicalDevice());
+
+	cascadeSplitLambda = 0.77f;
 
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 
-	createSMDescriptors(camProj, camView, camNear, camFar, aspectRatio);
+	createSMDescriptors(camera);
 
 	createPipeline();
 }
 
-DirectionalLight::DirectionalLight(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, glm::vec4* lPos, std::vector<GLTFObj*> pModels_, uint32_t numModels_, float swapChainWidth, float swapChainHeight) {
+DirectionalLight::DirectionalLight(glm::vec3 lPos) {
+	this->transform.position = lPos;
+}
+
+void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight) {
 	this->pDevHelper_ = devHelper;
 	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
 	this->pCommandPool_ = cmdPool;
-	this->lightPos = lPos;
-	this->numModels_ = numModels_;
-	this->pModels_ = pModels_;
-	this->imageFormat_ = VK_FORMAT_D16_UNORM;
 	this->swapChainHeight = swapChainHeight;
 	this->swapChainWidth = swapChainWidth;
 }

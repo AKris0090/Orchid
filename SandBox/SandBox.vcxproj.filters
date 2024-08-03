@@ -99,9 +99,6 @@
     <ClCompile Include="DeviceHelper.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
-    <ClCompile Include="MeshHelper.cpp">
-      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
-    </ClCompile>
     <ClCompile Include="TextureHelper.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
@@ -138,14 +135,23 @@
     <ClCompile Include="PlayerObject.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="DirectionalLight.cpp">
+      <Filter>Source Files\Engine\Graphics\Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="Time.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimatedGameObject.cpp">
+      <Filter>Source Files\Engine\Graphics\Helpers</Filter>
+    </ClCompile>
     <ClCompile Include="VulkanUtils.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
-    <ClCompile Include="AreaLights.cpp">
-      <Filter>Source Files\Engine\Graphics\Lights</Filter>
+    <ClCompile Include="Bloom.cpp">
+      <Filter>Source Files\Engine\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="DirectionalLight.cpp">
-      <Filter>Source Files\Engine\Graphics\Lights</Filter>
+    <ClCompile Include="Animation.cpp">
+      <Filter>Source Files\Engine\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -230,14 +236,20 @@
     <ClInclude Include="AnimatedGameObject.h">
       <Filter>Header Files\Engine</Filter>
     </ClInclude>
+    <ClInclude Include="DirectionalLight.h">
+      <Filter>Header Files\Engine\Graphics\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="Time.h">
+      <Filter>Header Files\Engine</Filter>
+    </ClInclude>
     <ClInclude Include="VulkanUtils.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
-    <ClInclude Include="AreaLights.h">
-      <Filter>Header Files\Engine\Graphics\Lights</Filter>
+    <ClInclude Include="Bloom.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="DirectionalLight.h">
-      <Filter>Header Files\Engine\Graphics\Lights</Filter>
+    <ClInclude Include="Animation.h">
+      <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

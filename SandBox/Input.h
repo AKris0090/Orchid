@@ -10,5 +10,8 @@ namespace Input {
 	bool backwardKeyDown();
 	bool rightKeyDown();
 	bool leftKeyDown();
+	bool upKeyDown();
+	bool downKeyDown();
 	bool leftMouseDown();
+	bool shiftKeyDown();
 };

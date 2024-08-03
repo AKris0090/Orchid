@@ -1,4 +1,4 @@
-// Generates an irradiance cube from an environment map using convolution
+// Generates an irradiance cube from an environment map using convolution // SHADER PULLED FROM: https://github.com/SaschaWillems/Vulkan/blob/4d2117d3d9bc27910140c1fe668003a248a2d36a/shaders/glsl/pbribl/irradiancecube.frag
 
 #version 450
 

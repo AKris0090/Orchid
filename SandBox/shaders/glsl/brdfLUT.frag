@@ -1,4 +1,4 @@
-#version 450
+#version 450 // SHADER PULLED FROM: https://github.com/SaschaWillems/Vulkan/blob/4d2117d3d9bc27910140c1fe668003a248a2d36a/shaders/glsl/pbribl/genbrdflut.frag
 
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;

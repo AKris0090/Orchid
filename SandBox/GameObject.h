@@ -11,11 +11,15 @@ private:
 public:
 	Transform transform;
 	GLTFObj* renderTarget;
+	bool isDynamic;
+	bool isOutline;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	GameObject() {};
+	GameObject() {
+		isDynamic = false;
+	};
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);
@@ -33,4 +37,8 @@ public:
 	void setGLTFObj(GLTFObj* obj) { this->renderTarget = obj; };
 	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
 	void setPos(glm::vec3* newPos) { this->renderTarget->pos = newPos; };
+
+	void loopUpdate() {
+		setTransform(transform.to_matrix());
+	}
 };;

@@ -15,10 +15,7 @@ void PhysicsManager::setup() {
 	}
 	pPVirtDebug->connect(*transport, physx::PxPvdInstrumentationFlag::eALL);
 
-	pTolerancesScale_.length = 100;
-	pTolerancesScale_.speed = 981;	
-
-	pPhysics_ = PxCreatePhysics(PX_PHYSICS_VERSION, *pFoundation_, pTolerancesScale_, recordMemoryAllocations, pPVirtDebug);
+	pPhysics_ = PxCreatePhysics(PX_PHYSICS_VERSION, *pFoundation_, physx::PxTolerancesScale(), recordMemoryAllocations, pPVirtDebug);
 	if (!pPhysics_) {
 		std::cout << "physics instance failed" << std::endl;
 		std::_Xruntime_error("physics instance failed");
@@ -38,9 +35,15 @@ void PhysicsManager::setup() {
 		pvdSceneClient->setScenePvdFlag(physx::PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
 
-	pMaterial = pPhysics_->createMaterial(0.5f, 0.5f, 0.6f);
+	pMaterial = pPhysics_->createMaterial(0.5f, 0.5f, 0.15f);
+}
 
-	playerGlobalDisplacement = glm::vec3(0.0f);
+void PhysicsManager::addPlane() {
+	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
+
+	physx::PxRigidStatic* groundplane = PxCreatePlane(*pPhysics_, physx::PxPlane(0, 1, 0, 99), *pMaterial);
+
+	pScene->addActor(*groundplane);
 }
 
 void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent) {
@@ -57,120 +60,133 @@ void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 g
 	cubeShape->release();
 }
 
-void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, glm::vec3 scale) {
+void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale) {
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
-	physx::PxShape* shape = createPhysicsFromMesh(gameObject->renderTarget->getMeshHelper(), pMaterial, scale);
+	//physx::PxShape* shape = createPhysicsFromMesh(gameObject, vertices, indices, pMaterial, scale);
+	std::vector<physx::PxShape*> shapes = createPhysicsFromMesh(gameObject, vertices, indices, pMaterial, scale);
 	physx::PxRigidStatic* body = pPhysics_->createRigidStatic(physx::PxTransform(globalTransform));
 	gameObject->physicsActor = body;
-	gameObject->pShape_ = shape;
-	body->attachShape(*shape);
+	//gameObject->pShape_ = shape;
+	for (auto& shape : shapes) {
+		body->attachShape(*shape);
+		shape->release();
+	}
 	pScene->addActor(*body);
-
-	shape->release();
 }
 
-physx::PxShape* PhysicsManager::createPhysicsFromMesh(MeshHelper* mesh, physx::PxMaterial* material, glm::vec3 scale) {
-	std::vector<physx::PxVec3> pxVertices;
-	std::vector<uint32_t> pxIndices;
-
-	for (MeshHelper::Vertex& vertex : mesh->vertices_) {
-		pxVertices.push_back(physx::PxVec3(vertex.pos.x, vertex.pos.y, vertex.pos.z));
-		pxIndices.push_back(pxIndices.size());
+void PhysicsManager::recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices) {
+	for (auto& mesh : node->meshPrimitives) {
+		for (int i = g->renderTarget->getFirstVertex(); i < g->renderTarget->getFirstVertex() + g->renderTarget->getTotalVertices(); i++) {
+			pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
+			pxIndices.push_back(i - g->renderTarget->getFirstVertex());
+		}
 	}
 
-	physx::PxTriangleMeshDesc meshDescription;
-	meshDescription.points.count = pxVertices.size();
-	meshDescription.points.data = pxVertices.data();
-	meshDescription.points.stride = sizeof(physx::PxVec3);
+	for (auto& childNode : node->children) {
+		recursiveAddToList(g, pxVertices, pxIndices, childNode, vertices);
+	}
+}
 
-	meshDescription.triangles.count = pxVertices.size() / 3;
-	meshDescription.triangles.data = mesh->indices_.data();
-	meshDescription.triangles.stride = 3 * sizeof(physx::PxU32);
+std::vector<physx::PxShape*> PhysicsManager::createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale) {
+	//for(int i = g->renderTarget->getFirstVertex(); i < g->renderTarget->getFirstVertex() + g->renderTarget->getTotalVertices(); i++) {
+	//	pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
+	//}
 
-	assert(meshDescription.isValid());
+	//for (int i = g->renderTarget->getFirstIndex(); i < g->renderTarget->getFirstIndex() + g->renderTarget->getTotalIndices(); i++) {
+	//	pxIndices.push_back(indices.at(i));
+	//}
 
-	physx::PxTolerancesScale toleranceScale;
-	physx::PxCookingParams params(toleranceScale);
+	//for (int i = g->renderTarget->getFirstIndex(); i < g->renderTarget->getFirstIndex() + g->renderTarget->getTotalIndices(); i++) {
+	//	pxIndices.push_back(pxIndices.size());
+	//	Vertex v = vertices.at(indices.at(i) + g->renderTarget->getFirstVertex());
+	//	pxVertices.push_back(physx::PxVec3(v.pos.x, v.pos.y, v.pos.z));
+	//}
 
-	params.midphaseDesc = physx::PxMeshMidPhase::eBVH33;
+	std::vector<physx::PxShape*> shapes;
 
-	bool skipMeshCleanup = false;
-	bool skipEdgeData = false;
-	bool cookingPerformance = false;
-	bool meshSizePerfTradeoff = true;
+	for (auto& drawCall : g->renderTarget->opaqueDraws) {
+		for (auto& dC : drawCall.second) {
+			std::vector<physx::PxVec3> pxVertices;
+			std::vector<uint32_t> pxIndices;
+			int count = 0;
+			for (int i = dC->indirectInfo.firstIndex; i < dC->indirectInfo.firstIndex + dC->indirectInfo.numIndices; i++) {
+				glm::mat4 trueModel = g->renderTarget->modelTransform * (*(dC->worldTransformMatrix));
+				Vertex vert = vertices.at(indices.at(i) + g->renderTarget->getFirstVertex());
+				glm::vec4 p = glm::vec4(vert.pos.x, vert.pos.y, vert.pos.z, 1.0f) * trueModel;
+				pxVertices.push_back(physx::PxVec3(p.x, p.y, p.z));
+				pxIndices.push_back(count);
+				count++;
+			}
 
-	params.suppressTriangleMeshRemapTable = true;
+			physx::PxTriangleMeshDesc meshDescription;
+			meshDescription.points.count = pxVertices.size();
+			meshDescription.points.data = pxVertices.data();
+			meshDescription.points.stride = sizeof(physx::PxVec3);
 
-	params.meshPreprocessParams |= static_cast<physx::PxMeshPreprocessingFlags>(physx::PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH);
+			meshDescription.triangles.count = pxVertices.size() / 3;
+			meshDescription.triangles.data = pxIndices.data();
+			meshDescription.triangles.stride = 3 * sizeof(physx::PxU32);
 
-	params.meshPreprocessParams &= ~static_cast<physx::PxMeshPreprocessingFlags>(physx::PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE);
+			assert(meshDescription.isValid());
 
-	params.midphaseDesc.mBVH33Desc.meshCookingHint = physx::PxMeshCookingHint::eSIM_PERFORMANCE;
+			physx::PxTolerancesScale toleranceScale;
+			physx::PxCookingParams params(toleranceScale);
 
-	params.midphaseDesc.mBVH33Desc.meshSizePerformanceTradeOff = 0.0f;
+			params.midphaseDesc = physx::PxMeshMidPhase::eBVH33;
 
-	physx::PxTriangleMesh* triMesh = NULL;
+			bool skipMeshCleanup = false;
+			bool skipEdgeData = false;
+			bool cookingPerformance = false;
+			bool meshSizePerfTradeoff = true;
 
-		triMesh = PxCreateTriangleMesh(params, meshDescription, pPhysics_->getPhysicsInsertionCallback());
+			params.suppressTriangleMeshRemapTable = true;
 
-	
-	physx::PxMeshGeometryFlags flags(~physx::PxMeshGeometryFlag::eDOUBLE_SIDED);
-	physx::PxTriangleMeshGeometry geo(triMesh, physx::PxMeshScale(physx::PxVec3(scale.x, scale.y, scale.z)), flags);
+			params.meshPreprocessParams |= static_cast<physx::PxMeshPreprocessingFlags>(physx::PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH);
 
-	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
-	physx::PxShape* shape = pPhysics_->createShape(geo, *(material), shapeFlags);
+			params.meshPreprocessParams &= ~static_cast<physx::PxMeshPreprocessingFlags>(physx::PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE);
 
-	return shape;
+			params.midphaseDesc.mBVH33Desc.meshCookingHint = physx::PxMeshCookingHint::eSIM_PERFORMANCE;
+
+			params.midphaseDesc.mBVH33Desc.meshSizePerformanceTradeOff = 0.0f;
+
+			physx::PxTriangleMesh* triMesh = NULL;
+
+			triMesh = PxCreateTriangleMesh(params, meshDescription, pPhysics_->getPhysicsInsertionCallback());
+
+
+			physx::PxMeshGeometryFlags flags(~physx::PxMeshGeometryFlag::eDOUBLE_SIDED);
+			physx::PxTriangleMeshGeometry geo(triMesh, physx::PxMeshScale(physx::PxVec3(scale.x, scale.y, scale.z)), flags);
+
+			physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
+			physx::PxShape* shape = pPhysics_->createShape(geo, *(material), shapeFlags);
+			shapes.push_back(shape);
+		}
+	}
+
+	return shapes;
 }
 
 
-void PhysicsManager::loopUpdate(std::vector<GameObject*> gameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
-	pScene->simulate(deltaTime);
+void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, std::vector<AnimatedGameObject*> animatedGameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
+	if (deltaTime > 0) {
+		pScene->simulate(deltaTime);
 
-	playerGlobalDisplacement = glm::vec3(0.0f);
-
-	pScene->fetchResults(true);
+		pScene->fetchResults(true);
+	}
 
 	for (GameObject* g : gameObjects) {
-		glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
-		g->renderTarget->modelTransform =  transform * g->transform.to_matrix();
+		if (g->isDynamic && g->physicsActor != nullptr) {
+			glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
+			g->setTransform(transform * g->transform.to_matrix());
+		}
 	}
-
-	glm::mat4 inverseViewMatrix = glm::inverse(cam->viewMatrix);
-	glm::vec3 forward = (inverseViewMatrix[2]);
-	glm::vec3 right = (inverseViewMatrix[0]);
-	glm::vec3 movementVector = glm::normalize(glm::vec3(forward.x, 0.0f, forward.z));
-
-	if (Input::forwardKeyDown()) {
-		playerGlobalDisplacement -= movementVector * 0.5f;
+	for (AnimatedGameObject* g : animatedGameObjects) {
+		if (g->isDynamic && g->physicsActor != nullptr && !g->isPlayerObj) {
+			glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
+			g->setTransform(transform * g->transform.to_matrix());
+		}
 	}
-
-	if (Input::backwardKeyDown()) {
-		playerGlobalDisplacement += movementVector * 0.5f;
-	}
-
-	if (Input::rightKeyDown()) {
-		playerGlobalDisplacement += right * 0.5f;
-	}
-
-	if (Input::leftKeyDown()) {
-		playerGlobalDisplacement -= right * 0.5f;
-	}
-
-	float len = length(playerGlobalDisplacement);
-	if (len != 0.0) {
-		playerGlobalDisplacement = (playerGlobalDisplacement / len) * player->playerSpeed;
-	}
-
-	physx::PxFilterData filterData;
-	filterData.word0 = 0;
-	physx::PxControllerFilters data;
-	data.mFilterData = &filterData;
-	
-	player->characterController->move(physx::PxVec3(playerGlobalDisplacement.x, 0, playerGlobalDisplacement.z), 0.001f, 1.0f / 60.0f, data);
-
-	cam->transform.position = PxVec3toGlmVec3(player->characterController->getFootPosition()) + glm::vec3(0.0f, player->cap_height, 0.0f);
 }
 
 void PhysicsManager::shutDown() {

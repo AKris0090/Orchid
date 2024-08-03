@@ -11,8 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-#include "GameObject.h"
-#include "AnimatedGameObject.h"
+#include "Bloom.h"
 #include "Camera.h"
 
 #ifdef NDEBUG
@@ -26,21 +25,23 @@ const std::vector<const char*> validationLayers = {
 };
 const std::vector<const char*> deviceExts = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 };
 
 // Queue family struct
 struct QueueFamilyIndices {
-	// Graphics families initialization
+	// Graphics family index
 	std::optional<uint32_t> graphicsFamily;
 
-	// Present families initialization as well
+	// Present family index
 	std::optional<uint32_t> presentFamily;
+	
+	// Compute family index
+	std::optional<uint32_t> computeFamily;
 
-	// General check to make things a bit more conveneient
-	bool isComplete() { return (graphicsFamily.has_value() && presentFamily.has_value()); }
+	bool isComplete() { return (graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value()); }
 };
 
-// Swap chain support details struct - holds information to create the swapchain
 struct SWChainSuppDetails {
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
@@ -54,6 +55,8 @@ struct SWChainSuppDetails {
 class VulkanRenderer {
 
 private:
+	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT = nullptr;
+	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT = nullptr;
 	uint32_t imageIndex_;
 
 	// SDL Surface handle
@@ -69,29 +72,60 @@ private:
 	VkImage colorImage_;
 	VkDeviceMemory colorImageMemory_;
 	VkImageView colorImageView_;
+
+	VkImage bloomImage_;
+	VkDeviceMemory bloomImageMemory_;
+	VkImageView bloomImageView_;
+
+	// Resolve image and mem handles
+	
+	VkImage resolveImage_;
+	VkDeviceMemory resolveImageMemory_;
+	VkImageView resolveImageView_;
+
 	// Depth image and mem handles
 	VkImage depthImage_;
 	VkDeviceMemory depthImageMemory_;
 	VkImageView depthImageView_;
+
+	VkPipeline prepassPipeline_;
+	VkPipelineLayout prepassPipelineLayout_;
+
+	VkPipeline outlinePipeline;
+	VkPipelineLayout outlinePipelineLayout;
+
+	VkPipeline toonPipeline;
+	VkPipelineLayout toonPipelineLayout;
+
+	VkPipeline toneMappingPipeline;
+	VkPipelineLayout toneMappingPipelineLayout;
+
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
+	std::vector<VkFramebuffer> depthFrameBuffers_;
+	std::vector<VkFramebuffer> toneMappingFrameeBuffers_;
 	// Uniform buffers handle
 	std::vector<VkBuffer> uniformBuffers_;
 	std::vector<void*> mappedBuffers_;
 	std::vector<VkDeviceMemory> uniformBuffersMemory_;
 	// Descriptor set handles
 	std::vector<VkDescriptorSet> descriptorSets_;
+	VkDescriptorSet computeDescriptorSet_;
+	VkDescriptorSet toneMappingDescriptorSet_;
 	// Handles for the two semaphores - one for if the image is available and the other to present the image
 	std::vector<VkSemaphore> imageAcquiredSema_;
 	std::vector<VkSemaphore> renderedSema_;
 	// Handle for the in-flight-fence
 	std::vector<VkFence> inFlightFences_;
-	std::vector<VkFence> imagesInFlight_;
+	VkFence computeFence;
+	VkSemaphore computeSema;
 
 	bool rendered = false;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
+	void loadDebugUtilsFunctions(VkDevice device);
+	void updateIndividualDescriptorSet(Material& m);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 	bool checkExtSupport(VkPhysicalDevice physicalDevice);
@@ -108,55 +142,111 @@ private:
 public:
 	int numModels_;
 	int numTextures_;
-	bool rotate_ = false;
-	bool frBuffResized_ = false;
-	glm::vec4* pLightPos_; // TODO: TURN THIS INTO ITS OWN CLASS WITH MULTIPLE TYPES OF LIGHTS
-	std::vector<glm::vec4> lights_;
+	bool rotate_;
+	bool frBuffResized_;
+	DirectionalLight* pDirectionalLight_;
 	FPSCam camera_;
-	float depthBias;
+	float depthBias_;
+	float maxReflectionLOD_;
+	float gamma_;
+	float exposure_;
+	bool applyTonemap;
+	float bloomRadius;
 	VkExtent2D SWChainExtent_;
 
-	std::vector<GameObject*> gameObjects;
-	std::vector<AnimatedGameObject*> animatedObjects;
+	VkBuffer vertexBuffer_;
+	VkDeviceMemory vertexBufferMemory_;
+
+	VkBuffer indexBuffer_;
+	VkDeviceMemory indexBufferMemory_;
+
+	VkBuffer screenQuadVertexBuffer;
+	VkDeviceMemory screenQuadVertexBufferMemory;
+
+	VkBuffer screenQuadIndexBuffer;
+	VkDeviceMemory screenQuadIndexBufferMemory;
+
+	std::vector<Vertex> screenQuadVertices;
+	std::vector<uint32_t> screenQuadIndices;
+
+	std::vector<Vertex> vertices_;
+	std::vector<uint32_t>indices_;
+
+	std::vector<glm::mat4> inverseBindMatrices;
+
+	VkBuffer skinBindMatricsBuffer;
+	void* mappedSkinBuffer;
+	VkDeviceMemory skinBindMatricesBufferMemory;
+
+	std::vector<GameObject*>* gameObjects;
+	std::vector<AnimatedGameObject*>* animatedObjects;
+
+	struct ComputePushConstant {
+		uint32_t jointMatrixStart;
+		uint32_t numVertices;
+	};
+
+	BloomHelper* bloomHelper;
 
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
 	VkCommandPool commandPool_;
+	VkCommandPool computePool_;
 	VkClearValue clearValue_;
 	VkPhysicalDevice GPU_ = VK_NULL_HANDLE;
 	VkDevice device_;
 	size_t currentFrame_ = 0;
-	std::vector<GLTFObj*> pModels_;
 	uint32_t numMats_;
 	uint32_t numImages_;
 	// Handles for all variables, made public so they can be accessed by main and destroys
 	VkInstance instance_;
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	// Pipeline Layout for "gloabls" to change shaders
-	VkPipelineLayout pipeLineLayout_;
-	VkPipelineLayout animatedPipelineLayout_;
+	VkPipelineLayout opaquePipeLineLayout_;
+	VkPipelineLayout transparentPipeLineLayout_;
+
+	VkPipeline computePipeline;
+	VkPipelineLayout computePipelineLayout;
+
+	// OPAQUE AND TRANSPARENT PIPELINES
+	VkPipeline opaquePipeline;
+	VkPipeline transparentPipeline;
+
 	// Render pass handles
 	VkRenderPass renderPass_;
 	VkRenderPass skyboxRenderPass_;
+	VkRenderPass depthPrepass_;
+	VkRenderPass toneMapPass_;
 	// Handle for the list of command buffers
 	std::vector<VkCommandBuffer> commandBuffers_;
+	VkCommandBuffer computeBuffer_;
 	// Descriptor pool handles
 	VkDescriptorPool descriptorPool_;
 	// Device and queue handles
 	VkQueue graphicsQueue_;
 	VkQueue presentQueue_;
+	VkQueue computeQueue_;
 	QueueFamilyIndices QFIndices_;
 	VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_8_BIT;
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
-	VkDescriptorSetLayout animatedDescriptorSetLayout_;
+	VkDescriptorSetLayout computeDescriptorSetLayout_;
+
+	VkDescriptorSetLayout tonemappingDescriptorSetLayout_;
+
+	VkSampler toneMappingSampler_;
+	VkSampler toneMappingBloomSampler_;
+
+	VkImage bloomResolveImage_;
+	VkDeviceMemory bloomResolveImageMemory_;
+	VkImageView bloomResolveImageView_;
+
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
-	DirectionalLight* shadowMap;
 
-	VulkanRenderer(int numModels);
+	VulkanRenderer();
 	// Create the vulkan instance
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
 	// Check if the validation layers requested are supported
@@ -178,9 +268,12 @@ public:
 	// Create the descriptor set layout
 	void createDescriptorSetLayout();
 	// Create the graphics pipeline
-	void createGraphicsPipeline(MeshHelper* m);
-	void createAnimatedGraphicsPipeline(MeshHelper* m);
+	void createGraphicsPipeline();
+	void createDepthPipeline();
+	void createOutlinePipeline();
 	void createSkyBoxPipeline();
+	void createToonPipeline();
+	void createToneMappingPipeline();
 	// You have to first record all the operations to perform, so we need a command pool
 	void createCommandPool();
 	// Color image function
@@ -205,16 +298,28 @@ public:
 	void drawNewFrame(SDL_Window* window, int maxFramesInFlight);
 	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 	void freeEverything(int framesInFlight);
-
+	void separateDrawCalls();
+	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
+	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
+	void setupCompute();
+	void createVertexBuffer();
+	void createQuadVertexBuffer();
+	void createIndexBuffer();
+	void createQuadIndexBuffer();
+	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
+	void renderBloom(VkCommandBuffer& commandBuffer);
+
+	float specularCont;
+	float nDotVSpec;
 
 	struct UniformBufferObject {
 		glm::mat4 view;
 		glm::mat4 proj;
 		glm::vec4 lightPos;
 		glm::vec4 viewPos;
+		glm::vec4 gammaExposure;
 		float cascadeSplits[4];
 		glm::mat4 cascadeViewProjMat[4];
-		float bias;
 	};
 };

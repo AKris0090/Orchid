@@ -27,21 +27,117 @@ void Skybox::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRa
 
 void Skybox::copyBufferToImage(VkCommandBuffer cmdBuff, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
     VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 6;
-
-    region.imageOffset = { 0, 0, 0 };
-    region.imageExtent = { width, height, 1 };
+    region.imageExtent.width = width;
+    region.imageExtent.height = height;
+    region.imageExtent.depth = 1;
 
     vkCmdCopyBufferToImage(cmdBuff, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
+    VkImageMemoryBarrier imageMemoryBarrier{};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageMemoryBarrier.subresourceRange.levelCount = 1;
+    imageMemoryBarrier.subresourceRange.layerCount = 6;
+
+    vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+
     std::cout << "created texture image" << std::endl;
+}
+
+void Skybox::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
+    // Check if image format supports linear blitting
+    VkFormatProperties formatProperties;
+    vkGetPhysicalDeviceFormatProperties(pDevHelper_->getPhysicalDevice(), imageFormat, &formatProperties);
+
+    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+        throw std::runtime_error("texture image format does not support linear blitting!");
+    }
+
+    VkCommandBuffer commandBuffer = pDevHelper_->beginSingleTimeCommands();
+
+    for (uint32_t i = 1; i < mipLevels; i++) {
+        VkImageBlit blit{};
+
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.layerCount = 6;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcOffsets[1].x = int32_t(texWidth >> (i - 1));
+        blit.srcOffsets[1].y = int32_t(texHeight >> (i - 1));
+        blit.srcOffsets[1].z = 1;
+
+        // Destination
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.layerCount = 6;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstOffsets[1].x = int32_t(texWidth >> i);
+        blit.dstOffsets[1].y = int32_t(texHeight >> i);
+        blit.dstOffsets[1].z = 1;
+
+        VkImageSubresourceRange mipSubRange = {};
+        mipSubRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        mipSubRange.baseMipLevel = i;
+        mipSubRange.levelCount = 1;
+        mipSubRange.layerCount = 6;
+
+        VkImageMemoryBarrier imageMemoryBarrier{};
+        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imageMemoryBarrier.srcAccessMask = 0;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageMemoryBarrier.image = image;
+        imageMemoryBarrier.subresourceRange = mipSubRange;
+
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+
+        vkCmdBlitImage(commandBuffer,
+            image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blit,
+            VK_FILTER_LINEAR);
+
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &imageMemoryBarrier);
+    }
+
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.levelCount = this->mipLevels_;
+    subresourceRange.layerCount = 6;
+
+    VkImageMemoryBarrier imageMemoryBarrier{};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier);
+
+    pDevHelper_->endSingleTimeCommands(commandBuffer);
 }
 
 void Skybox::createSkyBoxImage() {
@@ -86,9 +182,9 @@ void Skybox::createSkyBoxImage() {
     
     copyBufferToImage(copyCommandBuffer, stagingBuffer_, skyBoxImage_, texWidth, texHeight);
 
-    transitionImageLayout(copyCommandBuffer, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
     pDevHelper_->endSingleTimeCommands(copyCommandBuffer);
+
+    generateMipmaps(skyBoxImage_, imageFormat_, texWidth, texHeight, this->mipLevels_);
 }
 
 void Skybox::createSkyBoxImageView() {
@@ -128,7 +224,7 @@ void Skybox::createSkyBoxImageSampler() {
     samplerCInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerCInfo.mipLodBias = 0.0f;
     samplerCInfo.minLod = 0.0f;
-    samplerCInfo.maxLod = 0.0f;
+    samplerCInfo.maxLod = this->mipLevels_;
 
     if (vkCreateSampler(pDevHelper_->getDevice(), &samplerCInfo, nullptr, &skyBoxImageSampler_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture sampler!");
@@ -139,6 +235,12 @@ void Skybox::skyBoxLoad() {
     createSkyBoxImage();
     createSkyBoxImageView();
     createSkyBoxImageSampler();
+
+    //tex = new TextureHelper(texPaths_, pDevHelper_);
+    //tex->loadSkyBoxTex();
+    //this->skyBoxImageView_ = tex->textureImageView_;
+    //this->skyBoxImageSampler_ = tex->textureSampler_;
+
     vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer_, nullptr);
     vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory_, nullptr);
     createSkyBoxDescriptorSetLayout();
@@ -164,9 +266,24 @@ void Skybox::createSkyBoxDescriptorSetLayout() {
 }
 
 void Skybox::createDescriptorSet() {
+    std::array<VkDescriptorPoolSize, 1> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[0].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolCInfo{};
+    poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolCInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolCInfo.pPoolSizes = poolSizes.data();
+    poolCInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &skyBoxDescriptorPool_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the descriptor pool!");
+    }
+
     VkDescriptorSetAllocateInfo allocateInfo{};
     allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+    allocateInfo.descriptorPool = skyBoxDescriptorPool_;
     allocateInfo.descriptorSetCount = 1;
     VkDescriptorSetLayout skySet = skyBoxDescriptorSetLayout_;
     allocateInfo.pSetLayouts = &(skySet);
@@ -199,9 +316,9 @@ Skybox::Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHel
     this->device_ = devHelper->getDevice();
 }
 
-void Skybox::loadSkyBox() {
-	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_);
-	pSkyBoxModel_->loadGLTF();
+void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_, globalVertexOffset, globalIndexOffset);
+	pSkyBoxModel_->loadGLTF(globalVertexOffset, globalIndexOffset);
     pSkyBoxModel_->isSkyBox_ = true;
     skyBoxLoad();
 }

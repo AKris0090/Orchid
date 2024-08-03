@@ -59,9 +59,8 @@ private:
 
 	void createRenderPass();
 	void createFrameBuffer();
-
+	void render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	void createPipeline();
-	void render();
 
 	std::vector<char> readFile(const std::string& filename);
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
@@ -76,6 +75,6 @@ public:
 
 	PrefilteredEnvMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox);
 
-	void genprefEMap();
+	void genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	VkDescriptorSet getDescriptorSet() { return this->prefEMapDescriptorSet_; };
 };

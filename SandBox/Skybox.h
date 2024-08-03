@@ -12,6 +12,7 @@ private:
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
 	stbi_uc* pixels[6];
+	TextureHelper* tex;
 
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
@@ -29,7 +30,7 @@ private:
 	void createSkyBoxImageSampler();
 
 	void createSkyBoxDescriptorSetLayout();
-
+	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void skyBoxLoad();
 public:
 	GLTFObj* pSkyBoxModel_;
@@ -39,11 +40,12 @@ public:
 	VkDescriptorSet skyBoxDescriptorSet_;
 	VkImageView skyBoxImageView_;
 	VkSampler skyBoxImageSampler_;
+	VkDescriptorPool skyBoxDescriptorPool_;
 
 	Skybox() {};
-	Skybox(std::string modPath, std::vector<std::string> stringPaths, DeviceHelper* devHelper);
+	Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHelper* devHelper);
 
 	VkImageView getImageView() { return this->skyBoxImageView_; };
 
-	void loadSkyBox();
+	void loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 };

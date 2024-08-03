@@ -110,6 +110,7 @@ void IrradianceCube::createRenderPass() {
     iRCubeattachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     iRCubeattachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     iRCubeattachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 
     VkSubpassDescription subpassDescription = {};
@@ -151,16 +152,47 @@ void IrradianceCube::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubre
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = irImage;
     barrier.subresourceRange = subresourceRange;
 
+    switch (oldLayout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        barrier.srcAccessMask = 0;
+        break;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+    default:
+        break;
+    }
+
+    switch (newLayout) {
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        if (barrier.srcAccessMask == 0)
+        {
+            barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    }
+
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
-
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -348,8 +380,8 @@ void IrradianceCube::createPipeline() {
     VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
     vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto bindingDescription = MeshHelper::Vertex::getBindingDescription();
-    auto attributeDescriptions = MeshHelper::Vertex::getPositionAttributeDescription();
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     vertexInputCInfo.vertexBindingDescriptionCount = 1;
     vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -396,13 +428,11 @@ void IrradianceCube::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff,
     vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
     vkDestroyFence(device_, fence, nullptr);
 
-    vkDeviceWaitIdle(device_);
-
     vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-void IrradianceCube::render() {
+void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     VkClearValue clearValues[1];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
@@ -435,6 +465,11 @@ void IrradianceCube::render() {
     scissor.extent.width = width_;
     scissor.extent.height = height_;
     vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+    VkBuffer vertexBuffers[] = { vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(cmdBuf, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iRCubeImage_);
 
@@ -469,7 +504,7 @@ void IrradianceCube::render() {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipeline_);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipelineLayout_, 0, 1, &iRCubeDescriptorSet_, 0, NULL);
 
-            pSkybox_->pSkyBoxModel_->genImageRenderSkybox(cmdBuf);
+            pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
 
             vkCmdEndRenderPass(cmdBuf);
 
@@ -505,7 +540,7 @@ void IrradianceCube::render() {
     endCommandBuffer(device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
 }
 
-void IrradianceCube::geniRCube() {
+void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     createiRCubeImage();
     createiRCubeImageView();
     createiRCubeImageSampler();
@@ -516,7 +551,7 @@ void IrradianceCube::geniRCube() {
     createiRCubeDescriptors();
 
     createPipeline();
-    render();
+    render(vertexBuffer, indexBuffer);
 }
 
 IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {
@@ -524,7 +559,7 @@ IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, 
     this->device_ = devHelper->getDevice();
     this->imageFormat_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     this->width_ = this->height_ = 64;
-    this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;;
+    this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;
     this->pGraphicsQueue_ = graphicsQueue;
     this->pSkybox_ = pSkybox;
     this->pCommandPool_ = cmdPool;
