@@ -22,7 +22,7 @@ layout(location = 1) in vec4 inNormal;
 invariant gl_Position;
 
 void main() {
-    vec4 pos = pc.model * vec4((inPosition + (inNormal * vec4(0.001f))).xyz, 1.0f);
+    vec4 pos = pc.model * vec4((inPosition + (inNormal * vec4(0.0035f))).xyz, 1.0f);
 
     gl_Position = ubo.proj * ubo.view * pos;
 }

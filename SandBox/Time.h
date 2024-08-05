@@ -9,5 +9,6 @@ namespace Time {
 		return a + ((b-a) * t);
 	}
 
+	std::chrono::time_point<std::chrono::system_clock> getCurrentTime();
 	float getDeltaTime();
 };

@@ -1,7 +1,7 @@
 #include "Time.h"
 
 namespace Time {
-	std::chrono::time_point<std::chrono::system_clock> lastTime;;
+	std::chrono::time_point<std::chrono::system_clock> lastTime;
 	std::chrono::time_point<std::chrono::system_clock> currentTime;
 	float deltaTime;
 	bool start = false;
@@ -23,5 +23,9 @@ namespace Time {
 
 	float Time::getDeltaTime() {
 		return deltaTime;
+	}
+
+	std::chrono::time_point<std::chrono::system_clock> getCurrentTime() {
+		return currentTime;
 	}
 }

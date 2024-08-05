@@ -79,7 +79,7 @@ void GraphicsManager::imGUIUpdate() {
 
     ImGui::Begin("Var Editor");
 
-    ImGui::DragFloat("playerSpeed", &player->playerSpeed);
+    ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
     ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
     ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
     ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
@@ -109,6 +109,8 @@ void GraphicsManager::imGUIUpdate() {
     //ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
     //ImGui::End();
 }
+
+using namespace std::literals;
 
 void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_ = new DeviceHelper();
@@ -241,8 +243,9 @@ void GraphicsManager::startVulkan() {
             }
         }
         newAnimGO->isOutline = true;
+        newAnimGO->smoothTime = 15.0f;
+        newAnimGO->smoothDuration = 1s;
 
-        newAnimGO->activeAnimation = &(mod->walkAnim);
 
         std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
     }

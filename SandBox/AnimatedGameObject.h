@@ -11,6 +11,12 @@ private:
 
 public:
 	Animation* activeAnimation;
+	Animation* previousAnimation;
+	bool needsSmooth;
+	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
+	std::chrono::milliseconds smoothDuration;
+	float smoothTime;
+
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
 	bool isDynamic;
@@ -53,6 +59,7 @@ public:
 		return vector;
 	}
 
+	void smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	glm::mat4 getNodeMatrix(AnimSceneNode* node);
 	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);

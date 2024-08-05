@@ -113,8 +113,10 @@ int main(int argc, char* argv[]) {
      
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.0075f, 0.0075f, 0.0075f);
-    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroRun.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
+    graphicsManager.animatedObjects[0]->previousAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
     //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
     //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -137,6 +139,7 @@ int main(int argc, char* argv[]) {
     player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
     player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
     player->playerGameObject = graphicsManager.animatedObjects[0];
+    player->currentState = PLAYERSTATE::IDLE;
 
     graphicsManager.player = player;
 
@@ -195,17 +198,17 @@ int main(int argc, char* argv[]) {
         }
 
         // player animation -------------
-        if (player->isWalking) {
-            if (player->isRunning) {
-                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->runAnim);
-            }
-            else {
-                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->walkAnim);
-            }
-        }
-        else {
-            graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
-        }
+        //if (player->isWalking) {
+        //    if (player->isRunning) {
+        //        graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->runAnim);
+        //    }
+        //    else {
+        //        graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->walkAnim);
+        //    }
+        //}
+        //else {
+        //    graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
+        //}
 
         graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
         graphicsManager.pVkR_->updateBindMatrices();
