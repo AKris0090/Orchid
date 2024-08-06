@@ -1444,8 +1444,8 @@ void VulkanRenderer::createDepthPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> vertPass = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPass.spv");
-    std::vector<char> fragPass = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPassAlpha.spv");
+    std::vector<char> vertPass = readFile("./shaders/spv/depthPass.spv");
+    std::vector<char> fragPass = readFile("./shaders/spv/depthPassAlpha.spv");
 
     VkShaderModule depthPass = createShaderModule(vertPass);
     VkShaderModule alphaPass = createShaderModule(fragPass);
@@ -1553,8 +1553,8 @@ void VulkanRenderer::createDepthPipeline() {
 
 void VulkanRenderer::createOutlinePipeline() {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/outlineVert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/outlineFrag.spv");
+    std::vector<char> vertexShader = readFile("./shaders/spv/outlineVert.spv");
+    std::vector<char> fragmentShader = readFile("./shaders/spv/outlineFrag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -1723,8 +1723,8 @@ void VulkanRenderer::createOutlinePipeline() {
 
 void VulkanRenderer::createToonPipeline() {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/toonFrag.spv");
+    std::vector<char> vertexShader = readFile("./shaders/spv/vert.spv");
+    std::vector<char> fragmentShader = readFile("./shaders/spv/toonFrag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -1898,8 +1898,8 @@ void VulkanRenderer::createToonPipeline() {
 
 void VulkanRenderer::createToneMappingPipeline() {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/screenQuadVert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/tonemappingFrag.spv");
+    std::vector<char> vertexShader = readFile("./shaders/spv/screenQuadVert.spv");
+    std::vector<char> fragmentShader = readFile("./shaders/spv/tonemappingFrag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -2052,8 +2052,8 @@ void VulkanRenderer::createToneMappingPipeline() {
 
 void VulkanRenderer::createGraphicsPipeline() {
     // Read the file for the bytecodfe of the shaders
-    std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
-    std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
+    std::vector<char> vertexShader = readFile("./shaders/spv/vert.spv");
+    std::vector<char> fragmentShader = readFile("./shaders/spv/frag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -2234,8 +2234,8 @@ void VulkanRenderer::createGraphicsPipeline() {
 }
 
 void VulkanRenderer::createSkyBoxPipeline() {
-    std::vector<char> skyBoxVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxVert.spv");
-    std::vector<char> skyBoxFragShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxFrag.spv");
+    std::vector<char> skyBoxVertShader = readFile("./shaders/spv/skyboxVert.spv");
+    std::vector<char> skyBoxFragShader = readFile("./shaders/spv/skyboxFrag.spv");
 
     std::cout << "read files" << std::endl;
 
@@ -2995,7 +2995,7 @@ void VulkanRenderer::setupCompute() {
 
     // COMPUTE PIPELINE CREATION
 
-    std::vector<char> computeShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/computeSkin.spv");
+    std::vector<char> computeShader = readFile("./shaders/spv/computeSkin.spv");
 
     VkShaderModule computeShaderModule = createShaderModule(computeShader);
 

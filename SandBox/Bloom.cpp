@@ -358,8 +358,8 @@ void BloomHelper::createBloomPipelines() {
 
 	{// down pipeline
 		// Read the file for the bytecodfe of the shaders
-		std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/screenQuadVert.spv");
-		std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/downSample.spv");
+		std::vector<char> vertexShader = readFile("./shaders/spv/screenQuadVert.spv");
+		std::vector<char> fragmentShader = readFile("./shaders/spv/downSample.spv");
 
 		std::cout << "read files" << std::endl;
 
@@ -498,8 +498,8 @@ void BloomHelper::createBloomPipelines() {
 
 	{ // up pipeline
 		// Read the file for the bytecodfe of the shaders
-		std::vector<char> vertexShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/screenQuadVert.spv");
-		std::vector<char> fragmentShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/upSample.spv");
+		std::vector<char> vertexShader = readFile("./shaders/spv/screenQuadVert.spv");
+		std::vector<char> fragmentShader = readFile("./shaders/spv/upSample.spv");
 
 		std::cout << "read files" << std::endl;
 

@@ -292,7 +292,7 @@ void DirectionalLight::createPipeline() {
 		std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
 	}
 
-	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
+	std::vector<char> sMVertShader = readFile("./shaders/spv/shadowMap.spv");
 
 	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
 

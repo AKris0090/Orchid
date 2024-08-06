@@ -164,8 +164,8 @@ void BRDFLut::createPipeline() {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    std::vector<char> brdfVertShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
-    std::vector<char> brdfFragShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
+    std::vector<char> brdfVertShader = pDevHelper_->readFile("./shaders/spv/brdfLUTVert.spv");
+    std::vector<char> brdfFragShader = pDevHelper_->readFile("./shaders/spv/brdfLUTFrag.spv");
 
     std::cout << "read files" << std::endl;
 
