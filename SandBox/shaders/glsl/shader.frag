@@ -134,7 +134,7 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 
 	if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 	{
-		return ubo.gammaExposure.z;
+		return AMBIENT;
 	}
 
 	return 1.0;
