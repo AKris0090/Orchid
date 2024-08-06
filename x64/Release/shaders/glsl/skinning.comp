@@ -1,0 +1,60 @@
+#version 460
+
+struct Vertex {
+	vec3 pos;
+	float tex_x;
+	vec3 normal;
+	float tex_y;
+	vec4 tangent;
+	vec4 jointIndex;
+	vec4 jointWeight;
+};
+
+layout(std430, set = 0, binding = 0) readonly buffer JointMatrices {
+	mat4 jointMatrices[];
+};
+
+layout(set = 0, binding = 1) readonly buffer VertexInputBuffer {
+	Vertex verticesIn[];
+};
+
+layout(set = 0, binding = 2) writeonly buffer VertexOutputBuffer {
+	Vertex verticesOut[];
+};
+
+layout(push_constant) uniform pushConstant
+{
+    uint jointMatricesStart;
+    uint numVertices;
+} pcs;
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+mat4 getJointMatrix(int jointId) {
+    return jointMatrices[pcs.jointMatricesStart + jointId];
+}
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pcs.numVertices) {
+        return;
+    }
+
+    Vertex v = verticesIn[index];
+
+    mat4 skinMatrix =
+        v.jointWeight.x * jointMatrices[int(v.jointIndex.x)] +
+        v.jointWeight.y * jointMatrices[int(v.jointIndex.y)] +
+        v.jointWeight.z * jointMatrices[int(v.jointIndex.z)] +
+        v.jointWeight.w * jointMatrices[int(v.jointIndex.w)];
+
+    v.pos = vec3(skinMatrix * vec4(v.pos.xyz, 1.0));
+
+    mat3 skinMatrix3 = mat3(skinMatrix);
+    v.normal = skinMatrix3 * v.normal;
+
+    v.tangent.xyz = skinMatrix3 * v.tangent.xyz;
+
+    verticesOut[index] = v;
+}
