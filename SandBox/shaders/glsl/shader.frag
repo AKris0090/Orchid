@@ -134,7 +134,7 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 
 	if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 	{
-		return AMBIENT;
+		return ubo.gammaExposure.z;
 	}
 
 	return 1.0;
@@ -198,7 +198,7 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color + (specularContribution(L, V, N, F0, metallic, roughness))) * (shadow * ubo.gammaExposure.w)) + emissionVec;
+	color = ((color * (specularContribution(L, V, N, F0, metallic, roughness))) * (shadow * ubo.gammaExposure.w)) + emissionVec;
 
 	vec4 brightColor = vec4(color, 1.0f);
 

@@ -62,9 +62,7 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
                 {
                     glm::vec3 dest = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
 
-                    channel.node->translation.x = Time::lerp(channel.node->translation.x, dest.x, Time::getDeltaTime() * smoothTime);
-                    channel.node->translation.y = Time::lerp(channel.node->translation.y, dest.y, Time::getDeltaTime() * smoothTime);
-                    channel.node->translation.z = Time::lerp(channel.node->translation.z, dest.z, Time::getDeltaTime() * smoothTime);
+                    channel.node->translation = Time::lerp(channel.node->translation, dest, Time::getDeltaTime() * smoothTime);
                 }
                 if (channel.path == "rotation")
                 {
@@ -91,9 +89,7 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
                 {
                     glm::vec3 dest = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
 
-                    channel.node->scale.x = Time::lerp(channel.node->scale.x, dest.x, Time::getDeltaTime() * smoothTime);
-                    channel.node->scale.y = Time::lerp(channel.node->scale.y, dest.y, Time::getDeltaTime() * smoothTime);
-                    channel.node->scale.z = Time::lerp(channel.node->scale.z, dest.z, Time::getDeltaTime() * smoothTime);
+                    channel.node->scale = Time::lerp(channel.node->scale, dest, Time::getDeltaTime() * smoothTime);
                 }
             }
         }

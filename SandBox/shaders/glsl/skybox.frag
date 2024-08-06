@@ -20,14 +20,7 @@ layout (location = 0) out vec4 outFragColor;
 
 void main() 
 {
-    float exposure = 5.0f;
-    const float gamma = 2.2;
     vec3 hdrColor = texture(samplerCubeMap, inUVW).rgb;
 
-    // exposure tone mapping
-    vec3 mapped = vec3(1.0) - exp(-hdrColor * ubo.gammaExposure.y);
-    // gamma correction 
-    mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x));
-
-    outFragColor = vec4(mapped, 1.0);
+    outFragColor = vec4(hdrColor, 1.0);
 }
