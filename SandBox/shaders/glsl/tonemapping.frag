@@ -25,7 +25,7 @@ layout(set = 1, binding = 1) uniform sampler2D bloomSampler;
 void main()
 {	
 	outColor = texture(colorSampler, texCoords) + texture(bloomSampler, texCoords);
-	outColor = vec4(1.0) - exp(-outColor * ubo.gammaExposure.y);
-	outColor = pow(outColor, vec4(1.0 / ubo.gammaExposure.x));
+	//outColor = vec4(1.0) - exp(-outColor * ubo.gammaExposure.y);
+	//outColor = pow(outColor, vec4(1.0 / ubo.gammaExposure.x));
 	//outColor = vec4(ACESFilm(outColor.rgb), 1.0f);
 }

@@ -47,7 +47,7 @@ vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO albedoAlpha.rgb
 #define ALPHA albedoAlpha.a
-#define AMBIENT 0.1
+#define AMBIENT ubo.gammaExposure.w
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -198,7 +198,9 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color * (specularContribution(L, V, N, F0, metallic, roughness))) * (shadow * ubo.gammaExposure.w)) + emissionVec;
+	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), ubo.gammaExposure.z)) * (shadow)) + emissionVec;
+
+	//color = ((((texture(irradianceCube, N).rgb * (ALBEDO + ubo.gammaExposure.w)) * ubo.gammaExposure.z) + ((clamp(specular, 0.0f, 1.0f)) * ubo.gammaExposure.w)) * shadow) + emissionVec;
 
 	vec4 brightColor = vec4(color, 1.0f);
 

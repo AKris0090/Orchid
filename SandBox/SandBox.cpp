@@ -20,7 +20,7 @@ std::vector<std::string> animatedModelPaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/wolf_animated/Wolf-2.glb"
    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"
-   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk.glb"
+   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk2.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
@@ -71,8 +71,8 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->gamma_ = 1.2f;
     graphicsManager.pVkR_->exposure_ = 1.0f;
     graphicsManager.pVkR_->applyTonemap = true;
-    graphicsManager.pVkR_->specularCont = 6.0f;
-    graphicsManager.pVkR_->nDotVSpec = 2.0f;
+    graphicsManager.pVkR_->specularCont = 4.0f;
+    graphicsManager.pVkR_->nDotVSpec = .3f;
     graphicsManager.pVkR_->bloomRadius = 0.00001f;
 
     PhysicsManager physicsManager = PhysicsManager();
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
      
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.0075f, 0.0075f, 0.0075f);
-    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroRun.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroRun2.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
     graphicsManager.animatedObjects[0]->previousAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
@@ -198,17 +198,6 @@ int main(int argc, char* argv[]) {
         }
 
         // player animation -------------
-        //if (player->isWalking) {
-        //    if (player->isRunning) {
-        //        graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->runAnim);
-        //    }
-        //    else {
-        //        graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->walkAnim);
-        //    }
-        //}
-        //else {
-        //    graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
-        //}
 
         graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
         graphicsManager.pVkR_->updateBindMatrices();

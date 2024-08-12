@@ -240,7 +240,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     // Define the clear values to use
     RPBeginInfo.clearValueCount = 5;
-    RPBeginInfo.pClearValues = clearValues;
+    RPBeginInfo.pClearValues = newClearValues.data();
 
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
@@ -568,7 +568,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
         throw std::runtime_error("failed to create instance!");
     }
 
-    clearValue_.color = { {1.0f, 1.0f, 1.0f, 1.0f} };
+    clearValue_.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
 
     return instance_;
 }
