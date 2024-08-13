@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GLTFObject.h"
+#include "VulkanUtils.h"
 #include "stb_image.h"
 
 class Skybox {
@@ -34,8 +35,7 @@ private:
 	void skyBoxLoad();
 public:
 	GLTFObj* pSkyBoxModel_;
-	VkPipelineLayout skyBoxPipelineLayout_;
-	VkPipeline skyboxPipeline_;
+	VulkanPipelineBuilder* skyBoxPipeline_;
 	VkDescriptorSetLayout skyBoxDescriptorSetLayout_;
 	VkDescriptorSet skyBoxDescriptorSet_;
 	VkImageView skyBoxImageView_;

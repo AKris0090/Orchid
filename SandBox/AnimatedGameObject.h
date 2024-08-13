@@ -23,7 +23,6 @@ public:
 	bool isOutline;
 	bool isPlayerObj;
 	DeviceHelper* pDevHelper;
-	VkDevice device_;
 
 	std::vector<Vertex> basePoseVertices_;
 	std::vector<uint32_t> basePoseIndices_;
@@ -40,7 +39,7 @@ public:
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; this->device_ = pD->getDevice(); };
+	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; };
 
 	void createVertexBuffer();
 	void createSkinnedBuffer();

@@ -185,7 +185,9 @@ void main()
 
 	vec3 specular = prefilteredReflection(R, roughness).rgb * (F * brdf.x + brdf.y);
 
-	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;	
+	// irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic
+	//vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + (clamp(pow(specular, vec3(ubo.gammaExposure.z)), ubo.gammaExposure.w, 1.0f))) * aoVec;
+	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
 
 	vec3 res = step(ubo.cascadeSplits.xyz, vec3(fragPosition.w));
 	int cascadeIndex = SHADOW_MAP_CASCADE_COUNT - int(res.x + res.y + res.z);

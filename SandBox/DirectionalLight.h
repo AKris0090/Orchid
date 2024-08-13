@@ -21,7 +21,6 @@ private:
 
 	std::vector<float> shadowCascadeLevels{};
 
-	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_ = VK_FORMAT_D16_UNORM;

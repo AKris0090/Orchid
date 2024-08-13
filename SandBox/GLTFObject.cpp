@@ -140,17 +140,12 @@ void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer) {
 void GLTFObj::loadImages() {
     for (size_t i = 0; i < pInputModel_->images.size(); i++) {
         TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
-        //tex->load();
         images_.push_back(tex);
     }
     TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
     TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
     TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
     TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
-    //dummyAO->load();
-    //dummyMetallic->load();
-    //dummyNormal->load();
-    //dummyEmission->load();
     images_.push_back(dummyNormal);
     images_.push_back(dummyMetallic);
     images_.push_back(dummyAO);
@@ -457,12 +452,12 @@ void GLTFObj::createDescriptors() {
     for (Material& m : mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+        allocateInfo.descriptorPool = pDevHelper_->descPool_;
         allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout texSet = pDevHelper_->getTextureDescSetLayout();
+        const VkDescriptorSetLayout texSet = pDevHelper_->texDescSetLayout_;
         allocateInfo.pSetLayouts = &(texSet);
 
-        VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(m.descriptorSet));
+        VkResult res = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &(m.descriptorSet));
         if (res != VK_SUCCESS) {
             std::cout << res;
             std::_Xruntime_error("Failed to allocate descriptor sets!");
@@ -540,7 +535,7 @@ void GLTFObj::createDescriptors() {
 
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
-        vkUpdateDescriptorSets(pDevHelper_->getDevice() , static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+        vkUpdateDescriptorSets(pDevHelper_->device_ , static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }
 }
 

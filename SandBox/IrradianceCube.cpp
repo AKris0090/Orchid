@@ -18,7 +18,7 @@ void IrradianceCube::createiRCubeImageView() {
     iRImageViewCI.subresourceRange.layerCount = 6;
     iRImageViewCI.image = iRCubeImage_;
 
-    vkCreateImageView(device_, &iRImageViewCI, nullptr, &iRCubeImageView_);
+    vkCreateImageView(pDevHelper_->device_, &iRImageViewCI, nullptr, &iRCubeImageView_);
 }
 
 // CODE FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -35,7 +35,7 @@ void IrradianceCube::createiRCubeImageSampler() {
     brdfLutImageSamplerCI.maxLod = static_cast<float>(mipLevels_);
     brdfLutImageSamplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-    vkCreateSampler(device_, &brdfLutImageSamplerCI, nullptr, &iRCubeImageSampler_);
+    vkCreateSampler(pDevHelper_->device_, &brdfLutImageSamplerCI, nullptr, &iRCubeImageSampler_);
 
     irImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     irImageInfo.imageView = iRCubeImageView_;
@@ -56,7 +56,7 @@ void IrradianceCube::createiRCubeDescriptors() {
     layoutCInfo.bindingCount = 1;
     layoutCInfo.pBindings = &(samplerLayoutBindingColor);
 
-    vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &iRCubeDescriptorSetLayout_);
+    vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &iRCubeDescriptorSetLayout_);
 
     std::array<VkDescriptorPoolSize, 1> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -69,7 +69,7 @@ void IrradianceCube::createiRCubeDescriptors() {
     poolCInfo.pPoolSizes = poolSizes.data();
     poolCInfo.maxSets = 2;
 
-    if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &iRCubeDescriptorPool_) != VK_SUCCESS) {
+    if (vkCreateDescriptorPool(pDevHelper_->device_, &poolCInfo, nullptr, &iRCubeDescriptorPool_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the descriptor pool!");
     }
 
@@ -79,7 +79,7 @@ void IrradianceCube::createiRCubeDescriptors() {
     allocateInfo.descriptorSetCount = 1;
     allocateInfo.pSetLayouts = &iRCubeDescriptorSetLayout_;
 
-    vkAllocateDescriptorSets(device_, &allocateInfo, &iRCubeDescriptorSet_);
+    vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &iRCubeDescriptorSet_);
 
     // WRITE SET
 
@@ -98,7 +98,7 @@ void IrradianceCube::createiRCubeDescriptors() {
 
     std::vector<VkWriteDescriptorSet> descriptorWriteSets = { irDescriptorWriteSet };
 
-    vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(pDevHelper_->device_, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
 }
 
 void IrradianceCube::createRenderPass() {
@@ -143,7 +143,7 @@ void IrradianceCube::createRenderPass() {
     renderPassCI.dependencyCount = 2;
     renderPassCI.pDependencies = dependencies.data();
 
-    vkCreateRenderPass(device_, &renderPassCI, nullptr, &iRCubeRenderpass_);
+    vkCreateRenderPass(pDevHelper_->device_, &renderPassCI, nullptr, &iRCubeRenderpass_);
 }
 
 void IrradianceCube::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage irImage) {
@@ -217,16 +217,16 @@ void IrradianceCube::createFrameBuffer() {
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateImage(device_, &imageCreateInfo, nullptr, &offscreen.image);
+    vkCreateImage(pDevHelper_->device_, &imageCreateInfo, nullptr, &offscreen.image);
 
     VkMemoryAllocateInfo memAlloc{};
     memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     VkMemoryRequirements memReqs;
-    vkGetImageMemoryRequirements(device_, offscreen.image, &memReqs);
+    vkGetImageMemoryRequirements(pDevHelper_->device_, offscreen.image, &memReqs);
     memAlloc.allocationSize = memReqs.size;
     memAlloc.memoryTypeIndex = pDevHelper_->findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkAllocateMemory(device_, &memAlloc, nullptr, &offscreen.memory);
-    vkBindImageMemory(device_, offscreen.image, offscreen.memory, 0);
+    vkAllocateMemory(pDevHelper_->device_, &memAlloc, nullptr, &offscreen.memory);
+    vkBindImageMemory(pDevHelper_->device_, offscreen.image, offscreen.memory, 0);
 
     VkImageViewCreateInfo colorImageView{};
     colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -240,7 +240,7 @@ void IrradianceCube::createFrameBuffer() {
     colorImageView.subresourceRange.baseArrayLayer = 0;
     colorImageView.subresourceRange.layerCount = 1;
     colorImageView.image = offscreen.image;
-    vkCreateImageView(device_, &colorImageView, nullptr, &offscreen.view);
+    vkCreateImageView(pDevHelper_->device_, &colorImageView, nullptr, &offscreen.view);
 
     VkFramebufferCreateInfo fbufCreateInfo{};
     fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -250,7 +250,7 @@ void IrradianceCube::createFrameBuffer() {
     fbufCreateInfo.width = width_;
     fbufCreateInfo.height = height_;
     fbufCreateInfo.layers = 1;
-    vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &offscreen.framebuffer);
+    vkCreateFramebuffer(pDevHelper_->device_, &fbufCreateInfo, nullptr, &offscreen.framebuffer);
 
     VkCommandBuffer layoutCmd = pDevHelper_->beginSingleTimeCommands();
     VkImageSubresourceRange subRange{};
@@ -259,7 +259,7 @@ void IrradianceCube::createFrameBuffer() {
     subRange.levelCount = 1;
     subRange.layerCount = 1;
     transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
-    endCommandBuffer(device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
+    endCommandBuffer(pDevHelper_->device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
 }
 
 // In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
@@ -279,134 +279,41 @@ VkShaderModule IrradianceCube::createShaderModule(VkDevice dev, const std::vecto
 }
 
 void IrradianceCube::createPipeline() {
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/irradianceCubeFrag.spv");
+
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
     pcRange.size = sizeof(PushBlock);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkDescriptorSetLayout descSetLayouts[] = { iRCubeDescriptorSetLayout_ };
-
-    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 1;
-    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
-    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
-    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
-
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(iRCubePipelineLayout_)) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
-    }
-
-    std::vector<char> irCubeVertShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/filterCubeVert.spv");
-    std::vector<char> irCubeFragShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/irradianceCubeFrag.spv");
-
-    std::cout << "read files" << std::endl;
-
-    VkShaderModule irCubeVertexShaderModule = createShaderModule(device_, irCubeVertShader);
-    VkShaderModule irCubeFragmentShaderModule = createShaderModule(device_, irCubeFragShader);
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
-    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
-
-    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
-    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportStateCInfo.viewportCount = 1;
-    viewportStateCInfo.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-    rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizerCInfo.depthClampEnable = VK_FALSE;
-    rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizerCInfo.lineWidth = 1.0f;
-    rasterizerCInfo.cullMode = VK_CULL_MODE_NONE;
-    rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-
-    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    // Depth and stencil testing would go here, but not doing this for the triangle
-    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-    depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilCInfo.depthTestEnable = VK_FALSE;
-    depthStencilCInfo.depthWriteEnable = VK_FALSE;
-    depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    depthStencilCInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = 0xf;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-
-    std::vector<VkDynamicState> dynaStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
-    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    dynamicStateCInfo.pDynamicStates = dynaStates.data();
-
-    std::cout << "pipeline layout created" << std::endl;
-
-    VkPipelineShaderStageCreateInfo irCubeVertexStageCInfo{};
-    irCubeVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    irCubeVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    irCubeVertexStageCInfo.module = irCubeVertexShaderModule;
-    irCubeVertexStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo irCubeFragmentStageCInfo{};
-    irCubeFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    irCubeFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    irCubeFragmentStageCInfo.module = irCubeFragmentShaderModule;
-    irCubeFragmentStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo stages[] = { irCubeVertexStageCInfo, irCubeFragmentStageCInfo };
-
-    VkGraphicsPipelineCreateInfo brdfLUTPipelineCInfo{};
-    brdfLUTPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    brdfLUTPipelineCInfo.stageCount = 2;
-    brdfLUTPipelineCInfo.pStages = stages;
-
-    // Describing the format of the vertex data to be passed to the vertex shader
-    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
-    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
 
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
-    vertexInputCInfo.vertexBindingDescriptionCount = 1;
-    vertexInputCInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputCInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());;
-    vertexInputCInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
+    pipelineInfo.pDescriptorSetLayouts = &iRCubeDescriptorSetLayout_;
+    pipelineInfo.numSets = 1;
+    pipelineInfo.pShaderStages = shaderStages.data();
+    pipelineInfo.numStages = shaderStages.size();
+    pipelineInfo.pPushConstantRanges = &pcRange;
+    pipelineInfo.numRanges = 1;
+    pipelineInfo.vertexBindingDescriptions = &bindingDescription;
+    pipelineInfo.numVertexBindingDescriptions = 1;
+    pipelineInfo.vertexAttributeDescriptions = attributeDescriptions.data();
+    pipelineInfo.numVertexAttributeDescriptions = static_cast<int>(attributeDescriptions.size());
 
-    brdfLUTPipelineCInfo.pVertexInputState = &vertexInputCInfo;
-    brdfLUTPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
-    brdfLUTPipelineCInfo.pViewportState = &viewportStateCInfo;
-    brdfLUTPipelineCInfo.pRasterizationState = &rasterizerCInfo;
-    brdfLUTPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    brdfLUTPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
-    brdfLUTPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
-    brdfLUTPipelineCInfo.pDynamicState = &dynamicStateCInfo;
+    iRPipeline_ = new VulkanPipelineBuilder(pDevHelper_->device_, pipelineInfo, pDevHelper_);
 
-    brdfLUTPipelineCInfo.layout = iRCubePipelineLayout_;
+    iRPipeline_->info.pColorBlendState->attachmentCount = 1;
+    iRPipeline_->info.pMultisampleState->rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    iRPipeline_->info.pDepthStencilState->back.compareOp = VK_COMPARE_OP_ALWAYS;
+    iRPipeline_->info.pDepthStencilState->depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    iRPipeline_->info.pDepthStencilState->depthTestEnable = VK_FALSE;
+    iRPipeline_->info.pRasterizationState->cullMode = VK_CULL_MODE_NONE;
 
-    brdfLUTPipelineCInfo.renderPass = iRCubeRenderpass_;
-    brdfLUTPipelineCInfo.subpass = 0;
-
-    brdfLUTPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &brdfLUTPipelineCInfo, nullptr, &iRCubePipeline_);
-
-    std::cout << "pipeline created" << std::endl;
+    iRPipeline_->generate(pipelineInfo, iRCubeRenderpass_);
 }
 
 
@@ -499,10 +406,10 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
 
             pushBlock.mvp = proj * matrices[face];
 
-            vkCmdPushConstants(cmdBuf, iRCubePipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradianceCube::PushBlock), &pushBlock);
+            vkCmdPushConstants(cmdBuf, iRPipeline_->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(IrradianceCube::PushBlock), &pushBlock);
 
-            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipeline_);
-            vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRCubePipelineLayout_, 0, 1, &iRCubeDescriptorSet_, 0, NULL);
+            vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRPipeline_->pipeline);
+            vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRPipeline_->layout, 0, 1, &iRCubeDescriptorSet_, 0, NULL);
 
             pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
 
@@ -537,7 +444,7 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
 
     transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, iRCubeImage_);
 
-    endCommandBuffer(device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
+    endCommandBuffer(pDevHelper_->device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
 }
 
 void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
@@ -556,7 +463,6 @@ void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
 
 IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {
     this->pDevHelper_ = devHelper;
-    this->device_ = devHelper->getDevice();
     this->imageFormat_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     this->width_ = this->height_ = 64;
     this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;

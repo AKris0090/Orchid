@@ -56,7 +56,7 @@ void Skybox::copyBufferToImage(VkCommandBuffer cmdBuff, VkBuffer buffer, VkImage
 void Skybox::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(pDevHelper_->getPhysicalDevice(), imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(pDevHelper_->gpu_, imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("texture image format does not support linear blitting!");
@@ -165,7 +165,7 @@ void Skybox::createSkyBoxImage() {
     for (int i = 0; i < 6; i++) {
         vkMapMemory(device_, stagingBufferMemory_, (i * imageSize), imageSize, 0, &data);
         memcpy(data, pixels[i], static_cast<size_t>(imageSize));
-        vkUnmapMemory(pDevHelper_->getDevice(), stagingBufferMemory_);
+        vkUnmapMemory(pDevHelper_->device_, stagingBufferMemory_);
     }
 
     pDevHelper_->createSkyBoxImage(texWidth, texHeight, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyBoxImage_, skyBoxImageMemory_);
@@ -215,7 +215,7 @@ void Skybox::createSkyBoxImageSampler() {
     samplerCInfo.anisotropyEnable = VK_TRUE;
 
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(pDevHelper_->getPhysicalDevice(), &properties);
+    vkGetPhysicalDeviceProperties(pDevHelper_->gpu_, &properties);
     samplerCInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerCInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     samplerCInfo.unnormalizedCoordinates = VK_FALSE;
@@ -226,7 +226,7 @@ void Skybox::createSkyBoxImageSampler() {
     samplerCInfo.minLod = 0.0f;
     samplerCInfo.maxLod = this->mipLevels_;
 
-    if (vkCreateSampler(pDevHelper_->getDevice(), &samplerCInfo, nullptr, &skyBoxImageSampler_) != VK_SUCCESS) {
+    if (vkCreateSampler(pDevHelper_->device_, &samplerCInfo, nullptr, &skyBoxImageSampler_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture sampler!");
     }
 }
@@ -241,8 +241,8 @@ void Skybox::skyBoxLoad() {
     //this->skyBoxImageView_ = tex->textureImageView_;
     //this->skyBoxImageSampler_ = tex->textureSampler_;
 
-    vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer_, nullptr);
-    vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory_, nullptr);
+    vkDestroyBuffer(pDevHelper_->device_, stagingBuffer_, nullptr);
+    vkFreeMemory(pDevHelper_->device_, stagingBufferMemory_, nullptr);
     createSkyBoxDescriptorSetLayout();
     createDescriptorSet();
 }
@@ -288,7 +288,7 @@ void Skybox::createDescriptorSet() {
     VkDescriptorSetLayout skySet = skyBoxDescriptorSetLayout_;
     allocateInfo.pSetLayouts = &(skySet);
 
-    VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(skyBoxDescriptorSet_));
+    VkResult res = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &(skyBoxDescriptorSet_));
     if (res != VK_SUCCESS) {
         std::_Xruntime_error("Failed to allocate descriptor sets!");
     }
@@ -313,7 +313,7 @@ Skybox::Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHel
 	this->modPath_ = modPath;
 	this->texPaths_ = texPaths;
 	this->pDevHelper_ = devHelper;
-    this->device_ = devHelper->getDevice();
+    this->device_ = devHelper->device_;
 }
 
 void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {

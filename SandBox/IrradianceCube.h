@@ -19,7 +19,6 @@ private:
 		float deltaTheta = (0.5f * float(PI)) / 64.0f;
 	} pushBlock;
 
-	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
@@ -41,8 +40,7 @@ private:
 
 	VkDeviceMemory iRCubeImageMemory_;
 
-	VkPipelineLayout iRCubePipelineLayout_;
-	VkPipeline iRCubePipeline_;
+	VulkanPipelineBuilder* iRPipeline_;
 
 	VkAttachmentDescription iRCubeattachment;
 	VkDescriptorImageInfo irImageInfo;
@@ -71,6 +69,14 @@ public:
 	VkSampler iRCubeImageSampler_;
 
 	IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox);
+	~IrradianceCube() {
+		vkDestroyImage(this->pDevHelper_->device_, this->iRCubeImage_, nullptr);
+		vkDestroyFramebuffer(this->pDevHelper_->device_, this->iRCubeFrameBuffer_, nullptr);
+		vkDestroyRenderPass(this->pDevHelper_->device_, this->iRCubeRenderpass_, nullptr);
+		vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
+		vkDestroyDescriptorPool(this->pDevHelper_->device_, this->iRCubeDescriptorPool_, nullptr);
+		delete iRPipeline_;
+	};
 
 	void geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	VkDescriptorSet getDescriptorSet() { return this->iRCubeDescriptorSet_; };

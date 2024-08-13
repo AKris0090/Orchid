@@ -3,7 +3,7 @@
 #include <SDL.h>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
-#include "DeviceHelper.h"
+#include "VulkanUtils.h"
 #include <physx/PxPhysicsAPI.h>
 #include <physx/PxPhysics.h>
 #include "Input.h"
@@ -15,7 +15,6 @@ private:
 	float pitch_ = 0.0f;
 	// left-right
 	float yaw_ = 0.0f;
-	glm::mat4 getRotationMatrix();
 	float aspectRatio;
 	float FOV;
 

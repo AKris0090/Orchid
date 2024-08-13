@@ -41,7 +41,7 @@ public:
 
     TextureHelper(tinygltf::Model& mod, int32_t textureIndex, DeviceHelper* pD) {
         this->pDevHelper_ = pD;
-        this->device_ = pD->getDevice();
+        this->device_ = pD->device_;
         this->pInputModel_ = &mod;
         this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
         this->texPath_ = "";
@@ -53,7 +53,7 @@ public:
 
     TextureHelper(std::string texPath, DeviceHelper* pD) {
         this->pDevHelper_ = pD;
-        this->device_ = pD->getDevice();
+        this->device_ = pD->device_;
         this->pInputModel_ = nullptr;
         this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
         this->texPath_ = texPath;

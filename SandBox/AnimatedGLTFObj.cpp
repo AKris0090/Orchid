@@ -604,12 +604,12 @@ void AnimatedGLTFObj::createDescriptors() {
     for (Material& m : mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+        allocateInfo.descriptorPool = pDevHelper_->descPool_;
         allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout texSet = pDevHelper_->getTextureDescSetLayout();
+        const VkDescriptorSetLayout texSet = pDevHelper_->texDescSetLayout_;
         allocateInfo.pSetLayouts = &(texSet);
 
-        VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(m.descriptorSet));
+        VkResult res = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &(m.descriptorSet));
         if (res != VK_SUCCESS) {
             std::_Xruntime_error("Failed to allocate descriptor sets!");
         }
@@ -686,7 +686,7 @@ void AnimatedGLTFObj::createDescriptors() {
 
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
-        vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
+        vkUpdateDescriptorSets(pDevHelper_->device_, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }
 }
 

@@ -15,7 +15,7 @@ void BloomHelper::createImageViews() {
 		imageViewCInfo.subresourceRange.baseArrayLayer = 0;
 		imageViewCInfo.subresourceRange.layerCount = 1;
 
-		VkResult res = vkCreateImageView(device, &imageViewCInfo, nullptr, &imageViewMipChain[mip]);
+		VkResult res = vkCreateImageView(pDevHelper_->device_, &imageViewCInfo, nullptr, &imageViewMipChain[mip]);
 		if (res != VK_SUCCESS) {
 			std::cout << "could not create bloom image view" << std::endl;
 			std::_Xruntime_error("could not create bloom image view");
@@ -117,7 +117,7 @@ void BloomHelper::createRenderPasses() {
 		renderPassInfo.dependencyCount = 2;
 		renderPassInfo.pDependencies = dependencies.data();
 
-		VkResult res = vkCreateRenderPass(device, &renderPassInfo, nullptr, &bloomRenderPassUp);
+		VkResult res = vkCreateRenderPass(pDevHelper_->device_, &renderPassInfo, nullptr, &bloomRenderPassUp);
 		if (res != VK_SUCCESS) {
 			std::cout << "could not create up render pass" << std::endl;
 			std::_Xruntime_error("could not create up render pass");
@@ -168,7 +168,7 @@ void BloomHelper::createRenderPasses() {
 		renderPassInfo.dependencyCount = 2;
 		renderPassInfo.pDependencies = dependencies.data();
 
-		VkResult res = vkCreateRenderPass(device, &renderPassInfo, nullptr, &bloomRenderPassDown);
+		VkResult res = vkCreateRenderPass(pDevHelper_->device_, &renderPassInfo, nullptr, &bloomRenderPassDown);
 		if (res != VK_SUCCESS) {
 			std::cout << "could not create down render pass" << std::endl;
 			std::_Xruntime_error("could not create down render pass");
@@ -192,7 +192,7 @@ void BloomHelper::createFramebuffersDown() {
 		frameBuffersDown[i].extent.height = attachment.imageExtent.height;
 		framebufferInfo.layers = 1;
 
-		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &(frameBuffersDown[i].frameBuffer)) != VK_SUCCESS)
+		if (vkCreateFramebuffer(pDevHelper_->device_, &framebufferInfo, nullptr, &(frameBuffersDown[i].frameBuffer)) != VK_SUCCESS)
 		{
 			std::cout << "could not make frameuffer" << std::endl;
 			std::_Xruntime_error("could not make framebuffer");
@@ -216,7 +216,7 @@ void BloomHelper::createFramebuffersUp() {
 		frameBuffersUp[i].extent.height = attachment.imageExtent.height;
 		framebufferInfo.layers = 1;
 
-		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &(frameBuffersUp[i].frameBuffer)) != VK_SUCCESS)
+		if (vkCreateFramebuffer(pDevHelper_->device_, &framebufferInfo, nullptr, &(frameBuffersUp[i].frameBuffer)) != VK_SUCCESS)
 		{
 			std::cout << "could not make frameuffer" << std::endl;
 			std::_Xruntime_error("could not make framebuffer");
@@ -237,7 +237,7 @@ void BloomHelper::createDescriptors() {
 	layoutCInfo.bindingCount = 1;
 	layoutCInfo.pBindings = &imageLayoutBinding;
 
-	if (vkCreateDescriptorSetLayout(device, &layoutCInfo, nullptr, &bloomSetLayout) != VK_SUCCESS) {
+	if (vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &bloomSetLayout) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
 	}
 
@@ -260,7 +260,7 @@ void BloomHelper::createDescriptors() {
 	samplerCreateInfo.maxLod = 1.0f;
 	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
 
-	if (vkCreateSampler(device, &samplerCreateInfo, nullptr, &bloomSampler) != VK_SUCCESS) {
+	if (vkCreateSampler(pDevHelper_->device_, &samplerCreateInfo, nullptr, &bloomSampler) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the bloom image sampler!");
 	}
 
@@ -273,11 +273,11 @@ void BloomHelper::createDescriptors() {
 
 	VkDescriptorSetAllocateInfo bloomAllocateInfo{};
 	bloomAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	bloomAllocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+	bloomAllocateInfo.descriptorPool = pDevHelper_->descPool_;
 	bloomAllocateInfo.descriptorSetCount = BLOOM_LEVELS;
 	bloomAllocateInfo.pSetLayouts = setLayouts.data();
 
-	VkResult res2 = vkAllocateDescriptorSets(device, &bloomAllocateInfo, bloomSets.data());
+	VkResult res2 = vkAllocateDescriptorSets(pDevHelper_->device_, &bloomAllocateInfo, bloomSets.data());
 	if (res2 != VK_SUCCESS) {
 		std::cout << res2 << std::endl;
 		std::_Xruntime_error("Failed to allocate descriptor sets!");
@@ -298,7 +298,7 @@ void BloomHelper::createDescriptors() {
 		descriptorWriteSet.descriptorCount = 1;
 		descriptorWriteSet.pImageInfo = &descriptorImageInfo;
 
-		vkUpdateDescriptorSets(device, 1, &descriptorWriteSet, 0, nullptr);
+		vkUpdateDescriptorSets(pDevHelper_->device_, 1, &descriptorWriteSet, 0, nullptr);
 	}
 }
 
@@ -329,7 +329,7 @@ VkShaderModule BloomHelper::createShaderModule(const std::vector<char>& binary) 
 	shaderModuleCInfo.pCode = reinterpret_cast<const uint32_t*>(binary.data());
 
 	VkShaderModule shaderMod;
-	if (vkCreateShaderModule(device, &shaderModuleCInfo, nullptr, &shaderMod)) {
+	if (vkCreateShaderModule(pDevHelper_->device_, &shaderModuleCInfo, nullptr, &shaderMod)) {
 		std::_Xruntime_error("Failed to create a shader module!");
 	}
 
@@ -351,7 +351,7 @@ void BloomHelper::createBloomPipelines() {
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pushConstantRange;
 
-	if (vkCreatePipelineLayout(device, &pipeLineLayoutCInfo, nullptr, &bloomPipelineLayout) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(pDevHelper_->device_, &pipeLineLayoutCInfo, nullptr, &bloomPipelineLayout) != VK_SUCCESS) {
 		std::cout << "nah you buggin" << std::endl;
 		std::_Xruntime_error("Failed to create pipeline layout!");
 	}
@@ -489,7 +489,7 @@ void BloomHelper::createBloomPipelines() {
 		graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 		// Create the object
-		VkResult res3 = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(bloomPipelineDown));
+		VkResult res3 = vkCreateGraphicsPipelines(pDevHelper_->device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(bloomPipelineDown));
 		if (res3 != VK_SUCCESS) {
 			std::cout << "failed to create toneMapping graphics pipeline" << std::endl;
 			std::_Xruntime_error("Failed to create the graphics pipeline!");
@@ -632,7 +632,7 @@ void BloomHelper::createBloomPipelines() {
 		graphicsPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 		// Create the object
-		VkResult res3 = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(bloomPipelineUp));
+		VkResult res3 = vkCreateGraphicsPipelines(pDevHelper_->device_, VK_NULL_HANDLE, 1, &graphicsPipelineCInfo, nullptr, &(bloomPipelineUp));
 		if (res3 != VK_SUCCESS) {
 			std::cout << "failed to create toneMapping graphics pipeline" << std::endl;
 			std::_Xruntime_error("Failed to create the graphics pipeline!");
@@ -689,5 +689,4 @@ void BloomHelper::setupBloom(VkImage* emissionImage, VkImageView* imgView, VkFor
 
 BloomHelper::BloomHelper(DeviceHelper* devH) {
 	this->pDevHelper_ = devH;
-	this->device = pDevHelper_->getDevice();
 }

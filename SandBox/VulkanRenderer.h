@@ -88,18 +88,6 @@ private:
 	VkDeviceMemory depthImageMemory_;
 	VkImageView depthImageView_;
 
-	VkPipeline prepassPipeline_;
-	VkPipelineLayout prepassPipelineLayout_;
-
-	VkPipeline outlinePipeline;
-	VkPipelineLayout outlinePipelineLayout;
-
-	VkPipeline toonPipeline;
-	VkPipelineLayout toonPipelineLayout;
-
-	VkPipeline toneMappingPipeline;
-	VkPipelineLayout toneMappingPipelineLayout;
-
 	// Handle to hold the frame buffers
 	std::vector<VkFramebuffer> SWChainFrameBuffers_;
 	std::vector<VkFramebuffer> skyBoxFrameBuffers_;
@@ -133,8 +121,6 @@ private:
 	bool isSuitable(VkPhysicalDevice physicalDevice);
 	VkFormat findDepthFormat();
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& potentialFormats, VkImageTiling tiling, VkFormatFeatureFlags features);
-	static std::vector<char> readFile(const std::string& fileName);
-	VkShaderModule createShaderModule(const std::vector<char>& binary);
 	void cleanupSWChain();
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	void recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -202,19 +188,22 @@ public:
 	VkInstance instance_;
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	// Pipeline Layout for "gloabls" to change shaders
-	VkPipelineLayout opaquePipeLineLayout_;
+	VulkanPipelineBuilder* opaquePipeline_;
+	VulkanPipelineBuilder* prepassPipeline_;
+	VulkanPipelineBuilder* toonPipeline_;
+	VulkanPipelineBuilder* outlinePipeline_;
+	VulkanPipelineBuilder* toneMappingPipeline_;
+
 	VkPipelineLayout transparentPipeLineLayout_;
 
 	VkPipeline computePipeline;
 	VkPipelineLayout computePipelineLayout;
 
 	// OPAQUE AND TRANSPARENT PIPELINES
-	VkPipeline opaquePipeline;
 	VkPipeline transparentPipeline;
 
 	// Render pass handles
 	VkRenderPass renderPass_;
-	VkRenderPass skyboxRenderPass_;
 	VkRenderPass depthPrepass_;
 	VkRenderPass toneMapPass_;
 	// Handle for the list of command buffers
@@ -227,7 +216,6 @@ public:
 	VkQueue presentQueue_;
 	VkQueue computeQueue_;
 	QueueFamilyIndices QFIndices_;
-	VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_8_BIT;
 	// Descriptor Set Layout Handle
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
@@ -309,6 +297,7 @@ public:
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
 	void renderBloom(VkCommandBuffer& commandBuffer);
+	void shutdown();
 
 	float specularCont;
 	float nDotVSpec;

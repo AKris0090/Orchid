@@ -28,19 +28,14 @@ void GraphicsManager::setupImGUI() {
     init_info.ImageCount = 3;
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, pVkR_->toneMapPass_);
-
-    //m_Dset = ImGui_ImplVulkan_AddTexture(pVkR_->pDirectionalLight_->sMImageSampler_, pVkR_->pDirectionalLight_->sMImageView_, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
 }
 
 void GraphicsManager::startSDL() {
-    // Startup the video feed
     SDL_Init(SDL_INIT_VIDEO);
 
-    // Create the SDL Window and open
     pWindow_ = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
-
-    // Create the renderer for the window
     pRenderer_ = SDL_CreateRenderer(pWindow_, -1, SDL_RENDERER_ACCELERATED);
+
     SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 
@@ -52,6 +47,9 @@ void GraphicsManager::setup() {
 
 void GraphicsManager::shutDown() {
     vkDeviceWaitIdle(pVkR_->device_);
+
+    pVkR_->shutdown();
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -102,35 +100,31 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD_);
     ImGui::Checkbox("rotate", &pVkR_->rotate_);
     ImGui::End();
-
-    // Shadow Map - need to allocate extra descriptor set
-    //ImGui::Begin("Viewport");
-    //ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-    //ImGui::Image(m_Dset, ImVec2{ viewportPanelSize.x, viewportPanelSize.y });
-    //ImGui::End();
 }
 
 using namespace std::literals;
 
 void GraphicsManager::startVulkan() {
     pVkR_->pDevHelper_ = new DeviceHelper();
+    std::cout << "created: device helper" << std::endl;
+
     pVkR_->camera_.update();
 
     pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
+    std::cout << "created: vulkan instance" << std::endl;
 
-    // enableValLayers check in function
     pVkR_->setupDebugMessenger(pVkR_->instance_, pVkR_->debugMessenger_);
 
     pVkR_->createSurface(pWindow_);
     std::cout << "created surface" << std::endl;
 
     pVkR_->pickPhysicalDevice();
-    pVkR_->pDevHelper_->setPhysicalDevice(pVkR_->GPU_);
+    pVkR_->pDevHelper_->gpu_ = pVkR_->GPU_;
     std::cout << "chose physical device" << std::endl;
 
     pVkR_->createLogicalDevice();
-    pVkR_->pDevHelper_->setDevice(pVkR_->device_);
-    pVkR_->pDevHelper_->setGraphicsQueue(pVkR_->graphicsQueue_);
+    pVkR_->pDevHelper_->device_ = pVkR_->device_;
+    pVkR_->pDevHelper_->graphicsQueue_ = pVkR_->graphicsQueue_;
     std::cout << "created logical device" << std::endl;
 
     pVkR_->createSWChain(pWindow_);
@@ -143,7 +137,7 @@ void GraphicsManager::startVulkan() {
     std::cout << "created render pass" << std::endl;
 
     pVkR_->createCommandPool();
-    pVkR_->pDevHelper_->setCommandPool(pVkR_->commandPool_);
+    pVkR_->pDevHelper_->commandPool_ = pVkR_->commandPool_;
     std::cout << "created command pool" << std::endl;
 
     pVkR_->createColorResources();
@@ -156,7 +150,7 @@ void GraphicsManager::startVulkan() {
     std::cout << "created frame buffers" << std::endl;
 
     pVkR_->createDescriptorPool();
-    pVkR_->pDevHelper_->setDescriptorPool(pVkR_->descriptorPool_);
+    pVkR_->pDevHelper_->descPool_ = pVkR_->descriptorPool_;
     std::cout << "created descriptor pool" << std::endl;
 
     pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
@@ -268,14 +262,12 @@ void GraphicsManager::startVulkan() {
     //pVkR_->vertices_.shrink_to_fit();
     //pVkR_->indices_.shrink_to_fit();
 
-    pVkR_->pDevHelper_->setTextureDescSetLayout(pVkR_->textureDescriptorSetLayout_);
+    pVkR_->pDevHelper_->texDescSetLayout_ = pVkR_->textureDescriptorSetLayout_;
 
     pVkR_->createDescriptorSets();
     std::cout << "created desc sets" << std::endl << std::endl;
 
     pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_);
-    pVkR_->brdfLut->genBRDFLUT();
-
     std::cout << "generated BRDFLUT" << std::endl;
 
     pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
@@ -298,10 +290,22 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->updateGeneratedImageDescriptorSets();
 
+    std::cout << "\ncreated descriptor sets" << std::endl;
+
     pVkR_->createGraphicsPipeline();
     std::cout << "created material graphics pipeline" << std::endl;
 
-    std::cout << "\ncreated descriptor sets" << std::endl;
+    pVkR_->createDepthPipeline();
+    std::cout << "created depth pipeline" << std::endl;
+
+    pVkR_->createToonPipeline();
+    std::cout << "created cartoon graphics pipeline" << std::endl;
+
+    pVkR_->createOutlinePipeline();
+    std::cout << "created outline pipeline" << std::endl;
+
+    pVkR_->createToneMappingPipeline();
+    std::cout << "created tonemapping pipeline" << std::endl;
 
     pVkR_->createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
     std::cout << "created commaned buffers" << std::endl;

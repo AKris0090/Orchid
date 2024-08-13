@@ -13,8 +13,6 @@ private:
 
 	VkImage brdfLUTImage_;
 	VkDeviceMemory brdfLUTImageMemory_;
-	VkBuffer stagingBuffer_;
-	VkDeviceMemory stagingBufferMemory_;
 
 	VkFramebuffer brdfLUTFrameBuffer_;
 	VkRenderPass brdfLUTRenderpass_;
@@ -23,18 +21,14 @@ private:
 	VkDescriptorPool brdfLUTDescriptorPool_;
 	VkDescriptorSet brdfLUTDescriptorSet_;
 
-	VkPipelineLayout brdfLUTPipelineLayout_;
-	VkPipeline brdfLUTPipeline_;
+	VulkanPipelineBuilder* brdfLutPipeline_;
 
 	void createBRDFLutImage();
 	void createBRDFLutImageView();
 	void createBRDFLutImageSampler();
-
 	void createBRDFLutDescriptors();
-
 	void createRenderPass();
 	void createFrameBuffer();
-
 	void createPipeline();
 	void render();
 
@@ -43,7 +37,15 @@ public:
 	VkSampler brdfLUTImageSampler_;
 
 	BRDFLut(DeviceHelper* devHelper);
+	~BRDFLut() {
+		vkDestroyImage(this->device_, this->brdfLUTImage_, nullptr);
+		vkDestroyFramebuffer(this->device_, this->brdfLUTFrameBuffer_, nullptr);
+		vkDestroyRenderPass(this->device_, this->brdfLUTRenderpass_, nullptr);
+		vkDestroyDescriptorSetLayout(this->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
+		vkDestroyDescriptorPool(this->device_, this->brdfLUTDescriptorPool_, nullptr);
+		delete brdfLutPipeline_;
+	};
 
-	void genBRDFLUT();
+	void generateBRDFLUT();
 	VkDescriptorSet getDescriptorSet() { return this->brdfLUTDescriptorSet_; };
 };

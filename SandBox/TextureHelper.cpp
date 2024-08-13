@@ -154,8 +154,6 @@ void TextureHelper::createTextureImages() {
         this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(curImage.width, curImage.height)))) + 1;
     }
 
-    std::cout << "MIP LEVELS: " << this->mipLevels_ << std::endl;
-
     if (dummy) {
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -164,7 +162,7 @@ void TextureHelper::createTextureImages() {
         void* data;
         vkMapMemory(device_, stagingBufferMemory, 0, imageSize, 0, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(pDevHelper_->getDevice(), stagingBufferMemory);
+        vkUnmapMemory(pDevHelper_->device_, stagingBufferMemory);
 
         stbi_image_free(pixels);
 
@@ -172,8 +170,8 @@ void TextureHelper::createTextureImages() {
         transitionImageLayout(textureImage_, imageFormat_, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels_);
         copyBufferToImage(stagingBuffer, textureImage_, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
-        vkDestroyBuffer(pDevHelper_->getDevice(), stagingBuffer, nullptr);
-        vkFreeMemory(pDevHelper_->getDevice(), stagingBufferMemory, nullptr);
+        vkDestroyBuffer(pDevHelper_->device_, stagingBuffer, nullptr);
+        vkFreeMemory(pDevHelper_->device_, stagingBufferMemory, nullptr);
 
         generateMipmaps(textureImage_, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
 
@@ -184,7 +182,6 @@ void TextureHelper::createTextureImages() {
         VkDeviceMemory stagingBufferMemory;
         pDevHelper_->createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-        // could mess up since buffer no longer requires same memory // DELETE IF WORKING
         VkMemoryRequirements memRequirements;
         vkGetBufferMemoryRequirements(device_, stagingBuffer, &memRequirements);
 
@@ -207,7 +204,12 @@ void TextureHelper::createTextureImages() {
             delete[] buff;
         }
 
-        std::cout << "loaded: " << curImage.uri << std::endl;
+        if (curImage.uri != "") {
+            std::cout << "loaded: " << curImage.uri << std::endl;
+        }
+        else {
+            std::cout << "loaded: " << curImage.name << std::endl;
+        }
     }
 }
 
@@ -215,7 +217,7 @@ void TextureHelper::createTextureImages() {
 void TextureHelper::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(pDevHelper_->getPhysicalDevice(), imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(pDevHelper_->gpu_, imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("texture image format does not support linear blitting!");
@@ -319,13 +321,13 @@ void TextureHelper::createTextureImageSampler() {
     samplerCInfo.anisotropyEnable = VK_TRUE;
 
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(pDevHelper_->getPhysicalDevice(), &properties);
+    vkGetPhysicalDeviceProperties(pDevHelper_->gpu_, &properties);
 
     samplerCInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerCInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerCInfo.mipLodBias = 0.0f;
 
-    if (vkCreateSampler(pDevHelper_->getDevice(), &samplerCInfo, nullptr, &textureSampler_) != VK_SUCCESS) {
+    if (vkCreateSampler(pDevHelper_->device_, &samplerCInfo, nullptr, &textureSampler_) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create the texture sampler!");
     }
 }

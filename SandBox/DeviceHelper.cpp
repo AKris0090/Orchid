@@ -125,22 +125,6 @@ VkCommandBuffer DeviceHelper::beginSingleTimeCommands() const {
     return commandBuffer;
 }
 
-std::vector<char> DeviceHelper::readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "failed to open file" << std::endl;
-        std::_Xruntime_error("");
-    }
-
-    size_t fileSize = file.tellg();
-    std::vector<char> buffer((size_t)file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
-
 void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 

@@ -150,150 +150,33 @@ VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary)
 }
 
 void BRDFLut::createPipeline() {
-    VkDescriptorSetLayout descSetLayouts[] = { brdfLUTDescriptorSetLayout_ };
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
 
-    // We can use uniform values to make changes to the shaders without having to create them again, similar to global variables
-    // Initialize the pipeline layout with another create info struct
-    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
-    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLineLayoutCInfo.setLayoutCount = 1;
-    pipeLineLayoutCInfo.pSetLayouts = descSetLayouts;
+    std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
 
-    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(brdfLUTPipelineLayout_)) != VK_SUCCESS) {
-        std::cout << "nah you buggin" << std::endl;
-        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
-    }
+    VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
+    pipelineInfo.pDescriptorSetLayouts = &brdfLUTDescriptorSetLayout_;
+    pipelineInfo.numSets = 1;
+    pipelineInfo.pShaderStages = shaderStages.data();
+    pipelineInfo.numStages = shaderStages.size();
+    pipelineInfo.pPushConstantRanges = nullptr;
+    pipelineInfo.numRanges = 0;
+    pipelineInfo.vertexBindingDescriptions = nullptr;
+    pipelineInfo.numVertexBindingDescriptions = 0;
+    pipelineInfo.vertexAttributeDescriptions = nullptr;
+    pipelineInfo.numVertexAttributeDescriptions = 0;
 
-    std::vector<char> brdfVertShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
-    std::vector<char> brdfFragShader = pDevHelper_->readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
+	brdfLutPipeline_ = new VulkanPipelineBuilder(device_, pipelineInfo, pDevHelper_);
 
-    std::cout << "read files" << std::endl;
+	brdfLutPipeline_->info.pColorBlendState->attachmentCount = 1;
+	brdfLutPipeline_->info.pMultisampleState->rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	brdfLutPipeline_->info.pDepthStencilState->depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	brdfLutPipeline_->info.pDepthStencilState->depthTestEnable = VK_FALSE;
+	brdfLutPipeline_->info.pDepthStencilState->back.compareOp = VK_COMPARE_OP_ALWAYS;
+	brdfLutPipeline_->info.pRasterizationState->cullMode = VK_CULL_MODE_NONE;
 
-    VkShaderModule brdfVertexShaderModule = createShaderModule(device_, brdfVertShader);
-    VkShaderModule brdfFragmentShaderModule = createShaderModule(device_, brdfFragShader);
-
-    // Describing the format of the vertex data to be passed to the vertex shader
-    VkPipelineVertexInputStateCreateInfo vertexInputCInfo{};
-    vertexInputCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    vertexInputCInfo.vertexBindingDescriptionCount = 0;
-
-    // Next struct describes what kind of geometry will be drawn from the verts and if primitive restart should be enabled
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
-    inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssemblyCInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssemblyCInfo.primitiveRestartEnable = VK_FALSE;
-
-    // Initialize the viewport information struct, a lot of the size information will come from the swap chain extent factor
-    VkPipelineViewportStateCreateInfo viewportStateCInfo{};
-    viewportStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportStateCInfo.viewportCount = 1;
-    viewportStateCInfo.scissorCount = 1;
-
-    // Initialize rasterizer, which takes information from the geometry formed by the vertex shader into fragments to be colored by the fragment shader
-    VkPipelineRasterizationStateCreateInfo rasterizerCInfo{};
-    rasterizerCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    // Fragments beyond the near and far planes are clamped to those planes, instead of discarding them
-    rasterizerCInfo.depthClampEnable = VK_FALSE;
-    // If set to true, geometry never passes through the rasterization phase, and disables output to framebuffer
-    rasterizerCInfo.rasterizerDiscardEnable = VK_FALSE;
-    // Determines how fragments are generated for geometry, using other modes requires enabling a GPU feature
-    rasterizerCInfo.polygonMode = VK_POLYGON_MODE_FILL;
-    // Linewidth describes thickness of lines in terms of number of fragments 
-    rasterizerCInfo.lineWidth = 1.0f;
-    // Specify type of culling and and the vertex order for the faces to be considered
-    rasterizerCInfo.cullMode = VK_CULL_MODE_NONE;
-    rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    // Alter depth values by adding constant or biasing them based on a fragment's slope
-    rasterizerCInfo.depthBiasEnable = VK_FALSE;
-
-    // Multisampling information struct
-    VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
-    multiSamplingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSamplingCInfo.sampleShadingEnable = VK_FALSE;
-    multiSamplingCInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    // Depth and stencil testing would go here, but not doing this for the triangle
-    VkPipelineDepthStencilStateCreateInfo depthStencilCInfo{};
-    depthStencilCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilCInfo.depthTestEnable = VK_FALSE;
-    depthStencilCInfo.depthWriteEnable = VK_FALSE;
-    depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
-    depthStencilCInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
-
-    // Color blending - color from fragment shader needs to be combined with color already in the framebuffer
-    // If <blendEnable> is set to false, then the color from the fragment shader is passed through to the framebuffer
-    // Otherwise, combine with a colorWriteMask to determine the channels that are passed through
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = 0xf;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    // Array of structures for all of the framebuffers to set blend constants as blend factors
-    VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
-    colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlendingCInfo.logicOpEnable = VK_FALSE;
-    colorBlendingCInfo.logicOp = VK_LOGIC_OP_COPY;
-    colorBlendingCInfo.attachmentCount = 1;
-    colorBlendingCInfo.pAttachments = &colorBlendAttachment;
-    colorBlendingCInfo.blendConstants[0] = 0.0f;
-    colorBlendingCInfo.blendConstants[1] = 0.0f;
-    colorBlendingCInfo.blendConstants[2] = 0.0f;
-    colorBlendingCInfo.blendConstants[3] = 0.0f;
-
-    // Not much can be changed without completely recreating the rendering pipeline, so we fill in a struct with the information
-    std::vector<VkDynamicState> dynaStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
-    dynamicStateCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicStateCInfo.dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    dynamicStateCInfo.pDynamicStates = dynaStates.data();
-
-    std::cout << "pipeline layout created" << std::endl;
-
-    VkPipelineShaderStageCreateInfo brdfVertexStageCInfo{};
-    brdfVertexStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    brdfVertexStageCInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    brdfVertexStageCInfo.module = brdfVertexShaderModule;
-    brdfVertexStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo brdfFragmentStageCInfo{};
-    brdfFragmentStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    brdfFragmentStageCInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    brdfFragmentStageCInfo.module = brdfFragmentShaderModule;
-    brdfFragmentStageCInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo stages[] = { brdfVertexStageCInfo, brdfFragmentStageCInfo };
-
-    // Combine the shader stages, fixed-function state, pipeline layout, and render pass to create the graphics pipeline
-    // First - populate struct with the information
-    VkGraphicsPipelineCreateInfo brdfLUTPipelineCInfo{};
-    brdfLUTPipelineCInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    brdfLUTPipelineCInfo.stageCount = 2;
-    brdfLUTPipelineCInfo.pStages = stages;
-
-    brdfLUTPipelineCInfo.pVertexInputState = &vertexInputCInfo;
-    brdfLUTPipelineCInfo.pInputAssemblyState = &inputAssemblyCInfo;
-    brdfLUTPipelineCInfo.pViewportState = &viewportStateCInfo;
-    brdfLUTPipelineCInfo.pRasterizationState = &rasterizerCInfo;
-    brdfLUTPipelineCInfo.pMultisampleState = &multiSamplingCInfo;
-    brdfLUTPipelineCInfo.pDepthStencilState = &depthStencilCInfo;
-    brdfLUTPipelineCInfo.pColorBlendState = &colorBlendingCInfo;
-    brdfLUTPipelineCInfo.pDynamicState = &dynamicStateCInfo;
-
-    brdfLUTPipelineCInfo.layout = brdfLUTPipelineLayout_;
-
-    brdfLUTPipelineCInfo.renderPass = brdfLUTRenderpass_;
-    brdfLUTPipelineCInfo.subpass = 0;
-
-    brdfLUTPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &brdfLUTPipelineCInfo, nullptr, &brdfLUTPipeline_);
-
-    std::cout << "pipeline created" << std::endl;
+	brdfLutPipeline_->generate(pipelineInfo, brdfLUTRenderpass_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -333,14 +216,14 @@ void BRDFLut::render() {
     scissor.extent.height = height_;
     vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, brdfLUTPipeline_);
+    vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, brdfLutPipeline_->pipeline);
     vkCmdDraw(cmdBuf, 3, 1, 0, 0);
     vkCmdEndRenderPass(cmdBuf);
 
     pDevHelper_->endSingleTimeCommands(cmdBuf);
 }
 
-void BRDFLut::genBRDFLUT() {
+void BRDFLut::generateBRDFLUT() {
 	createBRDFLutImage();
 	createBRDFLutImageView();
 	createBRDFLutImageSampler();
@@ -355,8 +238,10 @@ void BRDFLut::genBRDFLUT() {
 
 BRDFLut::BRDFLut(DeviceHelper* devHelper) {
 	this->pDevHelper_ = devHelper;
-	this->device_ = devHelper->getDevice();
+	this->device_ = devHelper->device_;
 	this->imageFormat_ = VK_FORMAT_R16G16_SFLOAT;
 	this->width_ = this->height_ = 512;
 	this->mipLevels_ = 1;
+
+    generateBRDFLUT();
 }

@@ -85,7 +85,7 @@ void DirectionalLight::createRenderPass() {
 	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 	renderPassCreateInfo.pDependencies = dependencies.data();
 
-	vkCreateRenderPass(device_, &renderPassCreateInfo, nullptr, &sMRenderpass_);
+	vkCreateRenderPass(pDevHelper_->device_, &renderPassCreateInfo, nullptr, &sMRenderpass_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
@@ -102,16 +102,16 @@ void DirectionalLight::createFrameBuffer() {
 	image.tiling = VK_IMAGE_TILING_OPTIMAL;
 	image.format = imageFormat_;																// Depth stencil attachment
 	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;		// We will sample directly from the depth attachment for the shadow mapping
-	vkCreateImage(device_, &image, nullptr, &offscreen.image);
+	vkCreateImage(pDevHelper_->device_, &image, nullptr, &offscreen.image);
 
 	VkMemoryAllocateInfo memAlloc{};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	VkMemoryRequirements memReqs;
-	vkGetImageMemoryRequirements(device_, offscreen.image, &memReqs);
+	vkGetImageMemoryRequirements(pDevHelper_->device_, offscreen.image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->getPhysicalDevice(), memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(device_, &memAlloc, nullptr, &offscreen.memory);
-	vkBindImageMemory(device_, offscreen.image, offscreen.memory, 0);
+	memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->gpu_, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vkAllocateMemory(pDevHelper_->device_, &memAlloc, nullptr, &offscreen.memory);
+	vkBindImageMemory(pDevHelper_->device_, offscreen.image, offscreen.memory, 0);
 
 	VkImageViewCreateInfo depthStencilView{};
 	depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -124,7 +124,7 @@ void DirectionalLight::createFrameBuffer() {
 	depthStencilView.subresourceRange.baseArrayLayer = 0;
 	depthStencilView.subresourceRange.layerCount = SHADOW_MAP_CASCADE_COUNT;
 	depthStencilView.image = offscreen.image;
-	vkCreateImageView(device_, &depthStencilView, nullptr, &sMImageView_);
+	vkCreateImageView(pDevHelper_->device_, &depthStencilView, nullptr, &sMImageView_);
 
 	createRenderPass();
 
@@ -140,7 +140,7 @@ void DirectionalLight::createFrameBuffer() {
 		viewInfo.subresourceRange.baseArrayLayer = i;
 		viewInfo.subresourceRange.layerCount = 1;
 		viewInfo.image = offscreen.image;
-		vkCreateImageView(device_, &viewInfo, nullptr, &cascades[i].imageView);
+		vkCreateImageView(pDevHelper_->device_, &viewInfo, nullptr, &cascades[i].imageView);
 
 		VkFramebufferCreateInfo fbufCreateInfo{};
 		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -150,7 +150,7 @@ void DirectionalLight::createFrameBuffer() {
 		fbufCreateInfo.width = width_;
 		fbufCreateInfo.height = height_;
 		fbufCreateInfo.layers = 1;
-		vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &cascades[i].frameBuffer);
+		vkCreateFramebuffer(pDevHelper_->device_, &fbufCreateInfo, nullptr, &cascades[i].frameBuffer);
 	}
 
 	VkFilter shadowmap_filter = VK_FILTER_LINEAR;
@@ -167,7 +167,7 @@ void DirectionalLight::createFrameBuffer() {
 	sampler.minLod = 0.0f;
 	sampler.maxLod = 1.0f;
 	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	vkCreateSampler(device_, &sampler, nullptr, &sMImageSampler_);
+	vkCreateSampler(pDevHelper_->device_, &sampler, nullptr, &sMImageSampler_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
@@ -179,7 +179,7 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	mappedBuffer.resize(1);
 
 	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[0], uniformMemory[0]);
-	VkResult res1 = vkMapMemory(pDevHelper_->getDevice(), uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
+	VkResult res1 = vkMapMemory(pDevHelper_->device_, uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
 	
 	updateUniBuffers(camera);
 
@@ -195,7 +195,7 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	layoutCInfo.bindingCount = 1;
 	layoutCInfo.pBindings = &(UBOLayoutBinding);
 
-	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &cascadeSetLayout);
+	vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &cascadeSetLayout);
 
 	std::array<VkDescriptorPoolSize, 1> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -208,7 +208,7 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	poolCInfo.pPoolSizes = poolSizes.data();
 	poolCInfo.maxSets = SHADOW_MAP_CASCADE_COUNT;
 
-	if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &sMDescriptorPool_) != VK_SUCCESS) {
+	if (vkCreateDescriptorPool(pDevHelper_->device_, &poolCInfo, nullptr, &sMDescriptorPool_) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the descriptor pool!");
 	}
 
@@ -219,7 +219,7 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	allocateInfo.pSetLayouts = &cascadeSetLayout;
 
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-		VkResult res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &cascades[i].descriptorSet);
+		VkResult res2 = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &cascades[i].descriptorSet);
 
 		VkDescriptorBufferInfo descriptorBufferInfo{};
 		descriptorBufferInfo.buffer = uniformBuffer[0];
@@ -237,7 +237,7 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 
 		std::array<VkWriteDescriptorSet, 1> descriptors = { bufferWriteSet };
 
-		vkUpdateDescriptorSets(device_, 1, descriptors.data(), 0, NULL);
+		vkUpdateDescriptorSets(pDevHelper_->device_, 1, descriptors.data(), 0, NULL);
 	}
 }
 
@@ -287,14 +287,14 @@ void DirectionalLight::createPipeline() {
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
-	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(pDevHelper_->device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
 		std::cout << "nah you buggin" << std::endl;
 		std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
 	}
 
 	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
 
-	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
+	VkShaderModule sMVertexShaderModule = createShaderModule(pDevHelper_->device_, sMVertShader);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
 	inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -396,7 +396,7 @@ void DirectionalLight::createPipeline() {
 
 	shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
+	VkResult res2 = vkCreateGraphicsPipelines(pDevHelper_->device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
 
 	//std::cout << "pipeline created" << std::endl;
 }
@@ -525,7 +525,7 @@ void DirectionalLight::genShadowMap(FPSCam* camera) {
 	zNear = 1.f;
 	zFar = 100.0f;
 	
-	imageFormat_ = findSupportedFormat(pDevHelper_->getPhysicalDevice());
+	imageFormat_ = findSupportedFormat(pDevHelper_->gpu_);
 
 	cascadeSplitLambda = 0.9f;
 
@@ -542,7 +542,6 @@ DirectionalLight::DirectionalLight(glm::vec3 lPos) {
 
 void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight) {
 	this->pDevHelper_ = devHelper;
-	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
 	this->pCommandPool_ = cmdPool;
 	this->swapChainHeight = swapChainHeight;

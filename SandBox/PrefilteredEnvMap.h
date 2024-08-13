@@ -21,7 +21,6 @@ private:
 		uint32_t numSamples = 32u;
 	} pushBlock;
 
-	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
@@ -42,8 +41,7 @@ private:
 
 	VkDeviceMemory prefEMapImageMemory_;
 
-	VkPipelineLayout prefEMapPipelineLayout_;
-	VkPipeline prefEMapPipeline_;
+	VulkanPipelineBuilder* prefEMPipeline_;
 
 	VkAttachmentDescription prefEMapattachment;
 	VkDescriptorImageInfo prefevImageInfo;
@@ -74,6 +72,14 @@ public:
 	VkSampler prefEMapImageSampler_;
 
 	PrefilteredEnvMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox);
+	~PrefilteredEnvMap() {
+		vkDestroyImage(this->pDevHelper_->device_, this->prefEMapImage_, nullptr);
+		vkDestroyFramebuffer(this->pDevHelper_->device_, this->prefEMapFrameBuffer_, nullptr);
+		vkDestroyRenderPass(this->pDevHelper_->device_, this->prefEMapRenderpass_, nullptr);
+		vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->prefEMapDescriptorSetLayout_, nullptr);
+		vkDestroyDescriptorPool(this->pDevHelper_->device_, this->prefEMapDescriptorPool_, nullptr);
+		delete prefEMPipeline_;
+	};
 
 	void genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	VkDescriptorSet getDescriptorSet() { return this->prefEMapDescriptorSet_; };
