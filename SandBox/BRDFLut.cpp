@@ -16,7 +16,7 @@ void BRDFLut::createBRDFLutImageView() {
 	brdfLutImageViewCI.subresourceRange.layerCount = 1;
 	brdfLutImageViewCI.image = brdfLUTImage_;
 	
-	vkCreateImageView(device_, &brdfLutImageViewCI, nullptr, &brdfLUTImageView_);
+	vkCreateImageView(pDevHelper_->device_, &brdfLutImageViewCI, nullptr, &brdfLUTImageView_);
 }
 
 // CODE FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -33,7 +33,7 @@ void BRDFLut::createBRDFLutImageSampler() {
 	brdfLutImageSamplerCI.maxLod = 1.0f;
 	brdfLutImageSamplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-    vkCreateSampler(device_, &brdfLutImageSamplerCI, nullptr, &brdfLUTImageSampler_);
+    vkCreateSampler(pDevHelper_->device_, &brdfLutImageSamplerCI, nullptr, &brdfLUTImageSampler_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -50,7 +50,7 @@ void BRDFLut::createBRDFLutDescriptors() {
 	layoutCInfo.bindingCount = 1;
 	layoutCInfo.pBindings = &(samplerLayoutBindingColor);
 
-	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &brdfLUTDescriptorSetLayout_);
+	vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &brdfLUTDescriptorSetLayout_);
 
 	std::array<VkDescriptorPoolSize, 1> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -63,7 +63,7 @@ void BRDFLut::createBRDFLutDescriptors() {
 	poolCInfo.pPoolSizes = poolSizes.data();
 	poolCInfo.maxSets = 2;
 
-	if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &brdfLUTDescriptorPool_) != VK_SUCCESS) {
+	if (vkCreateDescriptorPool(pDevHelper_->device_, &poolCInfo, nullptr, &brdfLUTDescriptorPool_) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the descriptor pool!");
 	}
 
@@ -73,7 +73,7 @@ void BRDFLut::createBRDFLutDescriptors() {
 	allocateInfo.descriptorSetCount = 1;
 	allocateInfo.pSetLayouts = &brdfLUTDescriptorSetLayout_;
 
-	vkAllocateDescriptorSets(device_, &allocateInfo, &brdfLUTDescriptorSet_);
+	vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &brdfLUTDescriptorSet_);
 }
 
 void BRDFLut::createRenderPass() {
@@ -93,7 +93,7 @@ void BRDFLut::createRenderPass() {
 	subpassDescription.colorAttachmentCount = 1;
 	subpassDescription.pColorAttachments = &colorReference;
 
-	std::array<VkSubpassDependency, 2> dependencies;
+	std::array<VkSubpassDependency, 2> dependencies{};
 	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependencies[0].dstSubpass = 0;
 	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -101,6 +101,7 @@ void BRDFLut::createRenderPass() {
 	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
 	dependencies[1].srcSubpass = 0;
 	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
 	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -118,7 +119,7 @@ void BRDFLut::createRenderPass() {
 	renderPassCI.dependencyCount = 2;
 	renderPassCI.pDependencies = dependencies.data();
 
-	vkCreateRenderPass(device_, &renderPassCI, nullptr, &brdfLUTRenderpass_);
+	vkCreateRenderPass(pDevHelper_->device_, &renderPassCI, nullptr, &brdfLUTRenderpass_);
 }
 void BRDFLut::createFrameBuffer() {
 	VkFramebufferCreateInfo framebufferCI{};
@@ -130,28 +131,12 @@ void BRDFLut::createFrameBuffer() {
 	framebufferCI.height = height_;
 	framebufferCI.layers = 1;
 
-	vkCreateFramebuffer(device_, &framebufferCI, nullptr, &brdfLUTFrameBuffer_);
-}
-
-// In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
-VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary) {
-    // We need to specify a pointer to the buffer with the bytecode and the length of the bytecode. Bytecode pointer is a uint32_t pointer
-    VkShaderModuleCreateInfo shaderModuleCInfo{};
-    shaderModuleCInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCInfo.codeSize = binary.size();
-    shaderModuleCInfo.pCode = reinterpret_cast<const uint32_t*>(binary.data());
-
-    VkShaderModule shaderMod;
-    if (vkCreateShaderModule(dev, &shaderModuleCInfo, nullptr, &shaderMod)) {
-        std::_Xruntime_error("Failed to create a shader module!");
-    }
-
-    return shaderMod;
+	vkCreateFramebuffer(pDevHelper_->device_, &framebufferCI, nullptr, &brdfLUTFrameBuffer_);
 }
 
 void BRDFLut::createPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
 
     std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
 
@@ -167,7 +152,7 @@ void BRDFLut::createPipeline() {
     pipelineInfo.vertexAttributeDescriptions = nullptr;
     pipelineInfo.numVertexAttributeDescriptions = 0;
 
-	brdfLutPipeline_ = new VulkanPipelineBuilder(device_, pipelineInfo, pDevHelper_);
+	brdfLutPipeline_ = new VulkanPipelineBuilder(pDevHelper_->device_, pipelineInfo, pDevHelper_);
 
 	brdfLutPipeline_->info.pColorBlendState->attachmentCount = 1;
 	brdfLutPipeline_->info.pMultisampleState->rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -181,7 +166,7 @@ void BRDFLut::createPipeline() {
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void BRDFLut::render() {
-    VkClearValue clearValues[1];
+	VkClearValue clearValues[1]{};
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -238,10 +223,21 @@ void BRDFLut::generateBRDFLUT() {
 
 BRDFLut::BRDFLut(DeviceHelper* devHelper) {
 	this->pDevHelper_ = devHelper;
-	this->device_ = devHelper->device_;
 	this->imageFormat_ = VK_FORMAT_R16G16_SFLOAT;
 	this->width_ = this->height_ = 512;
 	this->mipLevels_ = 1;
 
     generateBRDFLUT();
+}
+
+BRDFLut::~BRDFLut() {
+	vkDestroySampler(pDevHelper_->device_, this->brdfLUTImageSampler_, nullptr);
+	vkDestroyImageView(pDevHelper_->device_, this->brdfLUTImageView_, nullptr);
+	vkDestroyImage(pDevHelper_->device_, this->brdfLUTImage_, nullptr);
+	vkFreeMemory(pDevHelper_->device_, brdfLUTImageMemory_, nullptr);
+	vkDestroyFramebuffer(pDevHelper_->device_, this->brdfLUTFrameBuffer_, nullptr);
+	vkDestroyRenderPass(pDevHelper_->device_, this->brdfLUTRenderpass_, nullptr);
+	vkDestroyDescriptorSetLayout(pDevHelper_->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
+	vkDestroyDescriptorPool(pDevHelper_->device_, this->brdfLUTDescriptorPool_, nullptr);
+	delete brdfLutPipeline_;
 }

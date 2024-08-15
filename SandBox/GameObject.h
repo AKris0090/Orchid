@@ -35,8 +35,7 @@ public:
 	}
 
 	void setGLTFObj(GLTFObj* obj) { this->renderTarget = obj; };
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
-	void setPos(glm::vec3* newPos) { this->renderTarget->pos = newPos; };
+	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 
 	void loopUpdate() {
 		setTransform(transform.to_matrix());

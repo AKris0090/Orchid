@@ -277,7 +277,7 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 void DirectionalLight::createPipeline() {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
-	pcRange.size = sizeof(GLTFObj::cascadeMVP);
+	pcRange.size = sizeof(cascadeMVP);
 	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
@@ -513,7 +513,7 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 
 	UBO ubo;
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-		ubo.cascadeMVP[i] = cascades[i].viewProjectionMatrix;
+		ubo.cascadeMVPUniform[i] = cascades[i].viewProjectionMatrix;
 	}
 
 	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));

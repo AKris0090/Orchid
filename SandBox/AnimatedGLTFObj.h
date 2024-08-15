@@ -4,7 +4,6 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <filesystem>
 #include "Animation.h"
-#include "mikktspace.h"
 
 class AnimatedGLTFObj {
 public:
@@ -19,16 +18,6 @@ public:
 	};
 
 	Animation anim;
-
-	struct cascadeMVP {
-		glm::mat4 model;
-		uint32_t cascadeIndex;
-	} cascadeBlock;
-
-	struct pcBlock {
-		int alphaMask;
-		float alphaCutoff;
-	} pushConstantBlock;
 
 	std::vector<AnimSceneNode*> pParentNodes;
 	glm::mat4 modelTransform;

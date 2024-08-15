@@ -2,71 +2,14 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
-// MIKKTSPACE TANGENT FUNCTIONS, REFERENCED OFF OF: https://github.com/Eearslya/glTFView. SUCH AN AMAZING PERSON
-struct MikkTContext {
-    MeshHelper* mesh;
-};
-
-static int MikkTGetNumFaces(const SMikkTSpaceContext* context) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    return data->mesh->stagingVertices_.size() / 3;
-}
-
-static int MikkTGetNumVerticesOfFace(const SMikkTSpaceContext* context, const int face) {
-    return 3;
-}
-
-static void MikkTGetPosition(const SMikkTSpaceContext* context, float fvPosOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 pos = data->mesh->stagingVertices_[face * 3 + vert].pos;
-    fvPosOut[0] = pos.x;
-    fvPosOut[1] = pos.y;
-    fvPosOut[2] = pos.z;
-}
-
-static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 norm = data->mesh->stagingVertices_[face * 3 + vert].normal;
-    fvNormOut[0] = norm.x;
-    fvNormOut[1] = norm.y;
-    fvNormOut[2] = norm.z;
-}
-
-static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    glm::vec2 uv = glm::vec2(data->mesh->stagingVertices_[face * 3 + vert].pos.w, data->mesh->stagingVertices_[face * 3 + vert].normal.w);
-    fvTexcOut[0] = uv.x;
-    fvTexcOut[1] = 1.0 - uv.y;
-}
-
-static void MikkTSetTSpaceBasic(
-    const SMikkTSpaceContext* context, const float fvTangent[], const float fSign, const int face, const int vert) {
-    auto data = reinterpret_cast<MikkTContext*>(context->m_pUserData);
-
-    data->mesh->stagingVertices_[face * 3 + vert].tangent = glm::vec4(glm::make_vec3(fvTangent), fSign);
-}
-
-static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces,
-                                              .m_getNumVerticesOfFace = MikkTGetNumVerticesOfFace,
-                                              .m_getPosition = MikkTGetPosition,
-                                              .m_getNormal = MikkTGetNormal,
-                                              .m_getTexCoord = MikkTGetTexCoord,
-                                              .m_setTSpaceBasic = MikkTSetTSpaceBasic,
-                                              .m_setTSpace = nullptr };
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void GLTFObj::callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo) {
-    vkCmdDrawIndexed(commandBuffer, indexedDrawInfo.numIndices, indexedDrawInfo.instanceCount, indexedDrawInfo.firstIndex, indexedDrawInfo.globalVertexOffset, indexedDrawInfo.firstInstance);
-}
-
+// render to color
 void GLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
+            MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
 }
@@ -75,21 +18,20 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
     for (auto& mat : transparentDraws) {
         Material* material = mat.first;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
-        //pcBlock newBlock{ 1, material->alphaCutOff};
-        //vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
+            MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
 }
 
+// render to cascades
 void GLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node) {
-    cascadeBlock.model = modelTransform * node->worldTransform;
+    cascadeBlock.model = localModelTransform * node->worldTransform;
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
     for (auto& mesh : node->meshPrimitives) {
-        callIndexedDraw(commandBuffer, mesh->indirectInfo);
+        MeshHelper::callIndexedDraw(commandBuffer, mesh->indirectInfo);
     }
     for (auto& child : node->children) {
         drawShadow(commandBuffer, pipelineLayout, cascadeIndex, child);
@@ -104,13 +46,14 @@ void GLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipel
     }
 }
 
+// render to depth buffer
 void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node) {
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
+            MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
     for (auto& mat : transparentDraws) {
@@ -118,9 +61,9 @@ void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipeline
         pcBlock newBlock{ 1, mat.first->alphaCutOff };
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
+            MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
     }
 }
@@ -131,42 +74,7 @@ void GLTFObj::renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
     }
 }
 
-void GLTFObj::drawSkyBoxIndexed(VkCommandBuffer commandBuffer) {
-    MeshHelper* m = (pParentNodes[0])->meshPrimitives[0];
-    callIndexedDraw(commandBuffer, m->indirectInfo);
-}
-
-// LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
-void GLTFObj::loadImages() {
-    for (size_t i = 0; i < pInputModel_->images.size(); i++) {
-        TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
-        images_.push_back(tex);
-    }
-    TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
-    TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
-    TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
-    TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
-    images_.push_back(dummyNormal);
-    images_.push_back(dummyMetallic);
-    images_.push_back(dummyAO);
-    images_.push_back(dummyEmission);
-
-    std::cout << std::endl << "loaded: " << (*(pInputModel_)).images.size() << " images" << std::endl;
-}
-
-void GLTFObj::loadTextures() {
-    textureIndices_.resize((*(pInputModel_)).textures.size());
-    uint32_t size = static_cast<uint32_t>(textureIndices_.size());
-    for (size_t i = 0; i < (*(pInputModel_)).textures.size(); i++) {
-        textureIndices_[i] = (*(pInputModel_)).textures[i].source;
-    }
-    textureIndices_.push_back(size);
-    textureIndices_.push_back(size + 1);
-    textureIndices_.push_back(size + 2);
-    textureIndices_.push_back(size + 3);
-}
-
-void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     SMikkTSpaceContext mikktContext = { .m_pInterface = &MikkTInterface };
 
     SceneNode* scNode = new SceneNode{};
@@ -189,12 +97,12 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 
     if (nodeIn.children.size() > 0) {
         for (size_t i = 0; i < nodeIn.children.size(); i++) {
-            loadNode(in, in.nodes[nodeIn.children[i]], scNode, globalVertexOffset, globalIndexOffset);
+            loadNode(pInputModel_->nodes[nodeIn.children[i]], scNode, globalVertexOffset, globalIndexOffset);
         }
     }
 
     if (nodeIn.mesh > -1) {
-        const tinygltf::Mesh mesh = in.meshes[nodeIn.mesh];
+        const tinygltf::Mesh mesh = pInputModel_->meshes[nodeIn.mesh];
         for (size_t i = 0; i < mesh.primitives.size(); i++) {
             MeshHelper* p = new MeshHelper();
 
@@ -211,25 +119,25 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             const float* uvBuff = nullptr;
             const float* tangentsBuff = nullptr;
             if (gltfPrims.attributes.find("POSITION") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("POSITION")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                positionBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("POSITION")->second];
+                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+                positionBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 currentNumVertices = static_cast<uint32_t>(accessor.count);
             }
             if (gltfPrims.attributes.find("NORMAL") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("NORMAL")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                normalsBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("NORMAL")->second];
+                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+                normalsBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
             if (gltfPrims.attributes.find("TEXCOORD_0") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("TEXCOORD_0")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                uvBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TEXCOORD_0")->second];
+                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+                uvBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
             if (gltfPrims.attributes.find("TANGENT") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = in.accessors[gltfPrims.attributes.find("TANGENT")->second];
-                const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-                tangentsBuff = reinterpret_cast<const float*>(&(in.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TANGENT")->second];
+                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+                tangentsBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
 
             for (size_t vert = 0; vert < currentNumVertices; vert++) {
@@ -244,9 +152,9 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
             }
 
             // FOR INDEX
-            const tinygltf::Accessor& accessor = in.accessors[gltfPrims.indices];
-            const tinygltf::BufferView& view = in.bufferViews[accessor.bufferView];
-            const tinygltf::Buffer& buffer = in.buffers[view.buffer];
+            const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.indices];
+            const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+            const tinygltf::Buffer& buffer = pInputModel_->buffers[view.buffer];
 
             currentNumIndices += static_cast<uint32_t>(accessor.count);
 
@@ -291,14 +199,14 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
                 std::vector<Vertex> unpacked(p->stagingIndices_.size());
                 uint32_t newInd = 0;
                 for (uint32_t index : p->stagingIndices_) {
-                    unpacked[newInd] = p->stagingVertices_[index - firstVertex];
+                    unpacked[newInd] = p->stagingVertices_[static_cast<std::vector<Vertex, std::allocator<Vertex>>::size_type>(index) - firstVertex];
                     newInd++;
                 }
                 p->stagingVertices_ = std::move(unpacked);
                 p->stagingIndices_.clear();
 
                 // GEN TANGENT SPACE
-                MikkTContext context{ p };
+                MikkTSpaceHelper::MikkTContext context{ p };
                 mikktContext.m_pUserData = &context;
                 genTangSpaceDefault(&mikktContext);
 
@@ -335,13 +243,13 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 
             scNode->meshPrimitives.push_back(p);
 
-            for (auto m : p->stagingVertices_) {
-                vertices_.push_back(m);
-            }
+            vertices_.insert(vertices_.end(), p->stagingVertices_.begin(), p->stagingVertices_.end());
+            indices_.insert(indices_.end(), p->stagingIndices_.begin(), p->stagingIndices_.end());
 
-            for (auto i : p->stagingIndices_) {
-                indices_.push_back(i);
-            }
+            p->stagingIndices_.clear();
+            p->stagingIndices_.shrink_to_fit();
+            p->stagingVertices_.clear();
+            p->stagingVertices_.shrink_to_fit();
         }
     }
 
@@ -354,25 +262,23 @@ void GLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, SceneN
 }
 
 void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
-    tinygltf::Model in;
+    pInputModel_ = new tinygltf::Model();
     tinygltf::TinyGLTF gltfContext;
     std::string error, warning;
-
-    pInputModel_ = &in;
 
     bool loadedFile = false;
     std::filesystem::path fPath = gltfPath_;
     if (fPath.extension() == ".glb") {
-        loadedFile = gltfContext.LoadBinaryFromFile(&(in), &error, &warning, gltfPath_);
+        loadedFile = gltfContext.LoadBinaryFromFile(pInputModel_, &error, &warning, gltfPath_);
     }
     else if (fPath.extension() == ".gltf") {
-        loadedFile = gltfContext.LoadASCIIFromFile(&(in), &error, &warning, gltfPath_);
+        loadedFile = gltfContext.LoadASCIIFromFile(pInputModel_, &error, &warning, gltfPath_);
     }
 
     if (loadedFile) {
-        if (in.images.size() != 0) {
+        if (pInputModel_->images.size() != 0) {
             loadImages();
-            textureIndices_.resize(in.textures.size() + 3);
+            textureIndices_.resize(pInputModel_->textures.size() + 3);
             loadMaterials();
             loadTextures();
 
@@ -381,15 +287,47 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
             }
         }
 
-        const tinygltf::Scene& scene = in.scenes[0];
+        const tinygltf::Scene& scene = pInputModel_->scenes[0];
         for (size_t i = 0; i < scene.nodes.size(); i++) {
-            const tinygltf::Node node = in.nodes[scene.nodes[i]];
-            loadNode(in, node, nullptr, globalVertexOffset, globalIndexOffset);
+            const tinygltf::Node node = pInputModel_->nodes[scene.nodes[i]];
+            loadNode(node, nullptr, globalVertexOffset, globalIndexOffset);
         }
     }
     else {
         std::cout << "couldnt open gltf file" << std::endl;
     }
+
+    delete pInputModel_;
+}
+
+// LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
+void GLTFObj::loadImages() {
+    for (size_t i = 0; i < pInputModel_->images.size(); i++) {
+        TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
+        images_.push_back(tex);
+    }
+    TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
+    TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
+    TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
+    TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
+    images_.push_back(dummyNormal);
+    images_.push_back(dummyMetallic);
+    images_.push_back(dummyAO);
+    images_.push_back(dummyEmission);
+
+    std::cout << std::endl << "loaded: " << (*(pInputModel_)).images.size() << " images" << std::endl;
+}
+
+void GLTFObj::loadTextures() {
+    textureIndices_.resize((*(pInputModel_)).textures.size());
+    uint32_t size = static_cast<uint32_t>(textureIndices_.size());
+    for (size_t i = 0; i < (*(pInputModel_)).textures.size(); i++) {
+        textureIndices_[i] = (*(pInputModel_)).textures[i].source;
+    }
+    textureIndices_.push_back(size);
+    textureIndices_.push_back(size + 1);
+    textureIndices_.push_back(size + 2);
+    textureIndices_.push_back(size + 3);
 }
 
 void GLTFObj::loadMaterials() {
@@ -539,64 +477,34 @@ void GLTFObj::createDescriptors() {
     }
 }
 
-void GLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, SceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        for (int i = 0; i < mesh->stagingVertices_.size(); i++) {
-            vertices->push_back(mesh->stagingVertices_[i]);
-        }
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveVertexAdd(vertices, node);
-    }
-}
-
-void GLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, SceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        for (int i = 0; i < mesh->stagingIndices_.size(); i++) {
-            indices->push_back(mesh->stagingIndices_[i]);
-        }
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveIndexAdd(indices, node);
-    }
-}
-
-void GLTFObj::addVertices(std::vector<Vertex>* vertices) {
-    for (auto& node : pParentNodes) {
-        recursiveVertexAdd(vertices, node);
-    }
-}
-
-void GLTFObj::addIndices(std::vector<uint32_t>* indices) {
-    for (auto& node : pParentNodes) {
-        recursiveIndexAdd(indices, node);
-    }
-}
-
-void GLTFObj::recursiveRemove(SceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        mesh->stagingVertices_.clear();
-        mesh->stagingVertices_.shrink_to_fit();
-        mesh->stagingIndices_.clear();
-        mesh->stagingIndices_.shrink_to_fit();
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveRemove(node);
-    }
-}
-
-void GLTFObj::remove() {
-    for (auto& node : pParentNodes) {
-        recursiveRemove(node);
-    }
-}
-
 GLTFObj::GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
     this->globalFirstVertex = globalVertexOffset;
     this->globalFirstIndex = globalIndexOffset;
+
+    loadGLTF(globalVertexOffset, globalIndexOffset);
+}
+
+// DELETION
+
+void GLTFObj::recursiveDeleteNode(SceneNode* node) {
+    for (auto& childNode : node->children) {
+        recursiveDeleteNode(childNode);
+    }
+
+    for (auto& mesh : node->meshPrimitives) {
+        delete mesh;
+    }
+    delete node;
+}
+
+GLTFObj::~GLTFObj() {
+    for (auto& node : pParentNodes) {
+        recursiveDeleteNode(node);
+    }
+
+    for (auto& texture : images_) {
+        delete texture;
+    }
 }

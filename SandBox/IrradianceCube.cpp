@@ -118,7 +118,7 @@ void IrradianceCube::createRenderPass() {
     subpassDescription.colorAttachmentCount = 1;
     subpassDescription.pColorAttachments = &colorReference;
 
-    std::array<VkSubpassDependency, 2> dependencies;
+    std::array<VkSubpassDependency, 2> dependencies{};
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -146,63 +146,8 @@ void IrradianceCube::createRenderPass() {
     vkCreateRenderPass(pDevHelper_->device_, &renderPassCI, nullptr, &iRCubeRenderpass_);
 }
 
-void IrradianceCube::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage irImage) {
-    // transition image layout
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.image = irImage;
-    barrier.subresourceRange = subresourceRange;
-
-    switch (oldLayout) {
-    case VK_IMAGE_LAYOUT_UNDEFINED:
-        barrier.srcAccessMask = 0;
-        break;
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        break;
-    default:
-        break;
-    }
-
-    switch (newLayout) {
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-        if (barrier.srcAccessMask == 0)
-        {
-            barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-        }
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        break;
-    }
-
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-
-    sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-    vkCmdPipelineBarrier(cmdBuff, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-}
-
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void IrradianceCube::createFrameBuffer() {
-    // Color attachment
     VkImageCreateInfo imageCreateInfo{};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -258,24 +203,8 @@ void IrradianceCube::createFrameBuffer() {
     subRange.baseMipLevel = 0;
     subRange.levelCount = 1;
     subRange.layerCount = 1;
-    transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
-    endCommandBuffer(pDevHelper_->device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
-}
-
-// In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
-VkShaderModule IrradianceCube::createShaderModule(VkDevice dev, const std::vector<char>& binary) {
-    // We need to specify a pointer to the buffer with the bytecode and the length of the bytecode. Bytecode pointer is a uint32_t pointer
-    VkShaderModuleCreateInfo shaderModuleCInfo{};
-    shaderModuleCInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCInfo.codeSize = binary.size();
-    shaderModuleCInfo.pCode = reinterpret_cast<const uint32_t*>(binary.data());
-
-    VkShaderModule shaderMod;
-    if (vkCreateShaderModule(dev, &shaderModuleCInfo, nullptr, &shaderMod)) {
-        std::_Xruntime_error("Failed to create a shader module!");
-    }
-
-    return shaderMod;
+    pDevHelper_->transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
+    pDevHelper_->protectedEndCommands(layoutCmd);
 }
 
 void IrradianceCube::createPipeline() {
@@ -296,7 +225,7 @@ void IrradianceCube::createPipeline() {
     pipelineInfo.pDescriptorSetLayouts = &iRCubeDescriptorSetLayout_;
     pipelineInfo.numSets = 1;
     pipelineInfo.pShaderStages = shaderStages.data();
-    pipelineInfo.numStages = shaderStages.size();
+    pipelineInfo.numStages = static_cast<int>(shaderStages.size());
     pipelineInfo.pPushConstantRanges = &pcRange;
     pipelineInfo.numRanges = 1;
     pipelineInfo.vertexBindingDescriptions = &bindingDescription;
@@ -316,31 +245,9 @@ void IrradianceCube::createPipeline() {
     iRPipeline_->generate(pipelineInfo, iRCubeRenderpass_);
 }
 
-
-void IrradianceCube::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(*(pGraphicsQueue_), 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-
-    vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
-}
-
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
-    VkClearValue clearValues[1];
+    VkClearValue clearValues[1]{};
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -361,8 +268,8 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     subresourceRange.layerCount = 6;
 
     VkViewport viewport{};
-    viewport.width = width_;
-    viewport.height = height_;
+    viewport.width = float(width_);
+    viewport.height = float(height_);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
@@ -378,7 +285,7 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(cmdBuf, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iRCubeImage_);
+    pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iRCubeImage_);
 
     VkImageSubresourceRange subresourceRange2 = {};
     subresourceRange2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -411,11 +318,11 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRPipeline_->pipeline);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, iRPipeline_->layout, 0, 1, &iRCubeDescriptorSet_, 0, NULL);
 
-            pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
+            pSkybox_->drawSkyBoxIndexed(cmdBuf);
 
             vkCmdEndRenderPass(cmdBuf);
 
-            transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreen.image);
+            pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreen.image);
             
             // Copy region for transfer from framebuffer to cube face - https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
             VkImageCopy copyRegion = {};
@@ -438,13 +345,18 @@ void IrradianceCube::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
 
             vkCmdCopyImage(cmdBuf, offscreen.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, iRCubeImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-            transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
+            pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
         }
     }
 
-    transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, iRCubeImage_);
+    pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, iRCubeImage_);
 
-    endCommandBuffer(pDevHelper_->device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
+    pDevHelper_->protectedEndCommands(cmdBuf);
+
+    vkDestroyImageView(this->pDevHelper_->device_, offscreen.view, nullptr);
+    vkDestroyImage(this->pDevHelper_->device_, offscreen.image, nullptr);
+    vkFreeMemory(this->pDevHelper_->device_, offscreen.memory, nullptr);
+    vkDestroyFramebuffer(this->pDevHelper_->device_, offscreen.framebuffer, nullptr);
 }
 
 void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
@@ -461,12 +373,37 @@ void IrradianceCube::geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     render(vertexBuffer, indexBuffer);
 }
 
-IrradianceCube::IrradianceCube(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {
+IrradianceCube::IrradianceCube(DeviceHelper* devHelper, Skybox* pSkybox, VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     this->pDevHelper_ = devHelper;
     this->imageFormat_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     this->width_ = this->height_ = 64;
     this->mipLevels_ = static_cast<uint32_t>(floor(log2(64))) + 1;
-    this->pGraphicsQueue_ = graphicsQueue;
     this->pSkybox_ = pSkybox;
-    this->pCommandPool_ = cmdPool;
+    this->iRCubeImage_ = VK_NULL_HANDLE;
+    this->iRCubeFrameBuffer_ = VK_NULL_HANDLE;
+    this->iRCubeRenderpass_ = VK_NULL_HANDLE;
+    this->iRCubeDescriptorSetLayout_ = VK_NULL_HANDLE;
+    this->iRCubeDescriptorPool_ = VK_NULL_HANDLE;
+    this->iRCubeDescriptorSet_ = VK_NULL_HANDLE;
+    this->iRCubeImageMemory_ = VK_NULL_HANDLE;
+    this->iRCubeImageView_ = VK_NULL_HANDLE;
+    this->iRCubeImageSampler_ = VK_NULL_HANDLE;
+    this->offscreen = OffscreenStruct{};
+    this->iRCubeattachment = VkAttachmentDescription{};
+    this->irImageInfo = VkDescriptorImageInfo{};
+    this->iRPipeline_ = nullptr;
+
+    geniRCube(vertexBuffer, indexBuffer);
+}
+
+IrradianceCube::~IrradianceCube() {
+    vkDestroySampler(this->pDevHelper_->device_, this->iRCubeImageSampler_, nullptr);
+    vkDestroyImageView(this->pDevHelper_->device_, this->iRCubeImageView_, nullptr);
+    vkDestroyImage(this->pDevHelper_->device_, this->iRCubeImage_, nullptr);
+    vkFreeMemory(this->pDevHelper_->device_, iRCubeImageMemory_, nullptr);
+    vkDestroyFramebuffer(this->pDevHelper_->device_, this->iRCubeFrameBuffer_, nullptr);
+    vkDestroyRenderPass(this->pDevHelper_->device_, this->iRCubeRenderpass_, nullptr);
+    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
+    vkDestroyDescriptorPool(this->pDevHelper_->device_, this->iRCubeDescriptorPool_, nullptr);
+    delete iRPipeline_;
 }

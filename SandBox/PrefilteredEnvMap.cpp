@@ -115,7 +115,7 @@ void PrefilteredEnvMap::createRenderPass() {
     subpassDescription.colorAttachmentCount = 1;
     subpassDescription.pColorAttachments = &colorReference;
 
-    std::array<VkSubpassDependency, 2> dependencies;
+    std::array<VkSubpassDependency, 2> dependencies{};
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -141,73 +141,6 @@ void PrefilteredEnvMap::createRenderPass() {
     renderPassCI.pDependencies = dependencies.data();
 
     vkCreateRenderPass(pDevHelper_->device_, &renderPassCI, nullptr, &prefEMapRenderpass_);
-}
-
-uint32_t PrefilteredEnvMap::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(gpu_, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    std::_Xruntime_error("Failed to find a suitable memory type!");
-}
-
-void PrefilteredEnvMap::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage irImage) {
-    // transition image layout
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.image = irImage;
-    barrier.subresourceRange = subresourceRange;
-
-    switch (oldLayout) {
-    case VK_IMAGE_LAYOUT_UNDEFINED:
-        barrier.srcAccessMask = 0;
-        break;
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        break;
-    default:
-        break;
-    }
-
-    switch (newLayout) {
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        break;
-    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-        if (barrier.srcAccessMask == 0)
-        {
-            barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-        }
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        break;
-    }
-
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-
-    sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-    vkCmdPipelineBarrier(cmdBuff, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -236,7 +169,7 @@ void PrefilteredEnvMap::createFrameBuffer() {
         VkMemoryRequirements memReqs;
         vkGetImageMemoryRequirements(pDevHelper_->device_, offscreen.image, &memReqs);
         memAlloc.allocationSize = memReqs.size;
-        memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->gpu_, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        memAlloc.memoryTypeIndex = pDevHelper_->findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         vkAllocateMemory(pDevHelper_->device_, &memAlloc, nullptr, &offscreen.memory);
         vkBindImageMemory(pDevHelper_->device_, offscreen.image, offscreen.memory, 0);
 
@@ -270,43 +203,9 @@ void PrefilteredEnvMap::createFrameBuffer() {
         subRange.baseMipLevel = 0;
         subRange.levelCount = 1;
         subRange.layerCount = 1;
-        transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
-        endCommandBuffer(pDevHelper_->device_, layoutCmd, pGraphicsQueue_, pCommandPool_);
+        pDevHelper_->transitionImageLayout(layoutCmd, subRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
+        pDevHelper_->protectedEndCommands(layoutCmd);
     }
-}
-
-std::vector<char> PrefilteredEnvMap::readFile(const std::string& filename) {
-    // Start reading at end of the file and read as binary
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "failed to open file" << std::endl;
-        std::_Xruntime_error("");
-    }
-
-    // Read the file, create the buffer, and return it
-    size_t fileSize = file.tellg();
-    std::vector<char> buffer((size_t)file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
-
-// In order to pass the binary code to the graphics pipeline, we need to create a VkShaderModule object to wrap it with
-VkShaderModule PrefilteredEnvMap::createShaderModule(VkDevice dev, const std::vector<char>& binary) {
-    // We need to specify a pointer to the buffer with the bytecode and the length of the bytecode. Bytecode pointer is a uint32_t pointer
-    VkShaderModuleCreateInfo shaderModuleCInfo{};
-    shaderModuleCInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCInfo.codeSize = binary.size();
-    shaderModuleCInfo.pCode = reinterpret_cast<const uint32_t*>(binary.data());
-
-    VkShaderModule shaderMod;
-    if (vkCreateShaderModule(dev, &shaderModuleCInfo, nullptr, &shaderMod)) {
-        std::_Xruntime_error("Failed to create a shader module!");
-    }
-
-    return shaderMod;
 }
 
 void PrefilteredEnvMap::createPipeline() {
@@ -347,31 +246,9 @@ void PrefilteredEnvMap::createPipeline() {
     prefEMPipeline_->generate(pipelineInfo, prefEMapRenderpass_);
 }
 
-
-void PrefilteredEnvMap::endCommandBuffer(VkDevice device_, VkCommandBuffer cmdBuff, VkQueue* pGraphicsQueue_, VkCommandPool* pCommandPool_) {
-    vkEndCommandBuffer(cmdBuff);
-
-    VkSubmitInfo queueSubmitInfo{};
-    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    queueSubmitInfo.commandBufferCount = 1;
-    queueSubmitInfo.pCommandBuffers = &cmdBuff;
-    // Create fence to ensure that the command buffer has finished executing
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence fence;
-    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
-    // Submit to the queue
-    vkQueueSubmit(*(pGraphicsQueue_), 1, &queueSubmitInfo, fence);
-    // Wait for the fence to signal that command buffer has finished executing
-    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
-    vkDestroyFence(device_, fence, nullptr);
-    
-    vkFreeCommandBuffers(device_, *(pCommandPool_), 1, &cmdBuff);
-}
-
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void PrefilteredEnvMap::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
-    VkClearValue clearValues[1];
+    VkClearValue clearValues[1]{};
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -416,7 +293,7 @@ void PrefilteredEnvMap::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     scissor.extent.height = height_;
     vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, prefEMapImage_);
+    pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, prefEMapImage_);
     VkImageSubresourceRange subresourceRange2 = {};
     subresourceRange2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     subresourceRange2.baseMipLevel = 0;
@@ -444,11 +321,11 @@ void PrefilteredEnvMap::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
             vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, prefEMPipeline_->pipeline);
             vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, prefEMPipeline_->layout , 0, 1, &prefEMapDescriptorSet_, 0, NULL);
 
-            pSkybox_->pSkyBoxModel_->drawSkyBoxIndexed(cmdBuf);
+            pSkybox_->drawSkyBoxIndexed(cmdBuf);
 
             vkCmdEndRenderPass(cmdBuf);
 
-            transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreen.image);
+            pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreen.image);
 
             // Copy region for transfer from framebuffer to cube face - https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
             VkImageCopy copyRegion = {};
@@ -471,13 +348,18 @@ void PrefilteredEnvMap::render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
 
             vkCmdCopyImage(cmdBuf, offscreen.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, prefEMapImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-            transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
+            pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, offscreen.image);
         }
     }
 
-    transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, prefEMapImage_);
+    pDevHelper_->transitionImageLayout(cmdBuf, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, prefEMapImage_);
 
-    endCommandBuffer(pDevHelper_->device_, cmdBuf, pGraphicsQueue_, pCommandPool_);
+    pDevHelper_->protectedEndCommands(cmdBuf);
+
+    vkDestroyImageView(this->pDevHelper_->device_, offscreen.view, nullptr);
+    vkDestroyImage(this->pDevHelper_->device_, offscreen.image, nullptr);
+    vkFreeMemory(this->pDevHelper_->device_, offscreen.memory, nullptr);
+    vkDestroyFramebuffer(this->pDevHelper_->device_, offscreen.framebuffer, nullptr);
 }
 
 void PrefilteredEnvMap::genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
@@ -494,12 +376,37 @@ void PrefilteredEnvMap::genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffe
     render(vertexBuffer, indexBuffer);
 }
 
-PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, Skybox* pSkybox) {
+PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, Skybox* pSkybox, VkBuffer& vertexBuffer, VkBuffer& indexBuffer) {
     this->pDevHelper_ = devHelper;
     this->imageFormat_ = VK_FORMAT_R16G16B16A16_SFLOAT;
     this->width_ = this->height_ = 512;
     this->mipLevels_ = static_cast<uint32_t>(floor(log2(512))) + 1;
-    this->pGraphicsQueue_ = graphicsQueue;
     this->pSkybox_ = pSkybox;
-    this->pCommandPool_ = cmdPool;
+    this->prefEMapImage_ = VK_NULL_HANDLE;
+    this->prefEMapFrameBuffer_ = VK_NULL_HANDLE;
+    this->prefEMapRenderpass_ = VK_NULL_HANDLE;
+    this->prefEMapDescriptorSetLayout_ = VK_NULL_HANDLE;
+    this->prefEMapDescriptorPool_ = VK_NULL_HANDLE;
+    this->prefEMapDescriptorSet_ = VK_NULL_HANDLE;
+    this->prefEMapImageMemory_ = VK_NULL_HANDLE;
+    this->prefEMapImageView_ = VK_NULL_HANDLE;
+    this->prefEMapImageSampler_ = VK_NULL_HANDLE;
+    this->offscreen = OffscreenStruct{};
+    this->prefEMapattachment = VkAttachmentDescription{};
+    this->prefevImageInfo = VkDescriptorImageInfo{};
+    this->prefEMPipeline_ = nullptr;
+
+    genprefEMap(vertexBuffer, indexBuffer);
+}
+
+PrefilteredEnvMap::~PrefilteredEnvMap() {
+    vkDestroySampler(this->pDevHelper_->device_, this->prefEMapImageSampler_, nullptr);
+    vkDestroyImageView(this->pDevHelper_->device_, this->prefEMapImageView_, nullptr);
+    vkDestroyImage(this->pDevHelper_->device_, this->prefEMapImage_, nullptr);
+    vkFreeMemory(this->pDevHelper_->device_, prefEMapImageMemory_, nullptr);
+    vkDestroyFramebuffer(this->pDevHelper_->device_, this->prefEMapFrameBuffer_, nullptr);
+    vkDestroyRenderPass(this->pDevHelper_->device_, this->prefEMapRenderpass_, nullptr);
+    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->prefEMapDescriptorSetLayout_, nullptr);
+    vkDestroyDescriptorPool(this->pDevHelper_->device_, this->prefEMapDescriptorPool_, nullptr);
+    delete prefEMPipeline_;
 }

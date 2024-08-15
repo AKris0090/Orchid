@@ -2,58 +2,6 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
-// MIKKTSPACE TANGENT FUNCTIONS, REFERENCED OFF OF: https://github.com/Eearslya/glTFView. SUCH AN AMAZING PERSON
-struct MikkTContext {
-    MeshHelper* mesh;
-};
-
-static int MikkTGetNumFaces(const SMikkTSpaceContext* context) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    return data->mesh->stagingVertices_.size() / 3;
-}
-
-static int MikkTGetNumVerticesOfFace(const SMikkTSpaceContext* context, const int face) {
-    return 3;
-}
-
-static void MikkTGetPosition(const SMikkTSpaceContext* context, float fvPosOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 pos = data->mesh->stagingVertices_[face * 3 + vert].pos;
-    fvPosOut[0] = pos.x;
-    fvPosOut[1] = pos.y;
-    fvPosOut[2] = pos.z;
-}
-
-static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 norm = data->mesh->stagingVertices_[face * 3 + vert].normal;
-    fvNormOut[0] = norm.x;
-    fvNormOut[1] = norm.y;
-    fvNormOut[2] = norm.z;
-}
-
-static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    glm::vec2 uv = glm::vec2(data->mesh->stagingVertices_[face * 3 + vert].pos.w, data->mesh->stagingVertices_[face * 3 + vert].normal.w);
-    fvTexcOut[0] = uv.x;
-    fvTexcOut[1] = 1.0 - uv.y;
-}
-
-static void MikkTSetTSpaceBasic(
-    const SMikkTSpaceContext* context, const float fvTangent[], const float fSign, const int face, const int vert) {
-    auto data = reinterpret_cast<MikkTContext*>(context->m_pUserData);
-
-    data->mesh->stagingVertices_[face * 3 + vert].tangent = glm::vec4(glm::make_vec3(fvTangent), fSign);
-}
-
-static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces,
-                                              .m_getNumVerticesOfFace = MikkTGetNumVerticesOfFace,
-                                              .m_getPosition = MikkTGetPosition,
-                                              .m_getNormal = MikkTGetNormal,
-                                              .m_getTexCoord = MikkTGetTexCoord,
-                                              .m_setTSpaceBasic = MikkTSetTSpaceBasic,
-                                              .m_setTSpace = nullptr };
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void AnimatedGLTFObj::callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo) {
@@ -381,7 +329,7 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 p->stagingIndices_.clear();
 
                 // GEN TANGENT SPACE
-                MikkTContext context{ p };
+                MikkTSpaceHelper::MikkTContext context{ p };
                 mikktContext.m_pUserData = &context;
                 genTangSpaceDefault(&mikktContext);
 

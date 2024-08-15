@@ -139,6 +139,27 @@ void DeviceHelper::endSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     vkFreeCommandBuffers(device_, commandPool_, 1, &commandBuffer);
 }
 
+void DeviceHelper::protectedEndCommands(VkCommandBuffer commandBuffer) const {
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo queueSubmitInfo{};
+    queueSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    queueSubmitInfo.commandBufferCount = 1;
+    queueSubmitInfo.pCommandBuffers = &commandBuffer;
+    // Create fence to ensure that the command buffer has finished executing
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFence fence;
+    vkCreateFence(device_, &fenceInfo, nullptr, &fence);
+    // Submit to the queue
+    vkQueueSubmit(graphicsQueue_, 1, &queueSubmitInfo, fence);
+    // Wait for the fence to signal that command buffer has finished executing
+    vkWaitForFences(device_, 1, &fence, VK_TRUE, 100000000000); // big number is fence timeout
+    vkDestroyFence(device_, fence, nullptr);
+
+    vkFreeCommandBuffers(device_, commandPool_, 1, &commandBuffer);
+}
+
 void DeviceHelper::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -178,4 +199,57 @@ void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
     }
 
     vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+}
+
+void DeviceHelper::transitionImageLayout(VkCommandBuffer& cmdBuff, const VkImageSubresourceRange& subresourceRange, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkImage& image) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.image = image;
+    barrier.subresourceRange = subresourceRange;
+
+    switch (oldLayout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        barrier.srcAccessMask = 0;
+        break;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+    default:
+        break;
+    }
+
+    switch (newLayout) {
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        if (barrier.srcAccessMask == 0)
+        {
+            barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        break;
+    }
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+    vkCmdPipelineBarrier(cmdBuff, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }

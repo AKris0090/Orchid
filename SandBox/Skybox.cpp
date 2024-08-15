@@ -1,5 +1,10 @@
 #include "Skybox.h"
 
+void Skybox::drawSkyBoxIndexed(VkCommandBuffer& commandBuffer) {
+    MeshHelper* m = (pSkyBoxModel_->pParentNodes[0])->meshPrimitives[0];
+    MeshHelper::callIndexedDraw(commandBuffer, m->indirectInfo);
+}
+
 void Skybox::transitionImageLayout(VkCommandBuffer cmdBuff, VkImageSubresourceRange subresourceRange, VkImageLayout oldLayout, VkImageLayout newLayout) {
     // transition image layout
     VkImageMemoryBarrier barrier{};
@@ -318,7 +323,6 @@ Skybox::Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHel
 
 void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
 	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_, globalVertexOffset, globalIndexOffset);
-	pSkyBoxModel_->loadGLTF(globalVertexOffset, globalIndexOffset);
     pSkyBoxModel_->isSkyBox_ = true;
     skyBoxLoad();
 }

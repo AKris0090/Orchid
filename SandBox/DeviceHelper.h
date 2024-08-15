@@ -40,16 +40,28 @@ public:
 
     VkCommandBuffer beginSingleTimeCommands() const;
     void endSingleTimeCommands(VkCommandBuffer commandBuffer) const;
+    void protectedEndCommands(VkCommandBuffer commandBuffer) const;
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
-   
+
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
     void createSkyBoxImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const;
+    void transitionImageLayout(VkCommandBuffer& cmdBuff, const VkImageSubresourceRange& subresourceRange, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkImage& image);
 };
+
+static struct cascadeMVP {
+    glm::mat4 model;
+    uint32_t cascadeIndex;
+} cascadeBlock;
+
+static struct pcBlock {
+    int alphaMask;
+    float alphaCutoff;
+} pushConstantBlock;
 
 class Transform {
 public:

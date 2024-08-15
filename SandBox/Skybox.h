@@ -45,7 +45,6 @@ public:
 	Skybox() {};
 	Skybox(std::string modPath, std::vector<std::string> texPaths, DeviceHelper* devHelper);
 
-	VkImageView getImageView() { return this->skyBoxImageView_; };
-
+	void drawSkyBoxIndexed(VkCommandBuffer& commandBuffer);
 	void loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 };

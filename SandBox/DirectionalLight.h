@@ -86,7 +86,7 @@ public:
 	} depthPushBlock;
 
 	struct UBO {
-		glm::mat4 cascadeMVP[SHADOW_MAP_CASCADE_COUNT];
+		glm::mat4 cascadeMVPUniform[SHADOW_MAP_CASCADE_COUNT];
 	};
 
 	std::vector<VkBuffer> uniformBuffer;

@@ -24,8 +24,9 @@ const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
 const std::vector<const char*> deviceExts = {
+	VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
+	VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 };
 
 // Queue family struct

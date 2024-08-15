@@ -89,16 +89,11 @@ int main(int argc, char* argv[]) {
 
     graphicsManager.gameObjects[0]->isDynamic = true; // helmet
 
-    // cleanup
-    for (auto& gameObject : graphicsManager.gameObjects) {
-        gameObject->renderTarget->remove();
-    }
-
     glm::vec3 scale = glm::vec3(0.01f);
     graphicsManager.gameObjects[1]->transform.scale = scale;
 
     for (GameObject* g : graphicsManager.gameObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
+        g->renderTarget->localModelTransform = g->transform.to_matrix();
     }
 
     // second helmet

@@ -33,7 +33,7 @@ void GraphicsManager::setupImGUI() {
 void GraphicsManager::startSDL() {
     SDL_Init(SDL_INIT_VIDEO);
 
-    pWindow_ = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    pWindow_ = SDL_CreateWindow("Orchid Demo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     pRenderer_ = SDL_CreateRenderer(pWindow_, -1, SDL_RENDERER_ACCELERATED);
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -48,9 +48,8 @@ void GraphicsManager::setup() {
 void GraphicsManager::shutDown() {
     vkDeviceWaitIdle(pVkR_->device_);
 
-    pVkR_->shutdown();
-
-    ImGui_ImplVulkan_Shutdown();
+    //pVkR_->shutdown();
+    
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
@@ -175,13 +174,13 @@ void GraphicsManager::startVulkan() {
     pVkR_->pSkyBox_->loadSkyBox(globalVertexOffset, globalIndexOffset);
     pVkR_->createSkyBoxPipeline();
 
-    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalVertices(); i++) {
-        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->meshPrimitives[0]->stagingVertices_[i]);
+    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
+        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->vertices_[i]);
         globalVertexOffset++;
     }
 
-    for (int i = globalIndexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->getTotalIndices(); i++) {
-        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->pParentNodes[0]->meshPrimitives[0]->stagingIndices_[i]);
+    for (int i = globalIndexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalIndices_; i++) {
+        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->indices_[i]);
         globalIndexOffset++;
     }
 
@@ -192,22 +191,21 @@ void GraphicsManager::startVulkan() {
     for (std::string s : pStaticModelPaths_) {
         GameObject* newGO = new GameObject();
         GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
-        mod->loadGLTF(globalVertexOffset, globalIndexOffset);
         newGO->setGLTFObj(mod);
         gameObjects.push_back(newGO);
 
         pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
         pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-        mod->addVertices(&(pVkR_->vertices_));
-        mod->addIndices(&(pVkR_->indices_));
+        pVkR_->vertices_.insert(pVkR_->vertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
+        pVkR_->indices_.insert(pVkR_->indices_.end(), mod->indices_.begin(), mod->indices_.end());
 
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();
 
         newGO->isOutline = false;
 
-        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+        std::cout << "\nloaded model: " << s << ": " << mod->totalVertices_ << " vertices, " << mod->totalIndices_ << " indices\n" << std::endl;
     }
 
     uint32_t globalSkinMatrixOffset = 0;
@@ -270,13 +268,10 @@ void GraphicsManager::startVulkan() {
     pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_);
     std::cout << "generated BRDFLUT" << std::endl;
 
-    pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
-    pVkR_->irCube->geniRCube(pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
-
+    pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, pVkR_->pSkyBox_, pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
     std::cout << std::endl << "generated IrradianceCube" << std::endl;
 
-    pVkR_->prefEMap = new PrefilteredEnvMap(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->pSkyBox_);
-    pVkR_->prefEMap->genprefEMap(pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
+    pVkR_->prefEMap = new PrefilteredEnvMap(pVkR_->pDevHelper_, pVkR_->pSkyBox_, pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
 

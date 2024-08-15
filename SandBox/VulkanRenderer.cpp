@@ -434,6 +434,13 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
     }
 }
 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
+
 // Fill the debug messenger with information to call back
 void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
     createInfo = {};
@@ -516,7 +523,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
     aInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     aInfo.pApplicationName = appName;
     aInfo.applicationVersion = 1;
-    aInfo.pEngineName = "No Engine";
+    aInfo.pEngineName = "Orchid";
     aInfo.engineVersion = 1;
     aInfo.apiVersion = VK_API_VERSION_1_3;
 
@@ -708,7 +715,6 @@ QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice physicalDe
     return indices;
 }
 
-// Actual creation of the swap chain
 void VulkanRenderer::createSWChain(SDL_Window* window) {
     SWChainSuppDetails swInfo = getDetails(GPU_);
 
@@ -716,30 +722,22 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
     VkPresentModeKHR presentMode = swInfo.chooseSwPresMode(swInfo.presentModes);
     VkExtent2D extent = swInfo.chooseSwExtent(swInfo.capabilities, window);
 
-    // Also set the number of images we want in the swap chain, accomodate for driver to complete internal operations before we can acquire another image to render to
     uint32_t numImages = swInfo.capabilities.minImageCount + 1;
 
-    // Make sure to not exceed maximum number of images: 0 means no maximum
     if (swInfo.capabilities.maxImageCount > 0 && numImages > swInfo.capabilities.maxImageCount) {
         numImages = swInfo.capabilities.maxImageCount;
     }
 
-    // Fill in the structure to create the swap chain object
     VkSwapchainCreateInfoKHR swapchainCreateInfo{};
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.surface = surface_;
-
-    // Details of swap chain images
     swapchainCreateInfo.minImageCount = numImages;
     swapchainCreateInfo.imageFormat = surfaceFormat.format;
     swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
     swapchainCreateInfo.imageExtent = extent;
-    // Unless developing a stereoscopic 3D image, this is always 1
     swapchainCreateInfo.imageArrayLayers = 1;
     swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-    // Specify how images from swap chain are handled
-    // If graphics queue family is different from the present queue family, draw on the images in swap chain from graphics and submit them on present
     QueueFamilyIndices indices = findQueueFamilies(GPU_);
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
@@ -752,27 +750,19 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
         swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
-    // For transforming the image (rotation, translation, etc.)
     swapchainCreateInfo.preTransform = swInfo.capabilities.currentTransform;
-
-    // Alpha channel is used for blending with other windows, so ignore
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-
-    // Unless you want to be able to read pixels that are obscured because of another window in front of them, set clipped to VK_TRUE
     swapchainCreateInfo.presentMode = presentMode;
     swapchainCreateInfo.clipped = VK_TRUE;
 
-    VkResult res = vkCreateSwapchainKHR(device_, &swapchainCreateInfo, nullptr, &swapChain_);
-    if (res != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(device_, &swapchainCreateInfo, nullptr, &swapChain_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(device_, swapChain_, &numImages, nullptr);
-    SWChainImages_.resize(numImages);
-    vkGetSwapchainImagesKHR(device_, swapChain_, &numImages, SWChainImages_.data());
-
     SWChainImageFormat_ = surfaceFormat.format;
     SWChainExtent_ = extent;
+    SWChainImages_.resize(numImages);
+    vkGetSwapchainImagesKHR(device_, swapChain_, &numImages, SWChainImages_.data());
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -848,11 +838,9 @@ void VulkanRenderer::pickPhysicalDevice() {
     }
 }
 
-// Setting up the logical device using the physical device
 void VulkanRenderer::createLogicalDevice() {
     QFIndices_ = findQueueFamilies(GPU_);
 
-    // Create presentation queue with structs
     std::vector<VkDeviceQueueCreateInfo> queuecInfos;
     std::set<uint32_t> uniqueQFamilies = { QFIndices_.graphicsFamily.value(), QFIndices_.presentFamily.value(), QFIndices_.computeFamily.value() };
 
@@ -866,7 +854,6 @@ void VulkanRenderer::createLogicalDevice() {
         queuecInfos.push_back(queuecInfo);
     }
 
-    // Specifying device features through another struct
     VkPhysicalDeviceFeatures gpuFeatures{};
     gpuFeatures.samplerAnisotropy = VK_TRUE;
     gpuFeatures.depthClamp = VK_TRUE;
@@ -875,7 +862,6 @@ void VulkanRenderer::createLogicalDevice() {
     vk13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     vk13Features.synchronization2 = VK_TRUE;
 
-    // Create the logical device, filling in with the create info structs
     VkDeviceCreateInfo deviceCInfo{};
     deviceCInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceCInfo.pNext = &vk13Features;
@@ -883,11 +869,9 @@ void VulkanRenderer::createLogicalDevice() {
     deviceCInfo.pQueueCreateInfos = queuecInfos.data();
     deviceCInfo.pEnabledFeatures = &gpuFeatures;
 
-    // Set enabledLayerCount and ppEnabledLayerNames fields to be compatible with older implementations of Vulkan
     deviceCInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExts.size());
     deviceCInfo.ppEnabledExtensionNames = deviceExts.data();
 
-    // If validation layers are enabled, then fill create info struct with size and name information
     if (enableValLayers) {
         deviceCInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         deviceCInfo.ppEnabledLayerNames = validationLayers.data();
@@ -896,7 +880,6 @@ void VulkanRenderer::createLogicalDevice() {
         deviceCInfo.enabledLayerCount = 0;
     }
 
-    // Instantiate
     if (vkCreateDevice(GPU_, &deviceCInfo, nullptr, &device_) != VK_SUCCESS) {
         std::_Xruntime_error("failed to instantiate logical device!");
     }
@@ -904,20 +887,16 @@ void VulkanRenderer::createLogicalDevice() {
     vkGetDeviceQueue(device_, QFIndices_.graphicsFamily.value(), 0, &graphicsQueue_);
     vkGetDeviceQueue(device_, QFIndices_.presentFamily.value(), 0, &presentQueue_);
     vkGetDeviceQueue(device_, QFIndices_.computeFamily.value(), 0, &computeQueue_);
-
-    //loadDebugUtilsFunctions(device_);
 }
 
 void VulkanRenderer::loadDebugUtilsFunctions(VkDevice device) {
     vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetDeviceProcAddr(device, "vkCmdBeginDebugUtilsLabelEXT");
     if (!vkCmdBeginDebugUtilsLabelEXT) {
-        // Handle the error: the function could not be loaded
         std::cerr << "Failed to load vkCmdBeginDebugUtilsLabelEXT" << std::endl;
     }
 
     vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT");
     if (!vkCmdBeginDebugUtilsLabelEXT) {
-        // Handle the error: the function could not be loaded
         std::cerr << "Failed to load vkCmdBeginDebugUtilsLabelEXT" << std::endl;
     }
 }
@@ -2041,11 +2020,10 @@ void VulkanRenderer::createCommandBuffers(int numFramesInFlight) {
 }
 
 void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-    // Draw skybox
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
-    pSkyBox_->pSkyBoxModel_->drawSkyBoxIndexed(commandBuffer);
+    pSkyBox_->drawSkyBoxIndexed(commandBuffer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2258,6 +2236,18 @@ void VulkanRenderer::cleanupSWChain() {
     vkDestroyImage(device_, colorImage_, nullptr);
     vkFreeMemory(device_, colorImageMemory_, nullptr);
 
+    vkDestroyImageView(device_, bloomImageView_, nullptr);
+    vkDestroyImage(device_, bloomImage_, nullptr);
+    vkFreeMemory(device_, bloomImageMemory_, nullptr);
+
+    vkDestroyImageView(device_, resolveImageView_, nullptr);
+    vkDestroyImage(device_, resolveImage_, nullptr);
+    vkFreeMemory(device_, resolveImageMemory_, nullptr);
+
+    vkDestroyImageView(device_, bloomResolveImageView_, nullptr);
+    vkDestroyImage(device_, bloomResolveImage_, nullptr);
+    vkFreeMemory(device_, bloomResolveImageMemory_, nullptr);
+
     for (size_t i = 0; i < SWChainFrameBuffers_.size(); i++) {
         vkDestroyFramebuffer(device_, SWChainFrameBuffers_[i], nullptr);
     }
@@ -2280,7 +2270,7 @@ void VulkanRenderer::recreateSwapChain(SDL_Window* window) {
     cleanupSWChain();
 
     createSWChain(window);
-    createImageViews();
+    createImageViews(); 
     createColorResources();
     createDepthResources();
     createFrameBuffer();
@@ -2294,6 +2284,8 @@ FREEING
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanRenderer::shutdown() {
+    cleanupSWChain();
+
     delete brdfLut;
     delete irCube;
     delete prefEMap;
@@ -2303,7 +2295,23 @@ void VulkanRenderer::shutdown() {
     delete outlinePipeline_;
     delete toneMappingPipeline_;
 
-    vkDestroyInstance(instance_, nullptr);
+    delete pDirectionalLight_;
+
+    vkDestroyDescriptorPool(device_, descriptorPool_, nullptr);
+
+    vkDestroyCommandPool(device_, commandPool_, nullptr);
+
+    vkDestroyRenderPass(device_, renderPass_, nullptr);
+    vkDestroyRenderPass(device_, toneMapPass_, nullptr);
+    vkDestroyRenderPass(device_, depthPrepass_, nullptr);
 
     delete pDevHelper_;
+
+    vkDestroyDevice(device_, nullptr);
+
+    if (enableValLayers) {
+        DestroyDebugUtilsMessengerEXT(instance_, debugMessenger_, nullptr);
+    }
+
+    vkDestroyInstance(instance_, nullptr);
 }

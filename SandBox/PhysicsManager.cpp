@@ -77,9 +77,9 @@ void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 
 
 void PhysicsManager::recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices) {
 	for (auto& mesh : node->meshPrimitives) {
-		for (int i = g->renderTarget->getFirstVertex(); i < g->renderTarget->getFirstVertex() + g->renderTarget->getTotalVertices(); i++) {
+		for (int i = g->renderTarget->globalFirstVertex; i < g->renderTarget->globalFirstVertex + g->renderTarget->totalVertices_; i++) {
 			pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
-			pxIndices.push_back(i - g->renderTarget->getFirstVertex());
+			pxIndices.push_back(i - g->renderTarget->globalFirstVertex);
 		}
 	}
 
@@ -111,8 +111,8 @@ std::vector<physx::PxShape*> PhysicsManager::createPhysicsFromMesh(GameObject* g
 			std::vector<uint32_t> pxIndices;
 			int count = 0;
 			for (int i = dC->indirectInfo.firstIndex; i < dC->indirectInfo.firstIndex + dC->indirectInfo.numIndices; i++) {
-				glm::mat4 trueModel = g->renderTarget->modelTransform * (*(dC->worldTransformMatrix));
-				Vertex vert = vertices.at(indices.at(i) + g->renderTarget->getFirstVertex());
+				glm::mat4 trueModel = g->renderTarget->localModelTransform * (*(dC->worldTransformMatrix));
+				Vertex vert = vertices.at(indices.at(i) + g->renderTarget->globalFirstVertex);
 				glm::vec4 p = glm::vec4(vert.pos.x, vert.pos.y, vert.pos.z, 1.0f) * trueModel;
 				pxVertices.push_back(physx::PxVec3(p.x, p.y, p.z));
 				pxIndices.push_back(count);
