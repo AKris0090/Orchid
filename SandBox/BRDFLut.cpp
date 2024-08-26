@@ -1,7 +1,7 @@
 #include "BRDFLut.h"
 
 void BRDFLut::createBRDFLutImage() {
-	pDevHelper_->createImage(width_, height_, mipLevels_, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0, brdfLUTImage_, brdfLUTImageMemory_);
+	pDevHelper_->createImage(width_, height_, mipLevels_, 1 , static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0, brdfLUTImage_, brdfLUTImageMemory_);
 }
 
 // CODE FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -240,4 +240,5 @@ BRDFLut::~BRDFLut() {
 	vkDestroyDescriptorSetLayout(pDevHelper_->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
 	vkDestroyDescriptorPool(pDevHelper_->device_, this->brdfLUTDescriptorPool_, nullptr);
 	delete brdfLutPipeline_;
+	this->pDevHelper_ = nullptr;
 }

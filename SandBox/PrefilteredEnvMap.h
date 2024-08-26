@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IrradianceCube.h"
-#include <fstream>
 
 class PrefilteredEnvMap{
 private:

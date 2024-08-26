@@ -21,8 +21,6 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
         ubo.cascadeViewProjMat[i] = pDirectionalLight_->cascades[i].viewProjectionMatrix;
     }
 
-    //ubo.cascadeSplits[3] = specularCont;
-
     ubo.gammaExposure.x = gamma_;
     ubo.gammaExposure.y = exposure_;
     ubo.gammaExposure.z = specularCont;
@@ -78,7 +76,6 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
     
         vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
-        //vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
         ++mipLevel;
@@ -102,7 +99,6 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
 
         vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
-        //vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
         --mipLevel;
@@ -125,12 +121,12 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     for (AnimatedGameObject* g : *animatedObjects) {
         const auto cs = ComputePushConstant{
             .jointMatrixStart = g->renderTarget->globalSkinningMatrixOffset,
-            .numVertices = g->renderTarget->getTotalVertices()
+            .numVertices = g->renderTarget->totalVertices_
         };
         vkCmdPushConstants(commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstant), &cs);
 
         static const auto workgroupSize = 256;
-        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->getTotalVertices() / (float)workgroupSize);
+        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->totalVertices_ / (float)workgroupSize);
         vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
     }
 
@@ -182,8 +178,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdBeginRenderPass(commandBuffer, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->pipeline);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
@@ -191,8 +185,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         gO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
     }
     for (AnimatedGameObject* animGO : *(animatedObjects)) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
         animGO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
     }
     vkCmdEndRenderPass(commandBuffer);
@@ -204,8 +196,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight_->render(commandBuffer, j);
 
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindPipeline(cmdBuf.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipelineLayout_, 0, 1, &(pDirectionalLight_->cascades[j].descriptorSet), 0, nullptr);
@@ -213,8 +203,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
             gO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight_->sMPipelineLayout_, j);
         }
         for (AnimatedGameObject* animGO : *(animatedObjects)) {
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &animGO->skinnedBuffer_, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, animGO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
             animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight_->sMPipelineLayout_, j);
         }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
@@ -227,7 +215,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Create the render pass
     RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     RPBeginInfo.renderPass = renderPass_;
-    RPBeginInfo.framebuffer = toneMappingFrameeBuffers_[imageIndex];
+    RPBeginInfo.framebuffer = toneMappingFrameBuffers_[imageIndex];
     // Define the size of the render area
     RPBeginInfo.renderArea.offset = { 0, 0 };
     RPBeginInfo.renderArea.extent = SWChainExtent_;
@@ -249,9 +237,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline_->pipeline);
@@ -262,8 +247,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         gO->renderTarget->drawIndexedOpaque(commandBuffer, opaquePipeline_->layout);
     }
 
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
     for (GameObject* gO : *(gameObjects)) {
         if (gO->renderTarget->transparentDraws.size() > 0) {
             vkCmdPushConstants(commandBuffer, opaquePipeline_->layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(float), &gO->isOutline);
@@ -273,8 +256,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     for (AnimatedGameObject* gO : *(animatedObjects)) {
         if (gO->renderTarget->transparentDraws.size() > 0) {
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
             vkCmdPushConstants(commandBuffer, opaquePipeline_->layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(float), &gO->isOutline);
             gO->renderTarget->drawIndexedTransparent(commandBuffer, opaquePipeline_->layout); // should be transparent
         }
@@ -286,8 +267,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toonPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
 
     for (AnimatedGameObject* gO : *(animatedObjects)) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
         gO->renderTarget->drawIndexedOpaque(commandBuffer, toonPipeline_->layout);
     }
 
@@ -298,8 +277,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     for (AnimatedGameObject* gO : *(animatedObjects)) {
         if (gO->isOutline) {
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &gO->skinnedBuffer_, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, gO->indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
             gO->renderTarget->drawIndexedOutline(commandBuffer, outlinePipeline_->layout);
         }
     }
@@ -327,9 +304,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBeginRenderPass(commandBuffer, &tonemapRenderPassBI, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &screenQuadVertexBuffer, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, screenQuadIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
@@ -857,6 +831,7 @@ void VulkanRenderer::createLogicalDevice() {
     VkPhysicalDeviceFeatures gpuFeatures{};
     gpuFeatures.samplerAnisotropy = VK_TRUE;
     gpuFeatures.depthClamp = VK_TRUE;
+    gpuFeatures.imageCubeArray = VK_TRUE;
 
     VkPhysicalDeviceVulkan13Features vk13Features{};
     vk13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -911,7 +886,7 @@ void VulkanRenderer::createImageViews() {
     SWChainImageViews_.resize(SWChainImages_.size());
 
     for (uint32_t i = 0; i < SWChainImages_.size(); i++) {
-        SWChainImageViews_[i] = pDevHelper_->createImageView(SWChainImages_[i], SWChainImageFormat_, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        pDevHelper_->createImageView(SWChainImages_[i], SWChainImageViews_[i], SWChainImageFormat_, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 }
 
@@ -1271,7 +1246,7 @@ void VulkanRenderer::createVertexBuffer() {
     memcpy(data, vertices_.data(), (size_t)bufferSize);
     vkUnmapMemory(device_, stagingBufferMemory);
 
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize);
 
     createQuadVertexBuffer();
@@ -1629,6 +1604,7 @@ void VulkanRenderer::createSkyBoxPipeline() {
     pSkyBox_->skyBoxPipeline_ = new VulkanPipelineBuilder(device_, pipelineInfo, pDevHelper_);
 
     pSkyBox_->skyBoxPipeline_->info.pDepthStencilState->depthTestEnable = VK_FALSE;
+    pSkyBox_->skyBoxPipeline_->info.pRasterizationState->cullMode = VK_CULL_MODE_FRONT_BIT;
 
     pSkyBox_->skyBoxPipeline_->generate(pipelineInfo, renderPass_);
 }
@@ -1644,7 +1620,7 @@ void VulkanRenderer::createFrameBuffer() {
     
     depthFrameBuffers_.resize(SWChainImageViews_.size());
 
-    toneMappingFrameeBuffers_.resize(SWChainImageViews_.size());
+    toneMappingFrameBuffers_.resize(SWChainImageViews_.size());
 
     // Iterate through the image views and create framebuffers from them
     for (size_t i = 0; i < SWChainImageViews_.size(); i++) {
@@ -1659,7 +1635,7 @@ void VulkanRenderer::createFrameBuffer() {
         frameBufferCInfo.height = SWChainExtent_.height;
         frameBufferCInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device_, &frameBufferCInfo, nullptr, &toneMappingFrameeBuffers_[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(device_, &frameBufferCInfo, nullptr, &toneMappingFrameBuffers_[i]) != VK_SUCCESS) {
             std::_Xruntime_error("Failed to create a framebuffer for an image view!");
         }
 
@@ -1964,23 +1940,23 @@ VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& potent
 }
 
 void VulkanRenderer::createColorResources() { 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
-    colorImageView_ = pDevHelper_->createImageView(colorImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
+    pDevHelper_->createImageView(colorImage_, colorImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomImage_, bloomImageMemory_);
-    bloomImageView_ = pDevHelper_->createImageView(bloomImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomImage_, bloomImageMemory_);
+    pDevHelper_->createImageView(bloomImage_, bloomImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolveImage_, resolveImageMemory_);
-    resolveImageView_ = pDevHelper_->createImageView(resolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolveImage_, resolveImageMemory_);
+    pDevHelper_->createImageView(resolveImage_, resolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, BLOOM_LEVELS, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
-    bloomResolveImageView_ = pDevHelper_->createImageView(bloomResolveImage_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, BLOOM_LEVELS, 1, static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
+    pDevHelper_->createImageView(bloomResolveImage_, bloomResolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void VulkanRenderer::createDepthResources() {
     VkFormat depthFormat = findDepthFormat();
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, pDevHelper_->msaaSamples_, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage_, depthImageMemory_);
-    depthImageView_ = pDevHelper_->createImageView(depthImage_, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage_, depthImageMemory_);
+    pDevHelper_->createImageView(depthImage_, depthImageView_, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2143,7 +2119,7 @@ void VulkanRenderer::setupCompute() {
     VkDescriptorBufferInfo vertexDescriptorBufferInfo{};
     vertexDescriptorBufferInfo.buffer = (*animatedObjects)[0]->vertexBuffer_;
     vertexDescriptorBufferInfo.offset = 0;
-    vertexDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->basePoseVertices_.size());
+    vertexDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->renderTarget->totalVertices_);
 
     VkWriteDescriptorSet vertexInputWriteSet{};
     vertexInputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2158,9 +2134,9 @@ void VulkanRenderer::setupCompute() {
 
 
     VkDescriptorBufferInfo vertexOutputDescriptorBufferInfo{};
-    vertexOutputDescriptorBufferInfo.buffer = (*animatedObjects)[0]->skinnedBuffer_;
-    vertexOutputDescriptorBufferInfo.offset = 0;
-    vertexOutputDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->basePoseVertices_.size());
+    vertexOutputDescriptorBufferInfo.buffer = vertexBuffer_;
+    vertexOutputDescriptorBufferInfo.offset = (sizeof(Vertex) * (*animatedObjects)[0]->renderTarget->globalFirstVertex);
+    vertexOutputDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[0]->renderTarget->totalVertices_);
 
     VkWriteDescriptorSet vertexOutputWriteSet{};
     vertexOutputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2274,6 +2250,11 @@ void VulkanRenderer::recreateSwapChain(SDL_Window* window) {
     createColorResources();
     createDepthResources();
     createFrameBuffer();
+
+    delete bloomHelper;
+
+    bloomHelper = new BloomHelper(pDevHelper_);
+    bloomHelper->setupBloom(&bloomResolveImage_, &bloomResolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, SWChainExtent_);
 }
 
 

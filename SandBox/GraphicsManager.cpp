@@ -170,8 +170,7 @@ void GraphicsManager::startVulkan() {
     uint32_t globalVertexOffset = 0;
     uint32_t globalIndexOffset = 0;
 
-    pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_);
-    pVkR_->pSkyBox_->loadSkyBox(globalVertexOffset, globalIndexOffset);
+    pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
     pVkR_->createSkyBoxPipeline();
 
     for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
@@ -200,6 +199,11 @@ void GraphicsManager::startVulkan() {
         pVkR_->vertices_.insert(pVkR_->vertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
         pVkR_->indices_.insert(pVkR_->indices_.end(), mod->indices_.begin(), mod->indices_.end());
 
+        mod->indices_.clear();
+        mod->indices_.shrink_to_fit();
+        mod->vertices_.clear();
+        mod->vertices_.shrink_to_fit();
+
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();
 
@@ -210,21 +214,19 @@ void GraphicsManager::startVulkan() {
 
     uint32_t globalSkinMatrixOffset = 0;
 
-    globalVertexOffset = 0;
-    globalIndexOffset = 0;
-
     for (std::string s : pAnimatedModelPaths_) {
         AnimatedGameObject* newAnimGO = new AnimatedGameObject(pVkR_->pDevHelper_);
         AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
-        mod->loadGLTF(globalVertexOffset, globalIndexOffset);
         newAnimGO->setAnimatedGLTFObj(mod);
         animatedObjects.push_back(newAnimGO);
 
         pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
         pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
 
-        mod->addVertices(&(newAnimGO->basePoseVertices_));
-        mod->addIndices(&(newAnimGO->basePoseIndices_));
+        newAnimGO->basePoseVertices_.insert(newAnimGO->basePoseVertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
+
+        pVkR_->vertices_.insert(pVkR_->vertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
+        pVkR_->indices_.insert(pVkR_->indices_.end(), mod->indices_.begin(), mod->indices_.end());
 
         mod->globalSkinningMatrixOffset = globalSkinMatrixOffset;
 
@@ -234,31 +236,25 @@ void GraphicsManager::startVulkan() {
                 globalSkinMatrixOffset++;
             }
         }
+
         newAnimGO->isOutline = true;
         newAnimGO->smoothTime = 15.0f;
         newAnimGO->smoothDuration = 1s;
 
+        globalVertexOffset = pVkR_->vertices_.size();
+        globalIndexOffset = pVkR_->indices_.size();
 
-        std::cout << "\nloaded model: " << s << ": " << mod->getTotalVertices() << " vertices, " << mod->getTotalIndices() << " indices\n" << std::endl;
+        newAnimGO->createVertexBuffer();
+
+        std::cout << "\nloaded model: " << s << ": " << mod->totalVertices_ << " vertices, " << mod->totalIndices_ << " indices\n" << std::endl;
     }
 
     // link renderable objects to member game objects
     pVkR_->gameObjects = &gameObjects;
     pVkR_->animatedObjects = &animatedObjects;
 
-    for (AnimatedGameObject* g : animatedObjects) {
-        g->createVertexBuffer();
-        g->createIndexBuffer();
-        g->createSkinnedBuffer();
-    }
-
     pVkR_->createVertexBuffer();
     pVkR_->createIndexBuffer();
-
-    //pVkR_->vertices_.clear();
-    //pVkR_->indices_.clear();
-    //pVkR_->vertices_.shrink_to_fit();
-    //pVkR_->indices_.shrink_to_fit();
 
     pVkR_->pDevHelper_->texDescSetLayout_ = pVkR_->textureDescriptorSetLayout_;
 

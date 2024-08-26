@@ -35,18 +35,18 @@ layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec2 fragTexCoord;
+layout(location = 1) in vec4 fragTexCoord;
 layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
 layout (depth_unchanged) out float gl_FragDepth;
 
-vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
-vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
-vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
-vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
-vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
+vec4 albedoAlpha = texture(colorSampler, fragTexCoord.xy);
+vec3 tangentNormal = texture(normalSampler, fragTexCoord.xy).xyz * 2.0 - 1.0;
+vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord.xy);
+vec3 aoVec = texture(aoSampler, fragTexCoord.xy).rrr;
+vec3 emissionVec = texture(emissionSampler, fragTexCoord.zw).rgb;
 
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO albedoAlpha.rgb
@@ -63,10 +63,10 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 
 	if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 	{
-		return 0.0;
+		return 0.0f;
 	}
 
-	return 1.0;
+	return 1.0f;
 }
 
 const int range = 2;

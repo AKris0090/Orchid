@@ -1,9 +1,6 @@
 #pragma once
 
 #include "DirectionalLight.h"
-#include <PxPhysics.h>
-#include <PxPhysicsAPI.h>
-#include <PxCooking.h>
 
 class GameObject {
 private:

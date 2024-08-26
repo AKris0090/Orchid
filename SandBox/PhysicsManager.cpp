@@ -111,7 +111,7 @@ std::vector<physx::PxShape*> PhysicsManager::createPhysicsFromMesh(GameObject* g
 			std::vector<uint32_t> pxIndices;
 			int count = 0;
 			for (int i = dC->indirectInfo.firstIndex; i < dC->indirectInfo.firstIndex + dC->indirectInfo.numIndices; i++) {
-				glm::mat4 trueModel = g->renderTarget->localModelTransform * (*(dC->worldTransformMatrix));
+				glm::mat4 trueModel = g->renderTarget->localModelTransform * dC->worldTransformMatrix;
 				Vertex vert = vertices.at(indices.at(i) + g->renderTarget->globalFirstVertex);
 				glm::vec4 p = glm::vec4(vert.pos.x, vert.pos.y, vert.pos.z, 1.0f) * trueModel;
 				pxVertices.push_back(physx::PxVec3(p.x, p.y, p.z));

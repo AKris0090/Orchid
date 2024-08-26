@@ -1,9 +1,6 @@
 #pragma once
 
 #include "DirectionalLight.h"
-#include <PxPhysics.h>
-#include <PxPhysicsAPI.h>
-#include <PxCooking.h>
 #include "AnimatedGLTFObj.h"
 
 class AnimatedGameObject {
@@ -42,8 +39,6 @@ public:
 	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; };
 
 	void createVertexBuffer();
-	void createSkinnedBuffer();
-	void createIndexBuffer();
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);
@@ -64,7 +59,7 @@ public:
 	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
 
 	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
+	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 
 	void loopUpdate() {
 		setTransform(transform.to_matrix());

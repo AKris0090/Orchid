@@ -8,6 +8,7 @@ struct Vertex {
 	vec4 tangent;
 	vec4 jointIndex;
 	vec4 jointWeight;
+	vec4 texCoord1;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer JointMatrices {

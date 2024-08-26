@@ -1,8 +1,5 @@
 #pragma once
 
-#include <vector>
-#include <glm/gtc/type_ptr.hpp>
-#include <filesystem>
 #include "MeshHelper.h"
 
 class GLTFObj {

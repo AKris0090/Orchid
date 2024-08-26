@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BRDFLut.h"
-#include <fstream>
 
 class IrradianceCube {
 private:

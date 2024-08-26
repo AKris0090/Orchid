@@ -11,7 +11,9 @@ std::vector<std::string> staticModelPaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    "C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb"
+    
+    //"C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/axis/Answer Arena.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
 };
@@ -46,12 +48,19 @@ std::vector<std::string> skyboxTexturePaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
 
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
+
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png"
 };
 
 std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.glb";
@@ -62,17 +71,17 @@ int main(int argc, char* argv[]) {
 
     //graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(50.0f, 40.0f, 2.0f));
     graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
-    graphicsManager.pVkR_->depthBias_ = 0.0003f;
-    graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
-    graphicsManager.pVkR_->camera_.setFarPlane(50.0f);
+    graphicsManager.pVkR_->depthBias_ = 0.003f;
+    graphicsManager.pVkR_->camera_.setNearPlane(0.05f);
+    graphicsManager.pVkR_->camera_.setFarPlane(400.0f);
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
-    graphicsManager.pVkR_->gamma_ = 1.2f;
-    graphicsManager.pVkR_->exposure_ = 1.0f;
+    graphicsManager.pVkR_->gamma_ = 1.0f;
+    graphicsManager.pVkR_->exposure_ = 0.5f;
     graphicsManager.pVkR_->applyTonemap = true;
     graphicsManager.pVkR_->specularCont = 4.0f;
-    graphicsManager.pVkR_->nDotVSpec = .3f;
+    graphicsManager.pVkR_->nDotVSpec = 1.0f;
     graphicsManager.pVkR_->bloomRadius = 0.00001f;
 
     PhysicsManager physicsManager = PhysicsManager();
@@ -89,7 +98,8 @@ int main(int argc, char* argv[]) {
 
     graphicsManager.gameObjects[0]->isDynamic = true; // helmet
 
-    glm::vec3 scale = glm::vec3(0.01f);
+    //glm::vec3 scale = glm::vec3(0.01f);
+    glm::vec3 scale = glm::vec3(0.75f);
     graphicsManager.gameObjects[1]->transform.scale = scale;
 
     for (GameObject* g : graphicsManager.gameObjects) {
@@ -117,9 +127,9 @@ int main(int argc, char* argv[]) {
     //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
 
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
+        g->renderTarget->localModelTransform = g->transform.to_matrix();
     }
-
+   
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     scale = glm::vec3(1.0f);
     //physicsManager.addPlane();

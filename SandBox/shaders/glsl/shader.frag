@@ -31,23 +31,24 @@ layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec2 fragTexCoord;
+layout(location = 1) in vec4 fragTexCoord;
 layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
 layout (depth_unchanged) out float gl_FragDepth;
 
-vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
-vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
-vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
-vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
-vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
+vec4 albedoAlpha = texture(colorSampler, fragTexCoord.xy);
+vec3 tangentNormal = texture(normalSampler, fragTexCoord.xy).xyz * 2.0 - 1.0;
+vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord.xy);
+vec3 aoVec = texture(aoSampler, fragTexCoord.xy).rrr;
+vec3 emissionVec = texture(emissionSampler, fragTexCoord.zw).rgb;
 
 #define PI 3.1415926535897932384626433832795
 #define ALBEDO albedoAlpha.rgb
 #define ALPHA albedoAlpha.a
-#define AMBIENT ubo.gammaExposure.w
+#define AMBIENT 0.3
+
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -137,7 +138,7 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 		return AMBIENT;
 	}
 
-	return 1.0;
+	return 1.0f;
 }
 
 const int range = 1;
@@ -187,7 +188,9 @@ void main()
 
 	// irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic
 	//vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + (clamp(pow(specular, vec3(ubo.gammaExposure.z)), ubo.gammaExposure.w, 1.0f))) * aoVec;
-	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
+	// actual : vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
+	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (vec3(0.367f, 0.128f, 0.133f) * ALBEDO)+ specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
+
 
 	vec3 res = step(ubo.cascadeSplits.xyz, vec3(fragPosition.w));
 	int cascadeIndex = SHADOW_MAP_CASCADE_COUNT - int(res.x + res.y + res.z);
@@ -200,9 +203,9 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), ubo.gammaExposure.z)) * (shadow)) + emissionVec;
+	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), ubo.gammaExposure.z)) * (shadow)) + (emissionVec * ubo.gammaExposure.w);
 
-	//color = ((((texture(irradianceCube, N).rgb * (ALBEDO + ubo.gammaExposure.w)) * ubo.gammaExposure.z) + ((clamp(specular, 0.0f, 1.0f)) * ubo.gammaExposure.w)) * shadow) + emissionVec;
+	//color = ((((texture(irradianceCube, N).rgb * (ALBEDO + ubo.gammaExposure.w)) * ubo.gammaExposure.z) + ((clamp(specular, 0.0f, 1.0f)) * ubo.gammaExposure.w)) * shadow) + (emissionVec * ubo.gammaExposure.w);
 
 	vec4 brightColor = vec4(color, 1.0f);
 
@@ -213,4 +216,19 @@ void main()
 	}
 
 	outColor = vec4(color, ALPHA);
+
+	//switch(cascadeIndex) {
+	//		case 0 : 
+	//			outColor.rgb *= vec3(1.0f, 0.25f, 0.25f);
+	//			break;
+	//		case 1 : 
+	//			outColor.rgb *= vec3(0.25f, 1.0f, 0.25f);
+	//			break;
+	//		case 2 : 
+	//			outColor.rgb *= vec3(0.25f, 0.25f, 1.0f);
+	//			break;
+	//		case 3 : 
+	//			outColor.rgb *= vec3(1.0f, 1.0f, 0.25f);
+	//			break;
+	//}
 }

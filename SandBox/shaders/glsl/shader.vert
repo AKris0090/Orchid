@@ -20,15 +20,16 @@ layout(push_constant) uniform pushConstant {
 layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec4 inNormal;
 layout(location = 2) in vec4 inTangent;
+layout(location = 3) in vec4 secondTexCoord;
 
 layout(location = 0) out vec4 fragPosition;
-layout(location = 1) out vec2 fragTexCoord;
+layout(location = 1) out vec4 fragTexCoord;
 layout(location = 2) out mat3 TBNMatrix;
 
 invariant gl_Position;
 
 void main() {
-    fragTexCoord = vec2(inPosition.w, inNormal.w);
+    fragTexCoord = vec4(inPosition.w, inNormal.w, secondTexCoord.x, secondTexCoord.y);
 
     vec4 pos = pc.model * vec4(inPosition.xyz, 1.0f);
 

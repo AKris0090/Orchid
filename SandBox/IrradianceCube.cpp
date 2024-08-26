@@ -3,7 +3,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 void IrradianceCube::createiRCubeImage() {
-    pDevHelper_->createSkyBoxImage(width_, height_, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, iRCubeImage_, iRCubeImageMemory_);
+    pDevHelper_->createImage(width_, height_, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, 0, iRCubeImage_, iRCubeImageMemory_);
 }
 
 // CODE FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
@@ -406,4 +406,5 @@ IrradianceCube::~IrradianceCube() {
     vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
     vkDestroyDescriptorPool(this->pDevHelper_->device_, this->iRCubeDescriptorPool_, nullptr);
     delete iRPipeline_;
+    this->pDevHelper_ = nullptr;
 }

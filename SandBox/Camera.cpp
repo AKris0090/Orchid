@@ -49,6 +49,8 @@ void FPSCam::update() {
     }
 
     baseUpdate();
+
+    setProjectionMatrix();
 }
 
 void FPSCam::alterUpdate(Transform playerTransform, float capHeight) {

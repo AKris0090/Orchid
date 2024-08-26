@@ -1,6 +1,6 @@
 #include "DeviceHelper.h"
 
-VkImageView DeviceHelper::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) const {
+void DeviceHelper::createImageView(const VkImage& image, VkImageView& imageView, const VkFormat format, const VkImageAspectFlags aspectFlags, const uint32_t mipLevels) const {
     VkImageViewCreateInfo imageViewCInfo{};
     imageViewCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewCInfo.image = image;
@@ -12,51 +12,12 @@ VkImageView DeviceHelper::createImageView(VkImage image, VkFormat format, VkImag
     imageViewCInfo.subresourceRange.baseArrayLayer = 0;
     imageViewCInfo.subresourceRange.layerCount = 1;
 
-    VkImageView tempImageView;
-    if (vkCreateImageView(device_, &imageViewCInfo, nullptr, &tempImageView) != VK_SUCCESS) {
+    if (vkCreateImageView(device_, &imageViewCInfo, nullptr, &imageView) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to create a texture image view!");
     }
-
-    return tempImageView;
 }
 
-void DeviceHelper::createImage(uint32_t width, uint32_t height, uint32_t mipLevel, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
-    VkImageCreateInfo imageCInfo{};
-    imageCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCInfo.extent.width = width;
-    imageCInfo.extent.height = height;
-    imageCInfo.extent.depth = 1;
-    imageCInfo.mipLevels = mipLevel;
-    imageCInfo.arrayLayers = 1;
-    imageCInfo.format = format;
-    imageCInfo.tiling = tiling;
-    imageCInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageCInfo.usage = usage;
-    imageCInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCInfo.samples = numSamples;
-
-    if (vkCreateImage(device_, &imageCInfo, nullptr, &image) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to create an image!");
-    }
-
-    VkMemoryRequirements memoryRequirements;
-    vkGetImageMemoryRequirements(device_, image, &memoryRequirements);
-
-    VkMemoryAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocateInfo.allocationSize = memoryRequirements.size;
-    allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device_, &allocateInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-        std::cout << "couldn't allocate lol" << std::endl;
-        std::_Xruntime_error("Failed to allocate the image memory!");
-    }
-
-    vkBindImageMemory(device_, image, imageMemory, 0);
-}
-
-void DeviceHelper::createSkyBoxImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
+void DeviceHelper::createImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const {
     VkImageCreateInfo imageCInfo{};
     imageCInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCInfo.imageType = VK_IMAGE_TYPE_2D;

@@ -443,7 +443,7 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 	float ratio = maxZ / minZ;
 
 	std::vector<float> shadowCascadeLevels{};
-	shadowCascadeLevels.resize(3);
+	shadowCascadeLevels.resize(SHADOW_MAP_CASCADE_COUNT);
 
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
@@ -522,8 +522,8 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 void DirectionalLight::genShadowMap(FPSCam* camera) {
 	width_ = 4096;
 	height_ = 4096;
-	zNear = 1.f;
-	zFar = 100.0f;
+	zNear = camera->getNearPlane();
+	zFar = camera->getFarPlane();
 	
 	imageFormat_ = findSupportedFormat(pDevHelper_->gpu_);
 

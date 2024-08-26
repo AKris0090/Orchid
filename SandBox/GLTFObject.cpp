@@ -7,7 +7,7 @@ void GLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout 
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * dC->worldTransformMatrix;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -19,7 +19,7 @@ void GLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLa
         Material* material = mat.first;
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * dC->worldTransformMatrix;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -51,7 +51,7 @@ void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipeline
     for (auto& mat : opaqueDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * dC->worldTransformMatrix;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -61,7 +61,7 @@ void GLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipeline
         pcBlock newBlock{ 1, mat.first->alphaCutOff };
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = localModelTransform * (*(dC->worldTransformMatrix));
+            glm::mat4 trueModelMatrix = localModelTransform * dC->worldTransformMatrix;
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
             MeshHelper::callIndexedDraw(commandBuffer, dC->indirectInfo);
         }
@@ -117,6 +117,7 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
             const float* positionBuff = nullptr;
             const float* normalsBuff = nullptr;
             const float* uvBuff = nullptr;
+            const float* secondUVBuff = nullptr;
             const float* tangentsBuff = nullptr;
             if (gltfPrims.attributes.find("POSITION") != gltfPrims.attributes.end()) {
                 const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("POSITION")->second];
@@ -134,6 +135,11 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
                 const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
                 uvBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
+            if (gltfPrims.attributes.find("TEXCOORD_1") != gltfPrims.attributes.end()) {
+                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TEXCOORD_1")->second];
+                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
+                secondUVBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+            }
             if (gltfPrims.attributes.find("TANGENT") != gltfPrims.attributes.end()) {
                 const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TANGENT")->second];
                 const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
@@ -148,6 +154,8 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
                 v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), uv.x);
                 v.normal = glm::vec4(normal, uv.y);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
+                glm::vec2 placeHolder = secondUVBuff ? glm::make_vec2(&secondUVBuff[vert * 2]) : glm::vec2(0.0f);
+                v.texCoord_1 = glm::vec4(placeHolder.x, placeHolder.y, 0.0f, 0.0f);
                 p->stagingVertices_.push_back(v);
             }
 
@@ -186,11 +194,10 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
             }
 
             p->indirectInfo.firstIndex = firstIndex + globalIndexOffset;
-            p->indirectInfo.numIndices = currentNumIndices;
             p->indirectInfo.firstInstance = 0;
             p->indirectInfo.instanceCount = 1;
             p->indirectInfo.globalVertexOffset = globalVertexOffset;
-            p->worldTransformMatrix = &scNode->worldTransform;
+            p->worldTransformMatrix = scNode->worldTransform;
             p->materialIndex = gltfPrims.material;
 
             // TANGENT SPACE CREATION - ALSO REFERENCED OFF OF: https://github.com/Eearslya/glTFView.
@@ -234,9 +241,11 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
                 }
                 p->stagingVertices_.resize(postTVertexCount);
 
-                currentNumIndices = p->stagingIndices_.size();
-                currentNumVertices = p->stagingVertices_.size();
+                currentNumIndices = static_cast<uint32_t>(p->stagingIndices_.size());
+                currentNumVertices = static_cast<uint32_t>(p->stagingVertices_.size());
             }
+
+            p->indirectInfo.numIndices = currentNumIndices;
 
             totalIndices_ += currentNumIndices; 
             totalVertices_ += currentNumVertices;
@@ -279,9 +288,8 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
         if (pInputModel_->images.size() != 0) {
             loadImages();
             textureIndices_.resize(pInputModel_->textures.size() + 3);
-            loadMaterials();
             loadTextures();
-
+            loadMaterials();
             for (auto& image : images_) {
                 image->load();
             }
@@ -319,10 +327,10 @@ void GLTFObj::loadImages() {
 }
 
 void GLTFObj::loadTextures() {
-    textureIndices_.resize((*(pInputModel_)).textures.size());
-    uint32_t size = static_cast<uint32_t>(textureIndices_.size());
-    for (size_t i = 0; i < (*(pInputModel_)).textures.size(); i++) {
-        textureIndices_[i] = (*(pInputModel_)).textures[i].source;
+    textureIndices_.resize(pInputModel_->textures.size());
+    uint32_t size = static_cast<uint32_t>(pInputModel_->images.size());
+    for (size_t i = 0; i < pInputModel_->textures.size(); i++) {
+        textureIndices_[i] = pInputModel_->textures[i].source;
     }
     textureIndices_.push_back(size);
     textureIndices_.push_back(size + 1);
@@ -331,18 +339,15 @@ void GLTFObj::loadTextures() {
 }
 
 void GLTFObj::loadMaterials() {
-    uint32_t numImages = static_cast<uint32_t>((*(pInputModel_)).images.size());
+    uint32_t numImages = static_cast<uint32_t>(pInputModel_->textures.size());
     uint32_t dummyNormalIndex = numImages;
     uint32_t dummyMetallicRoughnessIndex = numImages + 1;
     uint32_t dummyAOIndex = numImages + 2;
     uint32_t dummyEmissionIndex = numImages + 3;
-    mats_.resize((*(pInputModel_)).materials.size());
+    mats_.resize(pInputModel_->materials.size());
     for (int i = 0; i < mats_.size(); i++) {
         Material& m = mats_[i];
-        tinygltf::Material gltfMat = (*(pInputModel_)).materials[i];
-        if (gltfMat.values.find("baseColorFactor") != gltfMat.values.end()) {
-            m.baseColor = glm::make_vec4(gltfMat.values["baseColorFactor"].ColorFactor().data());
-        }
+        tinygltf::Material gltfMat = pInputModel_->materials[i];
         if (gltfMat.values.find("baseColorTexture") != gltfMat.values.end()) {
             m.baseColorTexIndex = gltfMat.values["baseColorTexture"].TextureIndex();
             images_[textureIndices_[m.baseColorTexIndex]]->imageFormat_ = VK_FORMAT_R8G8B8A8_SRGB;
@@ -507,4 +512,7 @@ GLTFObj::~GLTFObj() {
     for (auto& texture : images_) {
         delete texture;
     }
+
+    delete pInputModel_;
+    this->pDevHelper_ = nullptr;
 }
