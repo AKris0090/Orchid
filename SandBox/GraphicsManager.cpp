@@ -280,7 +280,6 @@ void GraphicsManager::startVulkan() {
     }
 
     pVkR_->updateGeneratedImageDescriptorSets();
-
     std::cout << "\ncreated descriptor sets" << std::endl;
 
     pVkR_->createGraphicsPipeline();

@@ -134,13 +134,13 @@ void VulkanPipelineBuilder::generate(const PipelineBuilderInfo& builder, const V
     VkPipelineShaderStageCreateInfo vertexStageCInfo{};
     stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = builder.pShaderStages[0];
+    stages[0].module = builder.pShaderStages[0].module;
     stages[0].pName = "main";
 
     for (int i = 1; i < builder.numStages; i++) {
         stages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stages[i].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        stages[i].module = builder.pShaderStages[i];
+        stages[i].module = builder.pShaderStages[i].module;
         stages[i].pName = "main";
     }
 
@@ -177,4 +177,8 @@ void VulkanPipelineBuilder::generate(const PipelineBuilderInfo& builder, const V
     delete(info.pDepthStencilState);
     delete(info.pColorBlendState);
     delete(info.pDynamicState);
+
+    for (int i = 0; i < builder.numStages; i++) {
+        vkDestroyShaderModule(this->device_, builder.pShaderStages[i].module, nullptr);
+    }
 }

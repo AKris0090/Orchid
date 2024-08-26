@@ -135,11 +135,6 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
                 const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
                 uvBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
             }
-            if (gltfPrims.attributes.find("TEXCOORD_1") != gltfPrims.attributes.end()) {
-                const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TEXCOORD_1")->second];
-                const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
-                secondUVBuff = reinterpret_cast<const float*>(&(pInputModel_->buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-            }
             if (gltfPrims.attributes.find("TANGENT") != gltfPrims.attributes.end()) {
                 const tinygltf::Accessor& accessor = pInputModel_->accessors[gltfPrims.attributes.find("TANGENT")->second];
                 const tinygltf::BufferView& view = pInputModel_->bufferViews[accessor.bufferView];
@@ -154,8 +149,6 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
                 v.pos = glm::vec4(glm::make_vec3(&positionBuff[vert * 3]), uv.x);
                 v.normal = glm::vec4(normal, uv.y);
                 v.tangent = tangentsBuff ? glm::make_vec4(&tangentsBuff[vert * 4]) : glm::vec4(0.0f);
-                glm::vec2 placeHolder = secondUVBuff ? glm::make_vec2(&secondUVBuff[vert * 2]) : glm::vec2(0.0f);
-                v.texCoord_1 = glm::vec4(placeHolder.x, placeHolder.y, 0.0f, 0.0f);
                 p->stagingVertices_.push_back(v);
             }
 

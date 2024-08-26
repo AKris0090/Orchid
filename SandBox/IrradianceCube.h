@@ -43,6 +43,7 @@ private:
 	void createFrameBuffer();
 	void createPipeline();
 	void render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
+	void preDelete();
 
 public:
 	VkImageView iRCubeImageView_;

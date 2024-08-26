@@ -217,7 +217,7 @@ void PrefilteredEnvMap::createPipeline() {
     pcRange.size = sizeof(PushBlock);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
+    std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getPositionAttributeDescription();
@@ -397,6 +397,16 @@ PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, Skybox* pSkybox, V
     this->prefEMPipeline_ = nullptr;
 
     genprefEMap(vertexBuffer, indexBuffer);
+
+    preDelete();
+}
+
+void PrefilteredEnvMap::preDelete() {
+    vkDestroyFramebuffer(this->pDevHelper_->device_, this->prefEMapFrameBuffer_, nullptr);
+    vkDestroyRenderPass(this->pDevHelper_->device_, this->prefEMapRenderpass_, nullptr);
+    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->prefEMapDescriptorSetLayout_, nullptr);
+    delete prefEMPipeline_;
+    this->pDevHelper_ = nullptr;
 }
 
 PrefilteredEnvMap::~PrefilteredEnvMap() {
@@ -404,10 +414,5 @@ PrefilteredEnvMap::~PrefilteredEnvMap() {
     vkDestroyImageView(this->pDevHelper_->device_, this->prefEMapImageView_, nullptr);
     vkDestroyImage(this->pDevHelper_->device_, this->prefEMapImage_, nullptr);
     vkFreeMemory(this->pDevHelper_->device_, prefEMapImageMemory_, nullptr);
-    vkDestroyFramebuffer(this->pDevHelper_->device_, this->prefEMapFrameBuffer_, nullptr);
-    vkDestroyRenderPass(this->pDevHelper_->device_, this->prefEMapRenderpass_, nullptr);
-    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->prefEMapDescriptorSetLayout_, nullptr);
     vkDestroyDescriptorPool(this->pDevHelper_->device_, this->prefEMapDescriptorPool_, nullptr);
-    delete prefEMPipeline_;
-    this->pDevHelper_ = nullptr;
 }

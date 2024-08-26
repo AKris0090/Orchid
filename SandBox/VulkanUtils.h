@@ -15,7 +15,7 @@ public:
 
 		VulkanShaderModule(const VkDevice& device_, const std::string shaderPath);
 		~VulkanShaderModule() {
-			vkDestroyShaderModule(this->device, this->module, nullptr);
+			//vkDestroyShaderModule(this->device, this->module, nullptr);
 		};
 	};
 
@@ -26,7 +26,7 @@ public:
 		VkPushConstantRange* pPushConstantRanges;
 		int numRanges;
 
-		VkShaderModule* pShaderStages;
+		VulkanShaderModule* pShaderStages;
 		int numStages;
 
 		VkVertexInputAttributeDescription* vertexAttributeDescriptions;

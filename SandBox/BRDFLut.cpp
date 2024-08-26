@@ -138,7 +138,7 @@ void BRDFLut::createPipeline() {
     VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTVert.spv");
     VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/brdfLUTFrag.spv");
 
-    std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
+    std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
     VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
     pipelineInfo.pDescriptorSetLayouts = &brdfLUTDescriptorSetLayout_;
@@ -228,6 +228,18 @@ BRDFLut::BRDFLut(DeviceHelper* devHelper) {
 	this->mipLevels_ = 1;
 
     generateBRDFLUT();
+
+	vkDeviceWaitIdle(this->pDevHelper_->device_);
+
+	preDelete();
+}
+
+void BRDFLut::preDelete() {
+	vkDestroyFramebuffer(pDevHelper_->device_, this->brdfLUTFrameBuffer_, nullptr);
+	vkDestroyRenderPass(pDevHelper_->device_, this->brdfLUTRenderpass_, nullptr);
+	vkDestroyDescriptorSetLayout(pDevHelper_->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
+	delete brdfLutPipeline_;
+	this->pDevHelper_ = nullptr;
 }
 
 BRDFLut::~BRDFLut() {
@@ -235,10 +247,5 @@ BRDFLut::~BRDFLut() {
 	vkDestroyImageView(pDevHelper_->device_, this->brdfLUTImageView_, nullptr);
 	vkDestroyImage(pDevHelper_->device_, this->brdfLUTImage_, nullptr);
 	vkFreeMemory(pDevHelper_->device_, brdfLUTImageMemory_, nullptr);
-	vkDestroyFramebuffer(pDevHelper_->device_, this->brdfLUTFrameBuffer_, nullptr);
-	vkDestroyRenderPass(pDevHelper_->device_, this->brdfLUTRenderpass_, nullptr);
-	vkDestroyDescriptorSetLayout(pDevHelper_->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
 	vkDestroyDescriptorPool(pDevHelper_->device_, this->brdfLUTDescriptorPool_, nullptr);
-	delete brdfLutPipeline_;
-	this->pDevHelper_ = nullptr;
 }

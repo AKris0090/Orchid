@@ -28,6 +28,7 @@ private:
 	void createFrameBuffer();
 	void createPipeline();
 	void render();
+	void preDelete();
 
 public:
 	VkDescriptorSet brdfLUTDescriptorSet_;

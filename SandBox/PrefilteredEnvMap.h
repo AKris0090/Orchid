@@ -43,6 +43,7 @@ private:
 	void createPipeline();
 	void render(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
 	void genprefEMap(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);
+	void preDelete();
 
 public:
 	VkImageView prefEMapImageView_;

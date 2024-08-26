@@ -216,7 +216,7 @@ void IrradianceCube::createPipeline() {
     pcRange.size = sizeof(PushBlock);
     pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkShaderModule, 2> shaderStages = { vertexShaderModule.module, fragmentShaderModule.module };
+    std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getPositionAttributeDescription();
@@ -394,6 +394,16 @@ IrradianceCube::IrradianceCube(DeviceHelper* devHelper, Skybox* pSkybox, VkBuffe
     this->iRPipeline_ = nullptr;
 
     geniRCube(vertexBuffer, indexBuffer);
+
+    preDelete();
+}
+
+void IrradianceCube::preDelete() {
+    vkDestroyFramebuffer(this->pDevHelper_->device_, this->iRCubeFrameBuffer_, nullptr);
+    vkDestroyRenderPass(this->pDevHelper_->device_, this->iRCubeRenderpass_, nullptr);
+    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
+    delete iRPipeline_;
+    this->pDevHelper_ = nullptr;
 }
 
 IrradianceCube::~IrradianceCube() {
@@ -401,10 +411,5 @@ IrradianceCube::~IrradianceCube() {
     vkDestroyImageView(this->pDevHelper_->device_, this->iRCubeImageView_, nullptr);
     vkDestroyImage(this->pDevHelper_->device_, this->iRCubeImage_, nullptr);
     vkFreeMemory(this->pDevHelper_->device_, iRCubeImageMemory_, nullptr);
-    vkDestroyFramebuffer(this->pDevHelper_->device_, this->iRCubeFrameBuffer_, nullptr);
-    vkDestroyRenderPass(this->pDevHelper_->device_, this->iRCubeRenderpass_, nullptr);
-    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
     vkDestroyDescriptorPool(this->pDevHelper_->device_, this->iRCubeDescriptorPool_, nullptr);
-    delete iRPipeline_;
-    this->pDevHelper_ = nullptr;
 }
