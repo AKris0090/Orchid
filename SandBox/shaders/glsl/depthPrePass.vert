@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define SHADOW_MAP_CASCADE_COUNT 3
 
@@ -11,6 +11,10 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
 } ubo;
+
+layout(std430, set = 2, binding = 0) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
+};
 
 layout(push_constant) uniform pushConstant {
     mat4 model;
@@ -26,5 +30,5 @@ layout(location = 0) out vec2 fragTexCoord;
 void main()
 {
 	fragTexCoord = vec2(inPosition.w, inNormal.w);
-	gl_Position = ubo.proj * ubo.view * pc.model * vec4(inPosition.xyz, 1.0f);
+	gl_Position = ubo.proj * ubo.view * modelMatrices[gl_BaseInstance] * vec4(inPosition.xyz, 1.0f);
 }

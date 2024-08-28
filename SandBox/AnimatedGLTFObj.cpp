@@ -65,7 +65,7 @@ void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout 
     }
     for (auto& mat : transparentDraws) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
-        pcBlock newBlock{ 1, mat.first->alphaCutOff };
+        pcBlock newBlock{ mat.first->alphaCutOff };
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
         for (auto& dC : mat.second) {
             glm::mat4 trueModelMatrix = localModelTransform * dC->worldTransformMatrix;
@@ -304,7 +304,7 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
             p->indirectInfo.firstIndex = firstIndex + globalIndexOffset;
             p->indirectInfo.firstInstance = 0;
             p->indirectInfo.instanceCount = 1;
-            p->indirectInfo.globalVertexOffset = globalVertexOffset;
+            p->indirectInfo.vertexOffset = globalVertexOffset;
             p->worldTransformMatrix = scNode->matrix;
             p->materialIndex = gltfPrims.material;
 
@@ -353,7 +353,7 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 currentNumVertices = static_cast<uint32_t>(p->stagingVertices_.size());
             }
 
-            p->indirectInfo.numIndices = currentNumIndices;
+            p->indirectInfo.indexCount = currentNumIndices;
 
             totalIndices_ += currentNumIndices;
             totalVertices_ += currentNumVertices;

@@ -72,7 +72,6 @@ static struct cascadeMVP {
 } cascadeBlock;
 
 static struct pcBlock {
-    int alphaMask;
     float alphaCutoff;
 } pushConstantBlock;
 

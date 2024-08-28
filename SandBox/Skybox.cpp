@@ -1,8 +1,7 @@
 #include "Skybox.h"
 
 void Skybox::drawSkyBoxIndexed(VkCommandBuffer& commandBuffer) {
-    MeshHelper* m = (pSkyBoxModel_->pParentNodes[0])->meshPrimitives[0];
-    MeshHelper::callIndexedDraw(commandBuffer, m->indirectInfo);
+    MeshHelper::callIndexedDraw(commandBuffer, (pSkyBoxModel_->pParentNodes[0])->meshPrimitives[0]->indirectInfo);
 }
 
 void Skybox::createSkyBoxImage() {
@@ -51,8 +50,6 @@ void Skybox::createSkyBoxImage() {
 
     vkDestroyBuffer(pDevHelper_->device_, stagingBuffer_, nullptr);
     vkFreeMemory(pDevHelper_->device_, stagingBufferMemory_, nullptr);
-
-    //delete[] pixels;
 }
 
 void Skybox::createSkyBoxImageView() {

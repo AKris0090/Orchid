@@ -75,7 +75,7 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
     
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
     
-        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 
         vkCmdEndRenderPass(commandBuffer);
         ++mipLevel;
@@ -98,7 +98,7 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 
         vkCmdEndRenderPass(commandBuffer);
         --mipLevel;
@@ -181,21 +181,31 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->pipeline);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
-    for (GameObject* gO : *(gameObjects)) {
-        gO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 2, 1, &modelMatrixDescriptorSet_, 0, nullptr);
+    //for (GameObject* gO : *(gameObjects)) {
+    //    gO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
+    //}
+    //for (AnimatedGameObject* animGO : *(animatedObjects)) {
+    //    animGO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
+    //}
+
+    for (IndirectBatch& draw : drawBatches)
+    {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 1, 1, &(draw.material->descriptorSet), 0, nullptr);
+
+        VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
+        uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
+
+        //execute the draw command buffer on each section as defined by the array of draws
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, indirect_offset, draw.count, draw_stride);
     }
-    for (AnimatedGameObject* animGO : *(animatedObjects)) {
-        animGO->renderTarget->renderDepth(commandBuffer, prepassPipeline_->layout);
-    }
+
     vkCmdEndRenderPass(commandBuffer);
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+    // SHAODW PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_);
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
-        //VkDebugUtilsLabelEXT debugLabel{}; debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT; debugLabel.pLabelName = std::string("Shadow Rendering, Cascade: " + j).c_str(); vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
-
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight_->render(commandBuffer, j);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipelineLayout_, 0, 1, &(pDirectionalLight_->cascades[j].descriptorSet), 0, nullptr);
@@ -206,17 +216,13 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
             animGO->renderTarget->renderShadow(cmdBuf.commandBuffer, pDirectionalLight_->sMPipelineLayout_, j);
         }
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
-
-        //vkCmdEndDebugUtilsLabelEXT(commandBuffer, &debugLabel);
     }
 
-    // Start the scene render pass
+    // COLOR PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     VkRenderPassBeginInfo RPBeginInfo{};
-    // Create the render pass
     RPBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     RPBeginInfo.renderPass = renderPass_;
     RPBeginInfo.framebuffer = toneMappingFrameBuffers_[imageIndex];
-    // Define the size of the render area
     RPBeginInfo.renderArea.offset = { 0, 0 };
     RPBeginInfo.renderArea.extent = SWChainExtent_;
 
@@ -226,7 +232,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     newClearValues[3].color = clearValue_.color;
     newClearValues[4].color = clearValue_.color;
 
-    // Define the clear values to use
     RPBeginInfo.clearValueCount = 5;
     RPBeginInfo.pClearValues = newClearValues.data();
 
@@ -234,7 +239,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // Finally, begin the render pass
     vkCmdBeginRenderPass(commandBuffer, &RPBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     recordSkyBoxCommandBuffer(commandBuffer, imageIndex);
@@ -261,8 +265,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         }
     }
 
-    // cartoon animated objects
-
+    // TOON PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toonPipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toonPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
 
@@ -270,8 +273,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         gO->renderTarget->drawIndexedOpaque(commandBuffer, toonPipeline_->layout);
     }
 
-    // outline last
-
+    // OUTLINE PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, outlinePipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, outlinePipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
 
@@ -283,12 +285,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdEndRenderPass(commandBuffer);
 
-    // render bloom
-
+    // BLOOM PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     renderBloom(commandBuffer);
 
-    // tonemapping renderpass
-
+    // TONEMAPPING PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     VkRenderPassBeginInfo tonemapRenderPassBI{};
     tonemapRenderPassBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     tonemapRenderPassBI.renderPass = toneMapPass_;
@@ -309,8 +309,8 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->layout, 1, 1, &toneMappingDescriptorSet_, 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, 3, 1, 0, 0, 0);
-    vkCmdDrawIndexed(commandBuffer, 3, 1, 3, 0, 0);
+    //vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
@@ -832,6 +832,7 @@ void VulkanRenderer::createLogicalDevice() {
     gpuFeatures.samplerAnisotropy = VK_TRUE;
     gpuFeatures.depthClamp = VK_TRUE;
     gpuFeatures.imageCubeArray = VK_TRUE;
+    gpuFeatures.multiDrawIndirect = VK_TRUE;
 
     VkPhysicalDeviceVulkan13Features vk13Features{};
     vk13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -1201,6 +1202,21 @@ void VulkanRenderer::createDescriptorSetLayout() {
         std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
     }
 
+    VkDescriptorSetLayoutBinding mmLayoutBinding{};
+    mmLayoutBinding.binding = 0;
+    mmLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    mmLayoutBinding.descriptorCount = 1;
+    mmLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    mmLayoutBinding.pImmutableSamplers = nullptr;
+
+    layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutCInfo.bindingCount = 1;
+    layoutCInfo.pBindings = &mmLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &modelMatrixSetLayout_) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the uniform descriptor set layout!");
+    }
+
     layoutCInfo.bindingCount = 9;
     layoutCInfo.pBindings = samplerBindings.data();
 
@@ -1365,6 +1381,154 @@ void VulkanRenderer::separateDrawCalls() {
     }
 }
 
+void VulkanRenderer::addToDrawCalls() {
+    int count = 2;
+    int baseInstanceID = 0;
+
+    // screen quad
+    VkDrawIndexedIndirectCommand quadIndirect{};
+    quadIndirect.firstIndex = 0;
+    quadIndirect.indexCount = 6;
+    quadIndirect.instanceCount = 1;
+    quadIndirect.vertexOffset = 0;
+    quadIndirect.firstInstance = 0;
+
+    drawCommands.push_back(quadIndirect);
+
+    VkDrawIndexedIndirectCommand skyBoxIndirect{};
+    skyBoxIndirect.firstIndex = 6;
+    skyBoxIndirect.indexCount = pSkyBox_->pSkyBoxModel_->totalIndices_;
+    skyBoxIndirect.instanceCount = 1;
+    skyBoxIndirect.vertexOffset = 6;
+    skyBoxIndirect.firstInstance = 0;
+
+    drawCommands.push_back(skyBoxIndirect);
+
+    for (auto& gameObject : *gameObjects) {
+        for (auto& mat : gameObject->renderTarget->opaqueDraws) {
+            IndirectBatch indirect{};
+            indirect.material = mat.first;
+            indirect.first = count;
+            indirect.count = 0;
+            for (auto& dC : mat.second) {
+                modelMatrices.emplace_back(gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
+                dC->indirectInfo.firstInstance = baseInstanceID;
+                drawCommands.push_back(dC->indirectInfo);
+                indirect.count++;
+                count++;
+                baseInstanceID++;
+            }
+            drawBatches.push_back(indirect);
+        }
+        for (auto& mat : gameObject->renderTarget->transparentDraws) {
+            IndirectBatch indirect{};
+            indirect.material = mat.first;
+            indirect.first = count;
+            indirect.count = 0;
+            for (auto& dC : mat.second) {
+                modelMatrices.emplace_back(gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
+                dC->indirectInfo.firstInstance = baseInstanceID;
+                drawCommands.push_back(dC->indirectInfo);
+                indirect.count++;
+                count++;
+                baseInstanceID++;
+            }
+            drawBatches.push_back(indirect);
+        }
+    }
+    for (auto& animGameObject : *animatedObjects) {
+        for (auto& mat : animGameObject->renderTarget->opaqueDraws) {
+            IndirectBatch indirect{};
+            indirect.material = mat.first;
+            indirect.first = count;
+            indirect.count = 0;
+            for (auto& dC : mat.second) {
+                modelMatrices.emplace_back(animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
+                dC->indirectInfo.firstInstance = baseInstanceID;
+                drawCommands.push_back(dC->indirectInfo);
+                indirect.count++;
+                count++;
+                baseInstanceID++;
+            }
+            drawBatches.push_back(indirect);
+        }
+        for (auto& mat : animGameObject->renderTarget->transparentDraws) {
+            IndirectBatch indirect{};
+            indirect.material = mat.first;
+            indirect.first = count;
+            indirect.count = 0;
+            for (auto& dC : mat.second) {
+                modelMatrices.emplace_back(animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
+                dC->indirectInfo.firstInstance = baseInstanceID;
+                drawCommands.push_back(dC->indirectInfo);
+                indirect.count++;
+                count++;
+                baseInstanceID++;
+            }
+            drawBatches.push_back(indirect);
+        }
+    }
+}
+
+
+
+void VulkanRenderer::createDrawCallBuffer() {
+    VkDeviceSize bufferSize = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, drawCommands.data(), (size_t)bufferSize);
+    vkUnmapMemory(device_, stagingBufferMemory);
+
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer, drawCallBufferMemory);
+    pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer, bufferSize);
+}
+
+void VulkanRenderer::createModelMatrixBuffer() {
+    VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixBuffer, modelMatrixBufferMemory);
+
+    vkMapMemory(pDevHelper_->device_, modelMatrixBufferMemory, 0, bufferSize, 0, &mappedModelMatrixBuffer);
+    memcpy(mappedModelMatrixBuffer, modelMatrices.data(), bufferSize);
+
+    VkDescriptorSetAllocateInfo mmAllocateInfo{};
+    mmAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    mmAllocateInfo.descriptorPool = descriptorPool_;
+    mmAllocateInfo.descriptorSetCount = 1;
+    mmAllocateInfo.pSetLayouts = &modelMatrixSetLayout_;
+
+    VkResult res3 = vkAllocateDescriptorSets(device_, &mmAllocateInfo, &modelMatrixDescriptorSet_);
+    if (res3 != VK_SUCCESS) {
+        std::cout << res3 << std::endl;
+        std::_Xruntime_error("Failed to allocate descriptor sets!");
+    }
+
+    VkDescriptorBufferInfo descriptorBufferInfo{};
+    descriptorBufferInfo.buffer = modelMatrixBuffer;
+    descriptorBufferInfo.offset = 0;
+    descriptorBufferInfo.range = sizeof(glm::mat4) * modelMatrices.size();
+
+    VkWriteDescriptorSet mmDescriptorWriteSet{};
+    mmDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    mmDescriptorWriteSet.dstSet = modelMatrixDescriptorSet_;
+    mmDescriptorWriteSet.dstBinding = 0;
+    mmDescriptorWriteSet.dstArrayElement = 0;
+    mmDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    mmDescriptorWriteSet.descriptorCount = 1;
+    mmDescriptorWriteSet.pBufferInfo = &descriptorBufferInfo;
+
+    std::array<VkWriteDescriptorSet, 1> mmWrites = { mmDescriptorWriteSet };
+
+    vkUpdateDescriptorSets(device_, 1, mmWrites.data(), 0, nullptr);
+}
+
 void VulkanRenderer::createDepthPipeline() {
     VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPass.spv");
     VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPassAlpha.spv");
@@ -1383,7 +1547,7 @@ void VulkanRenderer::createDepthPipeline() {
 
     std::array< VkPushConstantRange, 2> ranges = { pcDepthRange, fragRange };
 
-    std::array<VkDescriptorSetLayout, 2> sets = { uniformDescriptorSetLayout_, textureDescriptorSetLayout_ };
+    std::array<VkDescriptorSetLayout, 3> sets = { uniformDescriptorSetLayout_, textureDescriptorSetLayout_, modelMatrixSetLayout_ };
 
     auto bindings = Vertex::getBindingDescription();
     auto attributes = Vertex::getDepthAttributeDescription();
@@ -1999,7 +2163,7 @@ void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, ui
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
-    pSkyBox_->drawSkyBoxIndexed(commandBuffer);
+    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2036,6 +2200,40 @@ COMPUTE
 
 void VulkanRenderer::updateBindMatrices() {
     memcpy(mappedSkinBuffer, inverseBindMatrices.data(), inverseBindMatrices.size() * sizeof(glm::mat4));
+}
+
+void VulkanRenderer::updateModelMatrices() {
+    int modelMatrixID = 0;
+    for (auto& gameObject : *gameObjects) {
+        for (auto& mat : gameObject->renderTarget->opaqueDraws) {
+            for (auto& dC : mat.second) {
+                modelMatrices[modelMatrixID] = gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
+                modelMatrixID++;
+            }
+        }
+        for (auto& mat : gameObject->renderTarget->transparentDraws) {
+            for (auto& dC : mat.second) {
+                modelMatrices[modelMatrixID] = gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
+                modelMatrixID++;
+            }
+        }
+    }
+    for (auto& animGameObject : *animatedObjects) {
+        for (auto& mat : animGameObject->renderTarget->opaqueDraws) {
+            for (auto& dC : mat.second) {
+                modelMatrices[modelMatrixID] = animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
+                modelMatrixID++;
+            }
+        }
+        for (auto& mat : animGameObject->renderTarget->transparentDraws) {
+            for (auto& dC : mat.second) {
+                modelMatrices[modelMatrixID] = animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
+                modelMatrixID++;
+            }
+        }
+    }
+
+    memcpy(mappedModelMatrixBuffer, modelMatrices.data(), modelMatrices.size() * sizeof(glm::mat4));
 }
 
 void VulkanRenderer::setupCompute() {

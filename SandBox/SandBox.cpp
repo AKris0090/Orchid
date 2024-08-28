@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     //graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(50.0f, 40.0f, 2.0f));
     graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
     graphicsManager.pVkR_->depthBias_ = 0.003f;
-    graphicsManager.pVkR_->camera_.setNearPlane(0.05f);
+    graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
     graphicsManager.pVkR_->camera_.setFarPlane(400.0f);
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
@@ -129,6 +129,11 @@ int main(int argc, char* argv[]) {
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
         g->renderTarget->localModelTransform = g->transform.to_matrix();
     }
+
+    // Model Matrices TODO: MOVE THIS SOMEWHERE ELSE LOL
+    graphicsManager.pVkR_->addToDrawCalls();
+    graphicsManager.pVkR_->createDrawCallBuffer();
+    graphicsManager.pVkR_->createModelMatrixBuffer();
    
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     scale = glm::vec3(1.0f);
@@ -210,6 +215,7 @@ int main(int argc, char* argv[]) {
         // update physics -------------------
         // includes game object position updates TODO: REMOVE FROM HERE
         physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
+        graphicsManager.pVkR_->updateModelMatrices();
         
         // update graphics -------------------
         graphicsManager.loopUpdate();

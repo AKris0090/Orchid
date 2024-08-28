@@ -167,18 +167,28 @@ void GraphicsManager::startVulkan() {
 
     std::cout << "loading skybox\n" << std::endl;
 
-    uint32_t globalVertexOffset = 0;
-    uint32_t globalIndexOffset = 0;
+    uint32_t globalVertexOffset = 6;
+    uint32_t globalIndexOffset = 6;
+
+    pVkR_->vertices_ = { Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
+                       Vertex(glm::vec2(-1.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
+                       Vertex(glm::vec2(1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+                       Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
+                       Vertex(glm::vec2(1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+                       Vertex(glm::vec2(1.0f, -1.0f), glm::vec2(1.0f, 0.0f))
+    };
+
+    pVkR_->indices_ = { 0, 1, 2, 3, 4, 5 };
 
     pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
     pVkR_->createSkyBoxPipeline();
 
-    for (int i = globalVertexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
+    for (int i = 0; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
         pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->vertices_[i]);
         globalVertexOffset++;
     }
 
-    for (int i = globalIndexOffset; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalIndices_; i++) {
+    for (int i = 0; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalIndices_; i++) {
         pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->indices_[i]);
         globalIndexOffset++;
     }

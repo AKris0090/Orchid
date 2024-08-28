@@ -101,6 +101,8 @@ public:
 	glm::mat4 worldTransformMatrix;
 	std::vector<uint32_t> stagingIndices_ = {};
 	std::vector<Vertex> stagingVertices_ = {};
+	VkDrawIndexedIndirectCommand indirectInfo;
+	int32_t globalID;
 
 	MeshHelper() {
 		this->materialIndex = 0;
@@ -109,16 +111,8 @@ public:
 		this->indirectInfo = {};
 	};
 
-	struct indirectDrawInfo {
-		uint32_t numIndices;
-		uint32_t instanceCount;
-		uint32_t firstIndex;
-		int32_t globalVertexOffset;
-		uint32_t firstInstance;
-	} indirectInfo;
-
-	static void callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo) {
-		vkCmdDrawIndexed(commandBuffer, indexedDrawInfo.numIndices, indexedDrawInfo.instanceCount, indexedDrawInfo.firstIndex, indexedDrawInfo.globalVertexOffset, indexedDrawInfo.firstInstance);
+	static void callIndexedDraw(VkCommandBuffer& commandBuffer, VkDrawIndexedIndirectCommand& indexedDrawInfo) {
+		vkCmdDrawIndexed(commandBuffer, indexedDrawInfo.indexCount, indexedDrawInfo.instanceCount, indexedDrawInfo.firstIndex, indexedDrawInfo.vertexOffset, indexedDrawInfo.firstInstance);
 	}
 };
 

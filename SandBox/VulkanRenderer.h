@@ -48,6 +48,12 @@ struct UniformBufferObject {
 	glm::mat4 cascadeViewProjMat[4];
 };
 
+struct IndirectBatch {
+	Material* material;
+	uint32_t first;
+	uint32_t count;
+};
+
 class VulkanRenderer {
 
 private:
@@ -90,6 +96,7 @@ private:
 	std::vector<VkDescriptorSet> descriptorSets_;
 	VkDescriptorSet computeDescriptorSet_;
 	VkDescriptorSet toneMappingDescriptorSet_;
+	VkDescriptorSet modelMatrixDescriptorSet_;
 
 	std::vector<VkSemaphore> imageAcquiredSema_;
 	std::vector<VkSemaphore> renderedSema_;
@@ -141,6 +148,13 @@ public:
 	VkBuffer screenQuadIndexBuffer;
 	VkDeviceMemory screenQuadIndexBufferMemory;
 
+	VkBuffer drawCallBuffer;
+	VkDeviceMemory drawCallBufferMemory;
+
+	VkBuffer modelMatrixBuffer;
+	void* mappedModelMatrixBuffer;
+	VkDeviceMemory modelMatrixBufferMemory;
+
 	std::vector<Vertex> screenQuadVertices;
 	std::vector<uint32_t> screenQuadIndices;
 
@@ -148,6 +162,10 @@ public:
 	std::vector<uint32_t>indices_;
 
 	std::vector<glm::mat4> inverseBindMatrices;
+	std::vector<glm::mat4> modelMatrices;
+
+	std::vector<IndirectBatch> drawBatches;
+	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 
 	VkBuffer skinBindMatricsBuffer;
 	void* mappedSkinBuffer;
@@ -186,6 +204,9 @@ public:
 	VkPipeline computePipeline;
 	VkPipelineLayout computePipelineLayout;
 
+	VkPipeline computeCullPipeline;
+	VkPipelineLayout computeCullPipelineLayout;
+
 	VkPipeline transparentPipeline;
 
 	VkRenderPass renderPass_;
@@ -201,7 +222,7 @@ public:
 	VkDescriptorSetLayout uniformDescriptorSetLayout_;
 	VkDescriptorSetLayout textureDescriptorSetLayout_;
 	VkDescriptorSetLayout computeDescriptorSetLayout_;
-
+	VkDescriptorSetLayout modelMatrixSetLayout_;
 	VkDescriptorSetLayout tonemappingDescriptorSetLayout_;
 
 	VkSampler toneMappingSampler_;
@@ -247,6 +268,10 @@ public:
 	void postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight);
 	void freeEverything(int framesInFlight);
 	void separateDrawCalls();
+	void updateModelMatrices();
+	void addToDrawCalls();
+	void createDrawCallBuffer();
+	void createModelMatrixBuffer();
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
 	void setupCompute();
