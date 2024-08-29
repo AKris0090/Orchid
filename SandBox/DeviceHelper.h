@@ -66,11 +66,6 @@ public:
     void transitionImageLayout(VkCommandBuffer& cmdBuff, const VkImageSubresourceRange& subresourceRange, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkImage& image);
 };
 
-static struct cascadeMVP {
-    glm::mat4 model;
-    uint32_t cascadeIndex;
-} cascadeBlock;
-
 static struct pcBlock {
     float alphaCutoff;
 } pushConstantBlock;

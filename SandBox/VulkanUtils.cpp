@@ -182,3 +182,27 @@ void VulkanPipelineBuilder::generate(const PipelineBuilderInfo& builder, const V
         vkDestroyShaderModule(this->device_, builder.pShaderStages[i].module, nullptr);
     }
 }
+
+VulkanDescriptorLayoutBuilder::VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings) {
+    this->device = devHelper->device_;
+
+    std::vector<VkDescriptorSetLayoutBinding> descriptorWrites;
+    descriptorWrites.resize(bindings.size());
+    for (int i = 0; i < bindings.size(); i++) {
+        descriptorWrites[i].binding = i;
+        descriptorWrites[i].descriptorType = bindings[i].descriptorType;
+        descriptorWrites[i].descriptorCount = 1;
+        descriptorWrites[i].stageFlags = bindings[i].stageBits;
+        descriptorWrites[i].pImmutableSamplers = nullptr;
+    }
+
+    VkDescriptorSetLayoutCreateInfo layoutCInfo{};
+    layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutCInfo.bindingCount = descriptorWrites.size();
+    layoutCInfo.pBindings = descriptorWrites.data();
+
+    if (vkCreateDescriptorSetLayout(devHelper->device_, &layoutCInfo, nullptr, &layout) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create descriptor set layout!");
+    }
+
+}

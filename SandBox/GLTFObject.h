@@ -30,11 +30,6 @@ public:
 
 	void createDescriptors();
 
-	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex);
-	void renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-
 	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	~GLTFObj();
 
@@ -50,6 +45,4 @@ private:
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 
 	void recursiveDeleteNode(SceneNode* node);
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, SceneNode* node);
-	void drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, SceneNode* node);
 };

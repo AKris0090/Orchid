@@ -155,7 +155,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     pVkR_->camera_.setProjectionMatrix();
-    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_));
+    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout));
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 
@@ -164,6 +164,8 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->createDescriptorSetLayout();
     std::cout << "created desc set layout" << std::endl;
+
+    pVkR_->pDirectionalLight_->createPipeline(pVkR_->modelMatrixSetLayout_);
 
     std::cout << "loading skybox\n" << std::endl;
 
@@ -266,7 +268,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->createVertexBuffer();
     pVkR_->createIndexBuffer();
 
-    pVkR_->pDevHelper_->texDescSetLayout_ = pVkR_->textureDescriptorSetLayout_;
+    pVkR_->pDevHelper_->texDescSetLayout_ = pVkR_->textureDescriptorSetLayout_->layout;
 
     pVkR_->createDescriptorSets();
     std::cout << "created desc sets" << std::endl << std::endl;
@@ -315,7 +317,7 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->separateDrawCalls();
 
-    pVkR_->setupCompute();
+    pVkR_->setupCompute(MAX_FRAMES_IN_FLIGHT);
 
     pVkR_->bloomHelper = new BloomHelper(pVkR_->pDevHelper_);
         

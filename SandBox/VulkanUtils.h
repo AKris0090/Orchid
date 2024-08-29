@@ -6,6 +6,28 @@
 /// Pipeline Helper Classes
 /// </summary>
 
+
+class VulkanDescriptorLayoutBuilder {
+public:
+	struct BindingStruct {
+		VkDescriptorType descriptorType;
+		VkShaderStageFlagBits stageBits;
+	};
+
+	VkDevice device;
+
+	VkDescriptorSetLayout layout;
+
+	VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, std::vector<BindingStruct> bindings);
+	~VulkanDescriptorLayoutBuilder() {
+		vkDestroyDescriptorSetLayout(device, layout, nullptr);
+	}
+};
+
+class VulkanDescriptorSetBuilder {
+
+};
+
 class VulkanPipelineBuilder {
 public:
 	class VulkanShaderModule {

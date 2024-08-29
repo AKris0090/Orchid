@@ -274,16 +274,18 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 	return buffer;
 }
 
-void DirectionalLight::createPipeline() {
+void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrixDescriptorSet) {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
-	pcRange.size = sizeof(cascadeMVP);
+	pcRange.size = sizeof(int);
 	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	std::array<VkDescriptorSetLayout, 2> sets = { cascadeSetLayout, modelMatrixDescriptorSet->layout };
 
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
 	pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeLineLayoutCInfo.setLayoutCount = 1;
-	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
+	pipeLineLayoutCInfo.setLayoutCount = 2;
+	pipeLineLayoutCInfo.pSetLayouts = sets.data();
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
@@ -519,7 +521,7 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));
 }
 
-void DirectionalLight::genShadowMap(FPSCam* camera) {
+void DirectionalLight::genShadowMap(FPSCam* camera, VkDescriptorSetLayout* modelMatrixDescriptorSet) {
 	width_ = 4096;
 	height_ = 4096;
 	zNear = camera->getNearPlane();
@@ -532,8 +534,6 @@ void DirectionalLight::genShadowMap(FPSCam* camera) {
 	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 
 	createSMDescriptors(camera);
-
-	createPipeline();
 }
 
 DirectionalLight::DirectionalLight(glm::vec3 lPos) {

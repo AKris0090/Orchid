@@ -47,8 +47,6 @@ private:
 	void createRenderPass();
 	void createFrameBuffer();
 
-	void createPipeline();
-
 	uint32_t findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
 	std::vector<char> readFile(const std::string& filename);
@@ -100,6 +98,7 @@ public:
 
 	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
 	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
-	void genShadowMap(FPSCam* camera);
+	void genShadowMap(FPSCam* camera, VkDescriptorSetLayout* modelMatrixDescriptorSet);
 	void updateUniBuffers(FPSCam* camera);
+	void createPipeline(VulkanDescriptorLayoutBuilder* modelMatrixDescriptorSet);
 };

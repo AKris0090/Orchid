@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define SHADOW_MAP_CASCADE_COUNT 3
 
@@ -13,9 +13,9 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float specularCont;
 } ubo;
 
-layout(push_constant) uniform pushConstant {
-    mat4 model;
-} pc;
+layout(std430, set = 2, binding = 0) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
+};
 
 layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec4 inNormal;
@@ -30,9 +30,9 @@ invariant gl_Position;
 void main() {
     fragTexCoord = vec2(inPosition.w, inNormal.w);
 
-    vec4 pos = pc.model * vec4(inPosition.xyz, 1.0f);
+    vec4 pos = modelMatrices[gl_BaseInstance] * vec4(inPosition.xyz, 1.0f);
 
-    TBNMatrix = mat3(normalize((vec4((pc.model * inTangent).xyz, inTangent.w)).xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize((mat3(pc.model) * inNormal.xyz)));
+    TBNMatrix = mat3(normalize((vec4((modelMatrices[gl_BaseInstance] * inTangent).xyz, inTangent.w)).xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize((mat3(modelMatrices[gl_BaseInstance]) * inNormal.xyz)));
 
     fragPosition = vec4(pos.xyz, (ubo.view * pos).z);
 

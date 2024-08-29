@@ -16,6 +16,7 @@ const std::vector<const char*> deviceExts = {
 	VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
 	VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME
 };
 
 struct QueueFamilyIndices {
@@ -62,6 +63,7 @@ private:
 
 	uint32_t imageIndex_;
 	bool rendered = false;
+	int animatedIndex;
 	VkSurfaceKHR surface_;
 
 	VkSwapchainKHR swapChain_;
@@ -94,9 +96,9 @@ private:
 	std::vector<VkDeviceMemory> uniformBuffersMemory_;
 
 	std::vector<VkDescriptorSet> descriptorSets_;
-	VkDescriptorSet computeDescriptorSet_;
+	std::vector<VkDescriptorSet> computeDescriptorSets_;
 	VkDescriptorSet toneMappingDescriptorSet_;
-	VkDescriptorSet modelMatrixDescriptorSet_;
+	std::vector<VkDescriptorSet> modelMatrixDescriptorSets_;
 
 	std::vector<VkSemaphore> imageAcquiredSema_;
 	std::vector<VkSemaphore> renderedSema_;
@@ -151,9 +153,9 @@ public:
 	VkBuffer drawCallBuffer;
 	VkDeviceMemory drawCallBufferMemory;
 
-	VkBuffer modelMatrixBuffer;
-	void* mappedModelMatrixBuffer;
-	VkDeviceMemory modelMatrixBufferMemory;
+	std::vector<VkBuffer> modelMatrixBuffers;
+	std::vector<void*> mappedModelMatrixBuffers;
+	std::vector<VkDeviceMemory> modelMatrixBufferMemorys;
 
 	std::vector<Vertex> screenQuadVertices;
 	std::vector<uint32_t> screenQuadIndices;
@@ -167,9 +169,9 @@ public:
 	std::vector<IndirectBatch> drawBatches;
 	std::vector<VkDrawIndexedIndirectCommand> drawCommands;
 
-	VkBuffer skinBindMatricsBuffer;
-	void* mappedSkinBuffer;
-	VkDeviceMemory skinBindMatricesBufferMemory;
+	std::vector<VkBuffer> skinBindMatricsBuffers;
+	std::vector<void*> mappedSkinBuffers;
+	std::vector<VkDeviceMemory> skinBindMatricesBufferMemorys;
 
 	std::vector<GameObject*>* gameObjects;
 	std::vector<AnimatedGameObject*>* animatedObjects;
@@ -219,11 +221,12 @@ public:
 	VkQueue presentQueue_;
 	VkQueue computeQueue_;
 	QueueFamilyIndices QFIndices_;
-	VkDescriptorSetLayout uniformDescriptorSetLayout_;
-	VkDescriptorSetLayout textureDescriptorSetLayout_;
-	VkDescriptorSetLayout computeDescriptorSetLayout_;
-	VkDescriptorSetLayout modelMatrixSetLayout_;
-	VkDescriptorSetLayout tonemappingDescriptorSetLayout_;
+
+	VulkanDescriptorLayoutBuilder* uniformDescriptorSetLayout_;
+	VulkanDescriptorLayoutBuilder* textureDescriptorSetLayout_;
+	VulkanDescriptorLayoutBuilder* modelMatrixSetLayout_;
+	VulkanDescriptorLayoutBuilder* tonemappingDescriptorSetLayout_;
+	VulkanDescriptorLayoutBuilder* computeDescriptorSetLayout_;
 
 	VkSampler toneMappingSampler_;
 	VkSampler toneMappingBloomSampler_;
@@ -271,10 +274,10 @@ public:
 	void updateModelMatrices();
 	void addToDrawCalls();
 	void createDrawCallBuffer();
-	void createModelMatrixBuffer();
+	void createModelMatrixBuffer(int maxFramesInFlight);
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
-	void setupCompute();
+	void setupCompute(int framesInFlight);
 	void createVertexBuffer();
 	void createQuadVertexBuffer();
 	void createIndexBuffer();
@@ -282,5 +285,7 @@ public:
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
 	void renderBloom(VkCommandBuffer& commandBuffer);
+	void fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
+	void animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
 	void shutdown();
 };

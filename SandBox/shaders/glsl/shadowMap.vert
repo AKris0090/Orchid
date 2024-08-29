@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define SHADOW_MAP_CASCADE_COUNT 3
 
@@ -7,13 +7,16 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 } ubo;
 
 layout(push_constant) uniform pushConstant {
-    mat4 pCModel;
-    uint pCascadeIndex;
+    int pCascadeIndex;
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
 };
 
 layout(location = 0) in vec4 inPosition;
  
 void main()
 {
-	gl_Position =  ubo.cascadeViewProj[pCascadeIndex] * pCModel * vec4(inPosition.xyz, 1.0);
+	gl_Position =  ubo.cascadeViewProj[pCascadeIndex] * modelMatrices[gl_BaseInstance] * vec4(inPosition.xyz, 1.0);
 }

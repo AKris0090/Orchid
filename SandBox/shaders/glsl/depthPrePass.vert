@@ -16,10 +16,6 @@ layout(std430, set = 2, binding = 0) readonly buffer ModelMatrices {
 	mat4 modelMatrices[];
 };
 
-layout(push_constant) uniform pushConstant {
-    mat4 model;
-} pc;
-
 invariant gl_Position;
 
 layout(location = 0) in vec4 inPosition;

@@ -36,12 +36,6 @@ public:
 
 	void createDescriptors();
 
-	void drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void drawIndexedOutline(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-	void renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex);
-	void renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-
 	AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	~AnimatedGLTFObj();
 
@@ -61,7 +55,4 @@ private:
 	void loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn, uint32_t index, AnimSceneNode* parent, std::vector<AnimSceneNode*>& nodes, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	void recursiveDeleteNode(AnimSceneNode* node);
-
-	void drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, AnimSceneNode* node);
-	void drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, AnimSceneNode* node);
 };;

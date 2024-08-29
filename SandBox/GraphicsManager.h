@@ -7,9 +7,10 @@
 #include "PlayerObject.h"
 #include "Time.h"
 
+const int MAX_FRAMES_IN_FLIGHT = 3;
+
 class GraphicsManager {
 private:
-	const int MAX_FRAMES_IN_FLIGHT = 3;
 	float windowWidth;
 	float windowHeight;
 	uint32_t frameCount = 0;
