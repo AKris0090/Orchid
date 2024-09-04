@@ -64,6 +64,7 @@ private:
 	uint32_t imageIndex_;
 	bool rendered = false;
 	int animatedIndex;
+	int animatedBatchIndex;
 	VkSurfaceKHR surface_;
 
 	VkSwapchainKHR swapChain_;
@@ -97,14 +98,13 @@ private:
 
 	std::vector<VkDescriptorSet> descriptorSets_;
 	std::vector<VkDescriptorSet> computeDescriptorSets_;
+	std::vector<VkDescriptorSet> computeCullingDescriptorSets_;
 	VkDescriptorSet toneMappingDescriptorSet_;
 	std::vector<VkDescriptorSet> modelMatrixDescriptorSets_;
 
 	std::vector<VkSemaphore> imageAcquiredSema_;
 	std::vector<VkSemaphore> renderedSema_;
 	std::vector<VkFence> inFlightFences_;
-	VkFence computeFence;
-	VkSemaphore computeSema;
 
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	void loadDebugUtilsFunctions(VkDevice device);
@@ -173,6 +173,16 @@ public:
 	std::vector<void*> mappedSkinBuffers;
 	std::vector<VkDeviceMemory> skinBindMatricesBufferMemorys;
 
+	std::vector<glm::vec4> boundingBoxes;
+
+	std::vector<VkBuffer> frustrumPlaneBuffers;
+	std::vector<void*> mappedFrustrumPlaneBuffers;
+	std::vector<VkDeviceMemory> frustrumPlaneBufferMemorys;
+
+	std::vector<VkBuffer> bbBuffers;
+	std::vector<void*> mappedBBBuffers;
+	std::vector<VkDeviceMemory> bbBufferMemorys;
+
 	std::vector<GameObject*>* gameObjects;
 	std::vector<AnimatedGameObject*>* animatedObjects;
 
@@ -186,7 +196,6 @@ public:
 	DeviceHelper* pDevHelper_;
 	Skybox* pSkyBox_;
 	VkCommandPool commandPool_;
-	VkCommandPool computePool_;
 	VkClearValue clearValue_;
 	VkPhysicalDevice GPU_ = VK_NULL_HANDLE;
 	VkDevice device_;
@@ -206,8 +215,16 @@ public:
 	VkPipeline computePipeline;
 	VkPipelineLayout computePipelineLayout;
 
-	VkPipeline computeCullPipeline;
-	VkPipelineLayout computeCullPipelineLayout;
+	VkPipeline computeCullPipeline_;
+	VkPipelineLayout computeCullPipelineLayout_;
+	VulkanDescriptorLayoutBuilder* computeCullDescriptorSetLayout_;
+	VkDescriptorSet primaryCameraComputeCullDescriptorSet;
+
+	std::vector<VkBuffer> mainCameraFinalDrawCallBuffer_;
+	std::vector<VkDeviceMemory> mainCameraFinalDrawCallBufferMemory_;
+
+	std::vector<VkBuffer> finalDrawCallBuffers_;
+	std::vector<VkDeviceMemory> finalDrawCallBufferMemorys_;
 
 	VkPipeline transparentPipeline;
 
@@ -215,7 +232,6 @@ public:
 	VkRenderPass depthPrepass_;
 	VkRenderPass toneMapPass_;
 	std::vector<VkCommandBuffer> commandBuffers_;
-	VkCommandBuffer computeBuffer_;
 	VkDescriptorPool descriptorPool_;
 	VkQueue graphicsQueue_;
 	VkQueue presentQueue_;
@@ -278,6 +294,7 @@ public:
 	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
 	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
 	void setupCompute(int framesInFlight);
+	void createBoundingBoxes();
 	void createVertexBuffer();
 	void createQuadVertexBuffer();
 	void createIndexBuffer();
@@ -285,7 +302,9 @@ public:
 	void updateBindMatrices();
 	void updateGeneratedImageDescriptorSets();
 	void renderBloom(VkCommandBuffer& commandBuffer);
-	void fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
+	void fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
 	void animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
+	void nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
+	void createComputeCullResources(int framesInFlight);
 	void shutdown();
 };

@@ -1,60 +1,72 @@
 #version 460
 
-struct Vertex {
-	vec3 pos;
-	float tex_x;
-	vec3 normal;
-	float tex_y;
-	vec4 tangent;
-	vec4 jointIndex;
-	vec4 jointWeight;
+struct IndexedIndirectCommand 
+{
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	uint vertexOffset;
+	uint firstInstance;
 };
 
-layout(std430, set = 0, binding = 0) readonly buffer JointMatrices {
-	mat4 jointMatrices[];
+layout(set = 0, binding = 0) uniform UBO 
+{
+	vec4 frustumPlanes[6];
+} ubo;	
+
+layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
+	IndexedIndirectCommand indirectDrawsOut[];
 };
 
-layout(set = 0, binding = 1) readonly buffer VertexInputBuffer {
-	Vertex verticesIn[];
+layout(std430, set = 0, binding = 2) readonly buffer BoundingBoxes {
+	vec4 boxes[];
 };
 
-layout(set = 0, binding = 2) writeonly buffer VertexOutputBuffer {
-	Vertex verticesOut[];
+layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
 };
 
 layout(push_constant) uniform pushConstant
 {
-    uint jointMatricesStart;
-    uint numVertices;
+    uint numDraws;
 } pcs;
+
+
+bool frustumCheck(vec4 box)
+{
+	for (int i = 0; i < 6; i++) 
+	{
+		if (dot(vec4(box.xyz, 1.0f), ubo.frustumPlanes[i]) + box.w < 0.0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-mat4 getJointMatrix(int jointId) {
-    return jointMatrices[pcs.jointMatricesStart + jointId];
-}
-
 void main()
 {
-    uint index = gl_GlobalInvocationID.x;
-    if (index >= pcs.numVertices) {
-        return;
-    }
+   	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
 
-    Vertex v = verticesIn[index];
+	if (idx > pcs.numDraws) {
+        	return;
+    	}
 
-    mat4 skinMatrix =
-        v.jointWeight.x * jointMatrices[int(v.jointIndex.x)] +
-        v.jointWeight.y * jointMatrices[int(v.jointIndex.y)] +
-        v.jointWeight.z * jointMatrices[int(v.jointIndex.z)] +
-        v.jointWeight.w * jointMatrices[int(v.jointIndex.w)];
+	IndexedIndirectCommand command = indirectDrawsOut[idx];
 
-    v.pos = vec3(skinMatrix * vec4(v.pos.xyz, 1.0));
+	mat4 modelMatrix = modelMatrices[idx];
 
-    mat3 skinMatrix3 = mat3(skinMatrix);
-    v.normal = skinMatrix3 * v.normal;
+	vec4 trueBox = modelMatrix * vec4(boxes[idx].xyz, 1.0);
+	trueBox.w = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0]));
 
-    v.tangent.xyz = skinMatrix3 * v.tangent.xyz;
+   	if (frustumCheck(trueBox)) {
+		command.instanceCount = 1;
+	}
+	else{
+		command.instanceCount = 0;
+	}
 
-    verticesOut[index] = v;
+	indirectDrawsOut[idx] = command;
 }

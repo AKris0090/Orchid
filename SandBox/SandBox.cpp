@@ -134,6 +134,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->addToDrawCalls();
     graphicsManager.pVkR_->createDrawCallBuffer();
     graphicsManager.pVkR_->createModelMatrixBuffer(MAX_FRAMES_IN_FLIGHT);
+    graphicsManager.pVkR_->createComputeCullResources(MAX_FRAMES_IN_FLIGHT);
    
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     scale = glm::vec3(1.0f);

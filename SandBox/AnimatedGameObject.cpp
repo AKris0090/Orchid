@@ -101,7 +101,7 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
         smoothUntil = Time::getCurrentTime() + smoothDuration;
         needsSmooth = false;
     }
-    if (needsSmooth || (Time::getCurrentTime() < smoothUntil)) {
+    if (Time::getCurrentTime() < smoothUntil) {
         smoothFromCurrentPosition(bindMatrices, deltaTime);
         for (auto& node : renderTarget->pParentNodes)
         {

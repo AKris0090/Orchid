@@ -243,7 +243,7 @@ void GraphicsManager::startVulkan() {
         mod->globalSkinningMatrixOffset = globalSkinMatrixOffset;
 
         for (auto& skin : mod->skins_) {
-            for (glm::mat4 matrix : *(skin.finalJointMatrices)) {
+            for (glm::mat4& matrix : *(skin.finalJointMatrices)) {
                 pVkR_->inverseBindMatrices.push_back(matrix);
                 globalSkinMatrixOffset++;
             }

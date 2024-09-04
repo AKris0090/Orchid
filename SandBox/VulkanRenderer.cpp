@@ -27,6 +27,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.w = nDotVSpec;
 
+    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustrumPlanes.data(), (6 * sizeof(glm::vec4)));
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
@@ -52,7 +53,7 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
-void VulkanRenderer::fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition) {
+void VulkanRenderer::fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
     for (IndirectBatch& draw : drawBatches)
     {
         if (materialPosition > 0) {
@@ -62,12 +63,12 @@ void VulkanRenderer::fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* 
         VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
         uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
 
-        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, indirect_offset, draw.count, draw_stride);
+        vkCmdDrawIndexedIndirect(commandBuffer, drawBuffer, indirect_offset, draw.count, draw_stride);
     }
 }
 
 void VulkanRenderer::animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition) {
-    for (int i = animatedIndex; i < drawBatches.size(); i++) {
+    for (int i = animatedBatchIndex; i < drawBatches.size(); i++) {
         IndirectBatch& draw = drawBatches[i];
         VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
         uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
@@ -79,6 +80,21 @@ void VulkanRenderer::animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayo
         vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, indirect_offset, draw.count, draw_stride);
     }
 }
+
+void VulkanRenderer::nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
+    for (int i = 0; i < animatedBatchIndex; i++) {
+        IndirectBatch& draw = drawBatches[i];
+        VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
+        uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
+
+        if (materialPosition > 0) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
+        }
+
+        vkCmdDrawIndexedIndirect(commandBuffer, drawBuffer, indirect_offset, draw.count, draw_stride);
+    }
+}
+
 
 
 void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
@@ -141,6 +157,39 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     if (vkBeginCommandBuffer(commandBuffer, &CBBeginInfo) != VK_SUCCESS) {
         std::_Xruntime_error("Failed to start recording with the command buffer!");
     }
+
+     // COMPUTE CULL PASS ////////////////////////////////////////////////////////////////////////
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipeline_);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipelineLayout_, 0, 1, &computeCullingDescriptorSets_[this->currentFrame_], 0, nullptr);
+
+    int numDraws = static_cast<int>(drawCommands.size()) - 2 - (drawCommands.size() - animatedIndex);
+
+    vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int), &numDraws);
+    static const auto workgroupSize = 256;
+    const auto groupSizeX = (uint32_t)std::ceil(numDraws / (float)workgroupSize);
+    vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
+
+    VkMemoryBarrier2 cullMemoryBarrier{};
+    cullMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    cullMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    cullMemoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    cullMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    cullMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+
+    VkDependencyInfo cullDependencyInfo{};
+    cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    cullDependencyInfo.memoryBarrierCount = 1;
+    cullDependencyInfo.pMemoryBarriers = &cullMemoryBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &cullDependencyInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = sizeof(VkDrawIndexedIndirectCommand) * ((drawCommands.size() - (drawCommands.size() - animatedIndex)) - 2);
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = sizeof(VkDrawIndexedIndirectCommand) * 2;
+    vkCmdCopyBuffer(commandBuffer, mainCameraFinalDrawCallBuffer_[this->currentFrame_], finalDrawCallBuffers_[this->currentFrame_], 1, &copyRegion);
 
     // COMPUTE SKINNING PASS //////////////////////////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
@@ -213,7 +262,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 2, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
 
-    fullDraw(commandBuffer, &(prepassPipeline_->layout), 1);
+    fullDraw(commandBuffer, &(prepassPipeline_->layout), finalDrawCallBuffers_[this->currentFrame_], 1);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -227,7 +276,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
         vkCmdPushConstants(commandBuffer, pDirectionalLight_->sMPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &j);
 
-        fullDraw(commandBuffer, nullptr, -1);
+        fullDraw(commandBuffer, nullptr, drawCallBuffer, -1);
 
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
     }
@@ -260,7 +309,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, opaquePipeline_->layout, 2, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
 
-    fullDraw(commandBuffer, &(opaquePipeline_->layout), 1);
+    nonAnimatedDraw(commandBuffer, &(opaquePipeline_->layout), finalDrawCallBuffers_[this->currentFrame_], 1);
 
     // TOON PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toonPipeline_->pipeline);
@@ -1196,6 +1245,37 @@ GRAPHICS PIPELINE
 */
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+float distance(glm::vec3 a, glm::vec3 b) {
+    return glm::length(a - b);
+}
+
+void VulkanRenderer::createBoundingBoxes() {
+    for (int i = 2; i < animatedIndex; i++) {
+        VkDrawIndexedIndirectCommand draw = drawCommands[i];
+        float totalX = 0.0f;
+        float totalY = 0.0f;
+        float totalZ = 0.0f;
+        uint32_t numPoints = draw.firstIndex + draw.indexCount;
+        for (int j = draw.firstIndex; j < numPoints; j++) {
+            Vertex v = vertices_[indices_[j] + draw.vertexOffset];
+            totalX += v.pos.x;
+            totalY += v.pos.y;
+            totalZ += v.pos.z;
+        }
+
+        glm::vec4 averageCenter = glm::vec4(totalX / draw.indexCount, totalY / draw.indexCount, totalZ / draw.indexCount, 0.0f);
+
+        for (int j = draw.firstIndex; j < numPoints; j++) {
+            float currentDistance = distance(glm::vec3(averageCenter), vertices_[indices_[j] + draw.vertexOffset].pos);
+            if (currentDistance > averageCenter.w) {
+                averageCenter.w = currentDistance;
+            }
+        }
+
+        boundingBoxes.push_back(averageCenter);
+    }
+}
+
 void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
     for (auto& mesh : node->meshPrimitives) {
         Material* mat = &(obj->mats_[mesh->materialIndex]);
@@ -1296,7 +1376,8 @@ void VulkanRenderer::addToDrawCalls() {
             drawBatches.push_back(indirect);
         }
     }
-    animatedIndex = static_cast<int>(drawBatches.size());
+    animatedIndex = static_cast<int>(drawCommands.size());
+    animatedBatchIndex = static_cast<int>(drawBatches.size());
     for (auto& animGameObject : *animatedObjects) {
         for (auto& mat : animGameObject->renderTarget->opaqueDraws) {
             IndirectBatch indirect{};
@@ -1329,6 +1410,8 @@ void VulkanRenderer::addToDrawCalls() {
             drawBatches.push_back(indirect);
         }
     }
+
+    createBoundingBoxes();
 }
 
 void VulkanRenderer::createDrawCallBuffer() {
@@ -1343,7 +1426,7 @@ void VulkanRenderer::createDrawCallBuffer() {
     memcpy(data, drawCommands.data(), (size_t)bufferSize);
     vkUnmapMemory(device_, stagingBufferMemory);
 
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer, drawCallBufferMemory);
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer, drawCallBufferMemory);
     pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer, bufferSize);
 }
 
@@ -1648,14 +1731,23 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
     mappedBuffers_.resize(SWChainImages_.size());
 
+    frustrumPlaneBuffers.resize(SWChainImages_.size());
+    frustrumPlaneBufferMemorys.resize(SWChainImages_.size());
+    mappedFrustrumPlaneBuffers.resize(SWChainImages_.size());
+
     for (size_t i = 0; i < SWChainImages_.size(); i++) {
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers_[i], uniformBuffersMemory_[i]);
         vkMapMemory(this->device_, this->uniformBuffersMemory_[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffers_[i]);
+
+        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, frustrumPlaneBuffers[i], frustrumPlaneBufferMemorys[i]);
+        vkMapMemory(device_, frustrumPlaneBufferMemorys[i], 0, frustrumPlaneSize, 0, &mappedFrustrumPlaneBuffers[i]);
+
         updateUniformBuffer(i);
     }
 }
@@ -2163,33 +2255,166 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
     computePipelineCInfo.layout = computePipelineLayout;
 
     vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &computePipelineCInfo, nullptr, &computePipeline);
+}
 
-    // BARRIER OBJECTS
-    VkCommandPoolCreateInfo computePoolCInfo = {};
-    computePoolCInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    computePoolCInfo.queueFamilyIndex = QFIndices_.computeFamily.value();
-    computePoolCInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    vkCreateCommandPool(device_, &computePoolCInfo, nullptr, &computePool_);
+void VulkanRenderer::createComputeCullResources(int framesInFlight) {
+    size_t bufferSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
+    size_t altBufferSize = sizeof(VkDrawIndexedIndirectCommand)* (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
+    size_t bbSize = boundingBoxes.size() * sizeof(glm::vec4);
+    mainCameraFinalDrawCallBuffer_.resize(framesInFlight);
+    mainCameraFinalDrawCallBufferMemory_.resize(framesInFlight);
+    finalDrawCallBuffers_.resize(framesInFlight);
+    finalDrawCallBufferMemorys_.resize(framesInFlight);
+    bbBuffers.resize(framesInFlight);
+    bbBufferMemorys.resize(framesInFlight);
+    mappedBBBuffers.resize(framesInFlight);
 
-    VkCommandBufferAllocateInfo computeBufferAllocationInfo{};
-    computeBufferAllocationInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    computeBufferAllocationInfo.commandPool = computePool_;
-    computeBufferAllocationInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    computeBufferAllocationInfo.commandBufferCount = 1;
+    for (int i = 0; i < framesInFlight; i++) {
+        pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mainCameraFinalDrawCallBuffer_[i], mainCameraFinalDrawCallBufferMemory_[i]);
+        pDevHelper_->copyBuffer(drawCallBuffer, mainCameraFinalDrawCallBuffer_[i], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
 
-    if (vkAllocateCommandBuffers(device_, &computeBufferAllocationInfo, &computeBuffer_) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to allocate compute command buffer!");
+        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, finalDrawCallBuffers_[i], finalDrawCallBufferMemorys_[i]);
+        pDevHelper_->copyBuffer(drawCallBuffer, finalDrawCallBuffers_[i], bufferSize);
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        pDevHelper_->createBuffer(bbSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void* data;
+        vkMapMemory(device_, stagingBufferMemory, 0, bbSize, 0, &data);
+        memcpy(data, boundingBoxes.data(), bbSize);
+        vkUnmapMemory(device_, stagingBufferMemory);
+
+        pDevHelper_->createBuffer(bbSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bbBuffers[i], bbBufferMemorys[i]);
+        pDevHelper_->copyBuffer(stagingBuffer, bbBuffers[i], bbSize);
     }
 
-    VkSemaphoreCreateInfo semaCInfo{};
-    semaCInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings;
+    bindings.resize(4);
 
-    VkFenceCreateInfo fenceCInfo{};
-    fenceCInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[1].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[2].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
+    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[3].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
 
-    vkCreateFence(device_, &fenceCInfo, nullptr, &computeFence);
-    vkCreateSemaphore(device_, &semaCInfo, nullptr, &computeSema);
+    computeCullDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+
+    VkPushConstantRange pcRange{};
+    pcRange.offset = 0;
+    pcRange.size = sizeof(int);
+    pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    std::array<VkDescriptorSetLayout, 1> setlayouts = { computeCullDescriptorSetLayout_->layout };
+
+    VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
+    pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLineLayoutCInfo.setLayoutCount = 1;
+    pipeLineLayoutCInfo.pSetLayouts = setlayouts.data();
+    pipeLineLayoutCInfo.pushConstantRangeCount = 1;
+    pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
+
+    if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(computeCullPipelineLayout_)) != VK_SUCCESS) {
+        std::cout << "nah you buggin on dis compute shit" << std::endl;
+        std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
+    }
+
+    computeCullingDescriptorSets_.resize(framesInFlight);
+
+    for (int i = 0; i < framesInFlight; i++) {
+
+        VkDescriptorSetAllocateInfo allocateInfo{};
+        allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocateInfo.descriptorPool = descriptorPool_;
+        allocateInfo.descriptorSetCount = 1;
+        allocateInfo.pSetLayouts = &(computeCullDescriptorSetLayout_->layout);
+
+        VkResult res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &computeCullingDescriptorSets_[i]);
+
+        // BINDINGS //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        VkDescriptorBufferInfo frustrumPlaneUniformBufferInfo{};
+        frustrumPlaneUniformBufferInfo.buffer = frustrumPlaneBuffers[i];
+        frustrumPlaneUniformBufferInfo.offset = 0;
+        frustrumPlaneUniformBufferInfo.range = frustrumPlaneSize;
+
+        VkWriteDescriptorSet frustrumPlaneWriteSet{};
+        frustrumPlaneWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        frustrumPlaneWriteSet.dstSet = computeCullingDescriptorSets_[i];
+        frustrumPlaneWriteSet.dstBinding = 0;
+        frustrumPlaneWriteSet.dstArrayElement = 0;
+        frustrumPlaneWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        frustrumPlaneWriteSet.descriptorCount = 1;
+        frustrumPlaneWriteSet.pBufferInfo = &frustrumPlaneUniformBufferInfo;
+
+        VkDescriptorBufferInfo outputDrawsDescriptorBufferInfo{};
+        outputDrawsDescriptorBufferInfo.buffer = mainCameraFinalDrawCallBuffer_[i];
+        outputDrawsDescriptorBufferInfo.offset = 0;
+        outputDrawsDescriptorBufferInfo.range = sizeof(VkDrawIndexedIndirectCommand) * (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
+
+        VkWriteDescriptorSet outputDrawsWriteSet{};
+        outputDrawsWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        outputDrawsWriteSet.dstSet = computeCullingDescriptorSets_[i];
+        outputDrawsWriteSet.dstBinding = 1;
+        outputDrawsWriteSet.dstArrayElement = 0;
+        outputDrawsWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        outputDrawsWriteSet.descriptorCount = 1;
+        outputDrawsWriteSet.pBufferInfo = &outputDrawsDescriptorBufferInfo;
+
+        VkDescriptorBufferInfo BBDescriptorBufferInfo{};
+        BBDescriptorBufferInfo.buffer = bbBuffers[i];
+        BBDescriptorBufferInfo.offset = 0;
+        BBDescriptorBufferInfo.range = sizeof(glm::vec4) * boundingBoxes.size();
+
+        VkWriteDescriptorSet BBWriteSet{};
+        BBWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        BBWriteSet.dstSet = computeCullingDescriptorSets_[i];
+        BBWriteSet.dstBinding = 2;
+        BBWriteSet.dstArrayElement = 0;
+        BBWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        BBWriteSet.descriptorCount = 1;
+        BBWriteSet.pBufferInfo = &BBDescriptorBufferInfo;
+
+        VkDescriptorBufferInfo mmDescriptorBufferInfo{};
+        mmDescriptorBufferInfo.buffer = modelMatrixBuffers[i];
+        mmDescriptorBufferInfo.offset = sizeof(glm::mat4) * 2;
+        mmDescriptorBufferInfo.range = sizeof(glm::mat4) * (modelMatrices.size() - (modelMatrices.size() - animatedIndex));
+
+        VkWriteDescriptorSet mmDescriptorWriteSet{};
+        mmDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        mmDescriptorWriteSet.dstSet = computeCullingDescriptorSets_[i];
+        mmDescriptorWriteSet.dstBinding = 3;
+        mmDescriptorWriteSet.dstArrayElement = 0;
+        mmDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        mmDescriptorWriteSet.descriptorCount = 1;
+        mmDescriptorWriteSet.pBufferInfo = &mmDescriptorBufferInfo;
+
+        std::array<VkWriteDescriptorSet, 4> descriptors = { frustrumPlaneWriteSet, outputDrawsWriteSet, BBWriteSet, mmDescriptorWriteSet };
+
+        vkUpdateDescriptorSets(device_, 4, descriptors.data(), 0, NULL);
+    }
+
+    // COMPUTE PIPELINE CREATION
+
+    VulkanPipelineBuilder::VulkanShaderModule compute = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frustrumCull.spv");
+
+    VkPipelineShaderStageCreateInfo computeStageCInfo{};
+    computeStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeStageCInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeStageCInfo.module = compute.module;
+    computeStageCInfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineCInfo{};
+    computePipelineCInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCInfo.stage = computeStageCInfo;
+
+    computePipelineCInfo.layout = computeCullPipelineLayout_;
+
+    vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &computePipelineCInfo, nullptr, &computeCullPipeline_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,44 @@
 #include "Camera.h"
 
+void FPSCam::updateFrustrumPlanes() {
+    glm::mat4 matrix = this->projectionMatrix * this->viewMatrix;
+    frustrumPlanes[0].x = matrix[0].w + matrix[0].x;
+    frustrumPlanes[0].y = matrix[1].w + matrix[1].x;
+    frustrumPlanes[0].z = matrix[2].w + matrix[2].x;
+    frustrumPlanes[0].w = matrix[3].w + matrix[3].x;
+
+    frustrumPlanes[1].x = matrix[0].w - matrix[0].x;
+    frustrumPlanes[1].y = matrix[1].w - matrix[1].x;
+    frustrumPlanes[1].z = matrix[2].w - matrix[2].x;
+    frustrumPlanes[1].w = matrix[3].w - matrix[3].x;
+
+    frustrumPlanes[2].x = matrix[0].w - matrix[0].y;
+    frustrumPlanes[2].y = matrix[1].w - matrix[1].y;
+    frustrumPlanes[2].z = matrix[2].w - matrix[2].y;
+    frustrumPlanes[2].w = matrix[3].w - matrix[3].y;
+
+    frustrumPlanes[3].x = matrix[0].w + matrix[0].y;
+    frustrumPlanes[3].y = matrix[1].w + matrix[1].y;
+    frustrumPlanes[3].z = matrix[2].w + matrix[2].y;
+    frustrumPlanes[3].w = matrix[3].w + matrix[3].y;
+
+    frustrumPlanes[4].x = matrix[0].w + matrix[0].z;
+    frustrumPlanes[4].y = matrix[1].w + matrix[1].z;
+    frustrumPlanes[4].z = matrix[2].w + matrix[2].z;
+    frustrumPlanes[4].w = matrix[3].w + matrix[3].z;
+
+    frustrumPlanes[5].x = matrix[0].w - matrix[0].z;
+    frustrumPlanes[5].y = matrix[1].w - matrix[1].z;
+    frustrumPlanes[5].z = matrix[2].w - matrix[2].z;
+    frustrumPlanes[5].w = matrix[3].w - matrix[3].z;
+
+    for (auto i = 0; i < frustrumPlanes.size(); i++)
+    {
+        float length = sqrtf(frustrumPlanes[i].x * frustrumPlanes[i].x + frustrumPlanes[i].y * frustrumPlanes[i].y + frustrumPlanes[i].z * frustrumPlanes[i].z);
+        frustrumPlanes[i] /= length;
+    }
+}
+
 void FPSCam::baseUpdate() {
     // to have a real camera matrix, you dont rotate/move the camera, but you move/rotate the world in the opposite direction of camera motion. Matrices are accumulated by shaders (VKGuide)
     glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), transform.position);
@@ -82,6 +121,8 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
     }
 
     alterUpdate(playerTransform, capsuleHeight);
+
+    setProjectionMatrix();
 }
 
 void FPSCam::processSDL(SDL_Event& event) {
@@ -94,6 +135,8 @@ void FPSCam::processSDL(SDL_Event& event) {
 void FPSCam::setProjectionMatrix() {
     this->projectionMatrix = glm::perspective(FOV, aspectRatio, nearPlane, farPlane);
     this->projectionMatrix[1][1] *= -1.0f;
+
+    updateFrustrumPlanes();
 }
 
 glm::mat4 FPSCam::getProjectionMatrix() {

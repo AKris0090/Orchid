@@ -7,6 +7,7 @@
 #include <physx/PxPhysicsAPI.h>
 #include <physx/PxPhysics.h>
 #include "Input.h"
+#include <math.h>
 
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
@@ -29,6 +30,9 @@ public:
 	glm::vec3 forward;
 	glm::vec3 trueForward;
 	glm::vec3 up;
+
+	std::array<glm::vec4, 6> frustrumPlanes;
+
 	float distanceToPlayer;
 	bool isAttatched;
 
@@ -67,4 +71,5 @@ public:
 	float getFarPlane() { return this->farPlane; };
 	float getAspectRatio() { return this->aspectRatio; };
 	float getFOV() { return this->FOV; };
+	void updateFrustrumPlanes();
 };
