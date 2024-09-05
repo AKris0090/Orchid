@@ -68,8 +68,6 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 			localDisplacement -= camera->right;
 		}
 
-		playerGameObject->previousAnimation = playerGameObject->activeAnimation;
-
 		if (glm::length(localDisplacement) != 0.0f) {
 			if (Input::shiftKeyDown()) {
 				if (currentState == PLAYERSTATE::WALKING || currentState == PLAYERSTATE::IDLE) {

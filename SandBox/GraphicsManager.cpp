@@ -76,7 +76,7 @@ void GraphicsManager::imGUIUpdate() {
 
     ImGui::Begin("Var Editor");
 
-    ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
+    //ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
     ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
     ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
     ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
@@ -250,8 +250,8 @@ void GraphicsManager::startVulkan() {
         }
 
         newAnimGO->isOutline = true;
-        newAnimGO->smoothTime = 15.0f;
-        newAnimGO->smoothDuration = 1s;
+        newAnimGO->smoothDuration = 150ms;
+        newAnimGO->smoothAmount = FLT_MAX;
 
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();

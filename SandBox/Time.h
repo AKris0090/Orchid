@@ -14,6 +14,14 @@ namespace Time {
 		return a + ((b - a) * t);
 	}
 
+	static float weightLerp(float a, float b, float t) {
+		return (a * (1.0f - t)) + (b * (t));
+	}
+
+	static glm::vec3 weightLerp(glm::vec3 a, glm::vec3 b, float t) {
+		return (a * (1.0f - t)) + (b * (t));
+	}
+
 	std::chrono::time_point<std::chrono::system_clock> getCurrentTime();
 	float getDeltaTime();
 };

@@ -209,5 +209,10 @@ void main()
 		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	outColor = vec4(color, ALPHA);
+	vec3 realColor = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
+	realColor = pow(realColor, vec3(1.0 / ubo.gammaExposure.x));
+
+	realColor *= max(0.5f, shadow);
+
+	outColor = vec4(realColor, ALPHA);
 }

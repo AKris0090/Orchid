@@ -10,9 +10,10 @@ public:
 	Animation* activeAnimation;
 	Animation* previousAnimation;
 	bool needsSmooth;
+	std::chrono::time_point<std::chrono::system_clock> smoothStart;
 	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
 	std::chrono::milliseconds smoothDuration;
-	float smoothTime;
+	float smoothAmount;
 
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;

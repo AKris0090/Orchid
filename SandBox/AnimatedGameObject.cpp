@@ -36,16 +36,26 @@ void AnimatedGameObject::updateJoints(AnimSceneNode* node, std::vector<glm::mat4
 using namespace std::literals;
 
 void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime) {
-    Animation* animation = activeAnimation;
-    animation->currentTime += deltaTime;
-    if (animation->currentTime > animation->end)
+    activeAnimation->currentTime += deltaTime;
+    previousAnimation->currentTime += deltaTime;
+    if (activeAnimation->currentTime > activeAnimation->end)
     {
-        animation->currentTime -= animation->end;
+        activeAnimation->currentTime -= activeAnimation->end;
+    }
+    if (previousAnimation->currentTime > previousAnimation->end)
+    {
+        previousAnimation->currentTime -= previousAnimation->end;
     }
 
-    for (auto& channel : animation->channels)
+    std::vector<glm::vec3> srcPos = std::vector<glm::vec3>(previousAnimation->channels.size());
+    std::vector<glm::quat> srcQuat = std::vector<glm::quat>(previousAnimation->channels.size());
+    std::vector<glm::vec3> srcScale = std::vector<glm::vec3>(previousAnimation->channels.size());
+
+    int count = 0;
+
+    for (auto& channel : previousAnimation->channels)
     {
-        Animation::AnimationSampler& sampler = animation->samplers[channel.samplerIndex];
+        Animation::AnimationSampler& sampler = previousAnimation->samplers[channel.samplerIndex];
         for (size_t i = 0; i < sampler.inputs.size() - 1; i++)
         {
             if (sampler.interpolation != "LINEAR")
@@ -55,14 +65,12 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
             }
 
             // Get the input keyframe values for the current time stamp
-            if ((animation->currentTime >= sampler.inputs[i]) && (animation->currentTime <= sampler.inputs[i + 1]))
+            if ((previousAnimation->currentTime >= sampler.inputs[i]) && (previousAnimation->currentTime <= sampler.inputs[i + 1]))
             {
-                float a = (animation->currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
+                float a = (previousAnimation->currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
                 if (channel.path == "translation")
                 {
-                    glm::vec3 dest = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
-
-                    channel.node->translation = Time::lerp(channel.node->translation, dest, Time::getDeltaTime() * smoothTime);
+                    srcPos[count] = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
                 }
                 if (channel.path == "rotation")
                 {
@@ -78,30 +86,82 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
                     q2.z = sampler.outputsVec4[i + 1].z;
                     q2.w = sampler.outputsVec4[i + 1].w;
 
-                    glm::quat dest = glm::normalize(glm::slerp(q1, q2, a));
-
-                    channel.node->rotation.x = Time::lerp(channel.node->rotation.x, dest.x, Time::getDeltaTime() * smoothTime);
-                    channel.node->rotation.y = Time::lerp(channel.node->rotation.y, dest.y, Time::getDeltaTime() * smoothTime);
-                    channel.node->rotation.z = Time::lerp(channel.node->rotation.z, dest.z, Time::getDeltaTime() * smoothTime);
-                    channel.node->rotation.w = Time::lerp(channel.node->rotation.w, dest.w, Time::getDeltaTime() * smoothTime);
+                    srcQuat[count] = glm::normalize(glm::slerp(q1, q2, a));
                 }
                 if (channel.path == "scale")
                 {
-                    glm::vec3 dest = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
-
-                    channel.node->scale = Time::lerp(channel.node->scale, dest, Time::getDeltaTime() * smoothTime);
+                    srcScale[count] = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
                 }
             }
         }
+        count++;
+    }
+
+    count = 0;
+    for (auto& channel : activeAnimation->channels)
+    {
+        Animation::AnimationSampler& sampler = activeAnimation->samplers[channel.samplerIndex];
+        for (size_t i = 0; i < sampler.inputs.size() - 1; i++)
+        {
+            if (sampler.interpolation != "LINEAR")
+            {
+                std::cout << "This sample only supports linear interpolations\n";
+                continue;
+            }
+
+            // Get the input keyframe values for the current time stamp
+            if ((activeAnimation->currentTime >= sampler.inputs[i]) && (activeAnimation->currentTime <= sampler.inputs[i + 1]))
+            {
+                float a = (activeAnimation->currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
+                if (channel.path == "translation")
+                {
+                    glm::vec3 dstPos = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
+
+                    channel.node->translation = Time::weightLerp(srcPos[count], dstPos, smoothAmount);
+                }
+                if (channel.path == "rotation")
+                {
+                    glm::quat q1;
+                    q1.x = sampler.outputsVec4[i].x;
+                    q1.y = sampler.outputsVec4[i].y;
+                    q1.z = sampler.outputsVec4[i].z;
+                    q1.w = sampler.outputsVec4[i].w;
+
+                    glm::quat q2;
+                    q2.x = sampler.outputsVec4[i + 1].x;
+                    q2.y = sampler.outputsVec4[i + 1].y;
+                    q2.z = sampler.outputsVec4[i + 1].z;
+                    q2.w = sampler.outputsVec4[i + 1].w;
+
+                    glm::quat dstQuat = glm::normalize(glm::slerp(q1, q2, a));
+
+                    channel.node->rotation.x = Time::weightLerp(srcQuat[count].x, dstQuat.x, smoothAmount);
+                    channel.node->rotation.y = Time::weightLerp(srcQuat[count].y, dstQuat.y, smoothAmount);
+                    channel.node->rotation.z = Time::weightLerp(srcQuat[count].z, dstQuat.z, smoothAmount);
+                    channel.node->rotation.w = Time::weightLerp(srcQuat[count].w, dstQuat.w, smoothAmount);
+                }
+                if (channel.path == "scale")
+                {
+                    glm::vec3 dstScale = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
+
+                    channel.node->scale = Time::weightLerp(srcScale[count], dstScale, smoothAmount);
+                }
+            }
+        }
+        count++;
     }
 }
 
 void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime) {
     if (needsSmooth) {
-        smoothUntil = Time::getCurrentTime() + smoothDuration;
+        smoothStart = Time::getCurrentTime();
+        smoothUntil = smoothStart + smoothDuration;
+        smoothAmount = 0.0f;
+        activeAnimation->currentTime = 0.0f;
         needsSmooth = false;
     }
-    if (Time::getCurrentTime() < smoothUntil) {
+    if (smoothAmount <= 1.0f) {
+        smoothAmount = (std::chrono::duration<float>(Time::getCurrentTime() - smoothStart) / smoothDuration);
         smoothFromCurrentPosition(bindMatrices, deltaTime);
         for (auto& node : renderTarget->pParentNodes)
         {
