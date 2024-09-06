@@ -26,12 +26,13 @@ public:
 	glm::mat4 viewMatrix;
 	glm::mat4 inverseViewMatrix;
 	glm::mat4 projectionMatrix;
+	glm::mat4 backwardsViewMatrix;
 	glm::vec3 right;
 	glm::vec3 forward;
 	glm::vec3 trueForward;
 	glm::vec3 up;
 
-	std::array<glm::vec4, 6> frustrumPlanes;
+	std::array<float, 6> frustrumPlanes;
 
 	float distanceToPlayer;
 	bool isAttatched;

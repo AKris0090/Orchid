@@ -8,6 +8,9 @@ public:
 		SceneNode* parent;
 		std::vector<SceneNode*> children;
 		std::vector<MeshHelper*> meshPrimitives;
+		glm::vec3 translation = glm::vec3(0.0f);
+		glm::quat rotation = glm::quat(0, 0, 0, 0);
+		glm::vec3 scale = glm::vec3(1.0f);
 		glm::mat4 worldTransform;
 	};
 

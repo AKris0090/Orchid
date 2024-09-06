@@ -81,7 +81,9 @@ public:
     glm::vec3 right = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-    glm::mat4 to_matrix() const {
+    glm::mat4 matrix = glm::mat4(1.0f);
+
+    glm::mat4 to_matrix() {
         glm::mat4 retM = glm::translate(glm::mat4(1.0f), position);
         retM *= glm::mat4_cast(glm::quat(rotation));
         retM *= glm::scale(glm::mat4(1.0f), scale);

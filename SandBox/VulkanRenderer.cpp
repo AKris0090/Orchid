@@ -27,7 +27,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.w = nDotVSpec;
 
-    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustrumPlanes.data(), (6 * sizeof(glm::vec4)));
+    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustrumPlanes.data(), (6 * sizeof(float)));
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
@@ -166,7 +166,11 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     int numDraws = static_cast<int>(drawCommands.size()) - 2 - (drawCommands.size() - animatedIndex);
 
-    vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int), &numDraws);
+    ComputeCullPushConstant cmp{};
+    cmp.viewMatrix = camera_.backwardsViewMatrix;
+    cmp.numDraws = numDraws;
+
+    vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputeCullPushConstant), &cmp);
     static const auto workgroupSize = 256;
     const auto groupSizeX = (uint32_t)std::ceil(numDraws / (float)workgroupSize);
     vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
@@ -1251,28 +1255,42 @@ float distance(glm::vec3 a, glm::vec3 b) {
 
 void VulkanRenderer::createBoundingBoxes() {
     for (int i = 2; i < animatedIndex; i++) {
+        //VkDrawIndexedIndirectCommand draw = drawCommands[i];
+        //float totalX = 0.0f;
+        //float totalY = 0.0f;
+        //float totalZ = 0.0f;
+        //uint32_t numPoints = draw.firstIndex + draw.indexCount;
+        //for (int j = draw.firstIndex; j < numPoints; j++) {
+        //    Vertex v = vertices_[indices_[j] + draw.vertexOffset];
+        //    totalX += v.pos.x;
+        //    totalY += v.pos.y;
+        //    totalZ += v.pos.z;
+        //}
+
+        //glm::vec4 averageCenter = glm::vec4(totalX / draw.indexCount, totalY / draw.indexCount, totalZ / draw.indexCount, 0.0f);
+
+        //for (int j = draw.firstIndex; j < numPoints; j++) {
+        //    float currentDistance = distance(glm::vec3(averageCenter), vertices_[indices_[j] + draw.vertexOffset].pos);
+        //    if (currentDistance > averageCenter.w) {
+        //        averageCenter.w = currentDistance;
+        //    }
+        //}
+
         VkDrawIndexedIndirectCommand draw = drawCommands[i];
-        float totalX = 0.0f;
-        float totalY = 0.0f;
-        float totalZ = 0.0f;
         uint32_t numPoints = draw.firstIndex + draw.indexCount;
+
+        glm::vec3 minpos = vertices_[indices_[draw.firstIndex] + draw.vertexOffset].pos;
+        glm::vec3 maxpos = vertices_[indices_[draw.firstIndex] + draw.vertexOffset].pos;
         for (int j = draw.firstIndex; j < numPoints; j++) {
-            Vertex v = vertices_[indices_[j] + draw.vertexOffset];
-            totalX += v.pos.x;
-            totalY += v.pos.y;
-            totalZ += v.pos.z;
+            minpos = glm::min(minpos, glm::vec3(vertices_[indices_[j] + draw.vertexOffset].pos));
+            maxpos = glm::max(maxpos, glm::vec3(vertices_[indices_[j] + draw.vertexOffset].pos));
         }
 
-        glm::vec4 averageCenter = glm::vec4(totalX / draw.indexCount, totalY / draw.indexCount, totalZ / draw.indexCount, 0.0f);
+        glm::vec3 origin = (maxpos + minpos) / 2.f;
+        glm::vec3 extents = (maxpos - minpos) / 2.f;
+        float sphereRadius = glm::length(extents);
 
-        for (int j = draw.firstIndex; j < numPoints; j++) {
-            float currentDistance = distance(glm::vec3(averageCenter), vertices_[indices_[j] + draw.vertexOffset].pos);
-            if (currentDistance > averageCenter.w) {
-                averageCenter.w = currentDistance;
-            }
-        }
-
-        boundingBoxes.push_back(averageCenter);
+        boundingBoxes.push_back(glm::vec4(origin, sphereRadius));
     }
 }
 
@@ -1731,7 +1749,7 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 6 * sizeof(float);
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
@@ -1745,7 +1763,7 @@ void VulkanRenderer::createUniformBuffers() {
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers_[i], uniformBuffersMemory_[i]);
         vkMapMemory(this->device_, this->uniformBuffersMemory_[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffers_[i]);
 
-        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, frustrumPlaneBuffers[i], frustrumPlaneBufferMemorys[i]);
+        pDevHelper_->createBuffer(frustrumPlaneSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, frustrumPlaneBuffers[i], frustrumPlaneBufferMemorys[i]);
         vkMapMemory(device_, frustrumPlaneBufferMemorys[i], 0, frustrumPlaneSize, 0, &mappedFrustrumPlaneBuffers[i]);
 
         updateUniformBuffer(i);
@@ -2260,7 +2278,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     size_t bufferSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
     size_t altBufferSize = sizeof(VkDrawIndexedIndirectCommand)* (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
-    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 6 * sizeof(float);
     size_t bbSize = boundingBoxes.size() * sizeof(glm::vec4);
     mainCameraFinalDrawCallBuffer_.resize(framesInFlight);
     mainCameraFinalDrawCallBufferMemory_.resize(framesInFlight);
@@ -2268,7 +2286,6 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     finalDrawCallBufferMemorys_.resize(framesInFlight);
     bbBuffers.resize(framesInFlight);
     bbBufferMemorys.resize(framesInFlight);
-    mappedBBBuffers.resize(framesInFlight);
 
     for (int i = 0; i < framesInFlight; i++) {
         pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mainCameraFinalDrawCallBuffer_[i], mainCameraFinalDrawCallBufferMemory_[i]);
@@ -2306,7 +2323,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
 
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
-    pcRange.size = sizeof(int);
+    pcRange.size = sizeof(ComputeCullPushConstant);
     pcRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     std::array<VkDescriptorSetLayout, 1> setlayouts = { computeCullDescriptorSetLayout_->layout };
@@ -2381,8 +2398,8 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
 
         VkDescriptorBufferInfo mmDescriptorBufferInfo{};
         mmDescriptorBufferInfo.buffer = modelMatrixBuffers[i];
-        mmDescriptorBufferInfo.offset = sizeof(glm::mat4) * 2;
-        mmDescriptorBufferInfo.range = sizeof(glm::mat4) * (modelMatrices.size() - (modelMatrices.size() - animatedIndex));
+        mmDescriptorBufferInfo.offset = 0;
+        mmDescriptorBufferInfo.range = sizeof(glm::mat4) * (modelMatrices.size() - 2 - (modelMatrices.size() - animatedIndex));
 
         VkWriteDescriptorSet mmDescriptorWriteSet{};
         mmDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

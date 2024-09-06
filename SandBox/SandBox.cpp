@@ -8,6 +8,7 @@
 
 std::vector<std::string> staticModelPaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
+    //"C:/Users/arjoo/Downloads/helmet2.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
     graphicsManager.pVkR_->gamma_ = 1.0f;
-    graphicsManager.pVkR_->exposure_ = 0.5f;
+    graphicsManager.pVkR_->exposure_ = 10.0f;
     graphicsManager.pVkR_->applyTonemap = true;
     graphicsManager.pVkR_->specularCont = 4.0f;
     graphicsManager.pVkR_->nDotVSpec = 1.0f;
@@ -152,6 +153,8 @@ int main(int argc, char* argv[]) {
     player->playerGameObject = graphicsManager.animatedObjects[0];
     player->currentState = PLAYERSTATE::IDLE;
 
+    graphicsManager.pVkR_->capHeight = player->cap_height;
+
     graphicsManager.player = player;
 
     bool running = true;
@@ -203,6 +206,7 @@ int main(int argc, char* argv[]) {
         // update camera ------------
         if (graphicsManager.pVkR_->camera_.isAttatched) {
             graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
+            graphicsManager.pVkR_->playerPosition = player->transform.position;
         }
         else {
             graphicsManager.pVkR_->camera_.update();

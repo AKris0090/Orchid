@@ -167,7 +167,9 @@ void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
     allocateInfo.allocationSize = memRequirements.size;
     allocateInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(device_, &allocateInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+    VkResult re4 = vkAllocateMemory(device_, &allocateInfo, nullptr, &bufferMemory);
+    if (re4 != VK_SUCCESS) {
+        std::cout << re4 << std::endl;
         std::_Xruntime_error("Failed to allocate buffer memory!");
     }
 

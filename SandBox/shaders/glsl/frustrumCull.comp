@@ -9,9 +9,15 @@ struct IndexedIndirectCommand
 	uint firstInstance;
 };
 
+vec3 rotateQuat(vec3 v, vec4 q)
+{
+	return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+}
+
 layout(set = 0, binding = 0) uniform UBO 
 {
-	vec4 frustumPlanes[6];
+	vec4 frustumPlanes;
+	vec2 nearFar;
 } ubo;	
 
 layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
@@ -28,21 +34,22 @@ layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
 
 layout(push_constant) uniform pushConstant
 {
-    uint numDraws;
+    mat4 viewMatrix;
+    int numDraws;
 } pcs;
 
 
-bool frustumCheck(vec4 box)
-{
-	for (int i = 0; i < 6; i++) 
-	{
-		if (dot(vec4(box.xyz, 1.0f), ubo.frustumPlanes[i]) + box.w < 0.0)
-		{
-			return false;
-		}
-	}
-	return true;
-}
+//bool frustumCheck(vec4 box)
+//{
+//	for (int i = 0; i < 6; i++) 
+//	{
+//		if (dot(vec4(box.xyz, 1.0f), ubo.frustumPlanes[i]) + box.w < 0.0)
+//		{
+//			return false;
+//		}
+//	}
+//	return true;
+//}
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -50,7 +57,7 @@ void main()
 {
    	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
 
-	if (idx > pcs.numDraws) {
+	if (idx >= pcs.numDraws) {
         	return;
     	}
 
@@ -59,9 +66,16 @@ void main()
 	mat4 modelMatrix = modelMatrices[idx];
 
 	vec4 trueBox = modelMatrix * vec4(boxes[idx].xyz, 1.0);
+	trueBox.xyz = (pcs.viewMatrix * vec4(trueBox.xyz, 1.0f)).xyz; 
 	trueBox.w = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0]));
+	
+	bool isVisible = true;
 
-   	if (frustumCheck(trueBox)) {
+	isVisible = isVisible && trueBox.z * ubo.frustumPlanes[1] - abs(trueBox.x) * ubo.frustumPlanes[0] > -trueBox.w;
+	isVisible = isVisible && trueBox.z * ubo.frustumPlanes[3] - abs(trueBox.y) * ubo.frustumPlanes[2] > -trueBox.w;
+	isVisible = isVisible && trueBox.z + trueBox.w > ubo.nearFar[0] && trueBox.z - trueBox.w < ubo.nearFar[1];
+
+   	if (isVisible) {
 		command.instanceCount = 1;
 	}
 	else{

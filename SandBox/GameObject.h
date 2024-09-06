@@ -31,6 +31,10 @@ public:
 		return vector;
 	}
 
+	glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
+		return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
+	}
+
 	void setGLTFObj(GLTFObj* obj) { this->renderTarget = obj; };
 	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 

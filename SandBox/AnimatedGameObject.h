@@ -54,6 +54,10 @@ public:
 		return vector;
 	}
 
+	glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
+		return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
+	}
+
 	void smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	glm::mat4 getNodeMatrix(AnimSceneNode* node);

@@ -23,6 +23,6 @@ C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/downSample.frag -o spv/downSample.spv 
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/upSample.frag -o spv/upSample.spv -O
 
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/skinning.comp -o spv/computeSkin.spv -O
-C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/frustrumCull.comp -o spv/frustrumCull.spv -O
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe glsl/frustrumCull.comp -o spv/frustrumCull.spv -g
 
 pause

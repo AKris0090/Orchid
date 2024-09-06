@@ -49,10 +49,21 @@ struct UniformBufferObject {
 	glm::mat4 cascadeViewProjMat[4];
 };
 
+struct TransformHolder {
+	glm::vec3 position = glm::vec3(0.0f);
+	glm::quat rotation = glm::quat(0, 0, 0, 0);
+	glm::vec3 scale = glm::vec3(1.0f);
+};
+
 struct IndirectBatch {
 	Material* material;
 	uint32_t first;
 	uint32_t count;
+};
+
+struct ComputeCullPushConstant {
+	glm::mat4 viewMatrix;
+	int numDraws;
 };
 
 class VulkanRenderer {
@@ -180,7 +191,6 @@ public:
 	std::vector<VkDeviceMemory> frustrumPlaneBufferMemorys;
 
 	std::vector<VkBuffer> bbBuffers;
-	std::vector<void*> mappedBBBuffers;
 	std::vector<VkDeviceMemory> bbBufferMemorys;
 
 	std::vector<GameObject*>* gameObjects;
@@ -254,6 +264,9 @@ public:
 	BRDFLut* brdfLut;
 	IrradianceCube* irCube;
 	PrefilteredEnvMap* prefEMap;
+
+	float capHeight;
+	glm::vec3 playerPosition;
 
 	VulkanRenderer();
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);

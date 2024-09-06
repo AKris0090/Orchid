@@ -109,6 +109,7 @@ public:
 		this->skinIndex = -1;
 		this->worldTransformMatrix = glm::mat4(1.0f);
 		this->indirectInfo = {};
+		this->globalID = 0;
 	};
 
 	static void callIndexedDraw(VkCommandBuffer& commandBuffer, VkDrawIndexedIndirectCommand& indexedDrawInfo) {

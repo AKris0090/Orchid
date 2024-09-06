@@ -175,8 +175,8 @@ void main()
 
 	float NdotV = max(dot(N, V), 0.0);
 
-	float metallic = metallicRoughness.b;
-	float roughness = metallicRoughness.g;
+	float metallic = 0.0f;
+	float roughness = 1.0f;
 
 	vec3 F0 = mix(vec3(0.04), ALBEDO, metallic);
 
