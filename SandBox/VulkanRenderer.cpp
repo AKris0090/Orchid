@@ -27,7 +27,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.w = nDotVSpec;
 
-    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustrumPlanes.data(), (6 * sizeof(float)));
+    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustumPlanes.data(), (6 * sizeof(glm::vec4)));
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
@@ -167,7 +167,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     int numDraws = static_cast<int>(drawCommands.size()) - 2 - (drawCommands.size() - animatedIndex);
 
     ComputeCullPushConstant cmp{};
-    cmp.viewMatrix = camera_.backwardsViewMatrix;
+    cmp.viewMatrix = camera_.viewMatrix;
     cmp.numDraws = numDraws;
 
     vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputeCullPushConstant), &cmp);
@@ -1749,7 +1749,7 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    size_t frustrumPlaneSize = 6 * sizeof(float);
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
@@ -2278,7 +2278,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     size_t bufferSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
     size_t altBufferSize = sizeof(VkDrawIndexedIndirectCommand)* (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
-    size_t frustrumPlaneSize = 6 * sizeof(float);
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
     size_t bbSize = boundingBoxes.size() * sizeof(glm::vec4);
     mainCameraFinalDrawCallBuffer_.resize(framesInFlight);
     mainCameraFinalDrawCallBufferMemory_.resize(framesInFlight);

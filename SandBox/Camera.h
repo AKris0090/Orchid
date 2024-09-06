@@ -32,7 +32,7 @@ public:
 	glm::vec3 trueForward;
 	glm::vec3 up;
 
-	std::array<float, 6> frustrumPlanes;
+	std::array<glm::vec4, 6> frustumPlanes;
 
 	float distanceToPlayer;
 	bool isAttatched;
