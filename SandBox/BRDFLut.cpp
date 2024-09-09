@@ -38,19 +38,13 @@ void BRDFLut::createBRDFLutImageSampler() {
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void BRDFLut::createBRDFLutDescriptors() {
-	VkDescriptorSetLayoutBinding samplerLayoutBindingColor{};
-	samplerLayoutBindingColor.binding = 0;
-	samplerLayoutBindingColor.descriptorCount = 1;
-	samplerLayoutBindingColor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBindingColor.pImmutableSamplers = nullptr;
-	samplerLayoutBindingColor.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> binding{};
+	binding.push_back(VulkanDescriptorLayoutBuilder::BindingStruct{
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.stageBits = VK_SHADER_STAGE_FRAGMENT_BIT
+		});
 
-	VkDescriptorSetLayoutCreateInfo layoutCInfo{};
-	layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutCInfo.bindingCount = 1;
-	layoutCInfo.pBindings = &(samplerLayoutBindingColor);
-
-	vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &brdfLUTDescriptorSetLayout_);
+	brdfLUTDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, binding);
 
 	std::array<VkDescriptorPoolSize, 1> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -71,7 +65,7 @@ void BRDFLut::createBRDFLutDescriptors() {
 	allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocateInfo.descriptorPool = brdfLUTDescriptorPool_;
 	allocateInfo.descriptorSetCount = 1;
-	allocateInfo.pSetLayouts = &brdfLUTDescriptorSetLayout_;
+	allocateInfo.pSetLayouts = &brdfLUTDescriptorSetLayout_->layout;
 
 	vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &brdfLUTDescriptorSet_);
 }
@@ -141,7 +135,7 @@ void BRDFLut::createPipeline() {
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
     VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
-    pipelineInfo.pDescriptorSetLayouts = &brdfLUTDescriptorSetLayout_;
+    pipelineInfo.pDescriptorSetLayouts = &brdfLUTDescriptorSetLayout_->layout;
     pipelineInfo.numSets = 1;
     pipelineInfo.pShaderStages = shaderStages.data();
     pipelineInfo.numStages = shaderStages.size();
@@ -237,7 +231,7 @@ BRDFLut::BRDFLut(DeviceHelper* devHelper) {
 void BRDFLut::preDelete() {
 	vkDestroyFramebuffer(pDevHelper_->device_, this->brdfLUTFrameBuffer_, nullptr);
 	vkDestroyRenderPass(pDevHelper_->device_, this->brdfLUTRenderpass_, nullptr);
-	vkDestroyDescriptorSetLayout(pDevHelper_->device_, this->brdfLUTDescriptorSetLayout_, nullptr);
+	delete brdfLUTDescriptorSetLayout_;
 	delete brdfLutPipeline_;
 	this->pDevHelper_ = nullptr;
 }

@@ -159,7 +159,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 
      // COMPUTE CULL PASS ////////////////////////////////////////////////////////////////////////
-
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipeline_);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipelineLayout_, 0, 1, &computeCullingDescriptorSets_[this->currentFrame_], 0, nullptr);
@@ -227,7 +226,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
     // DEPTH PREPASS //////////////////////////////////////////////////////////////////////////////////////////////
-
     VkBuffer vertexBuffers[] = { vertexBuffer_ };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);

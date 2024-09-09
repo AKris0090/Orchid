@@ -14,13 +14,13 @@ public:
 		VkShaderStageFlagBits stageBits;
 	};
 
-	VkDevice device;
+	VkDevice* device;
 
 	VkDescriptorSetLayout layout;
 
 	VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, std::vector<BindingStruct> bindings);
 	~VulkanDescriptorLayoutBuilder() {
-		vkDestroyDescriptorSetLayout(device, layout, nullptr);
+		vkDestroyDescriptorSetLayout(*device, layout, nullptr);
 	}
 };
 

@@ -4,20 +4,6 @@
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-glm::vec4 normalizePlane(glm::vec4 p)
-{
-    return p / glm::length(glm::vec3(p));
-}
-
-glm::mat4 projectionWeird(float fov, float aspectRatio, float zNear) {
-    float f = 1.0f / tanf(fov / 2.0f);
-    return glm::mat4(
-        f / aspectRatio, 0.0f, 0.0f, 0.0f,
-        0.0f, f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f,
-        0.0f, 0.0f, zNear, 0.0f);
-}
-
 void FPSCam::updateFrustrumPlanes() {
     glm::mat4 matrix = this->projectionMatrix * this->viewMatrix;
     frustumPlanes[0].x = matrix[0].w + matrix[0].x;
@@ -178,7 +164,7 @@ void FPSCam::setProjectionMatrix() {
     updateFrustrumPlanes();
 }
 
-glm::mat4 FPSCam::getProjectionMatrix() {
+glm::mat4 FPSCam::getProjectionMatrix() const {
     return this->projectionMatrix;
 }
 

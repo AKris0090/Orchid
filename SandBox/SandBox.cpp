@@ -28,12 +28,12 @@ std::vector<std::string> animatedModelPaths = {
 };
 
 std::vector<std::string> skyboxTexturePaths = {
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/right.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/left.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/top.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/bottom.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/front.jpg",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/back.jpg"
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/right.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/left.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/top.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/bottom.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/front.jpg",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/back.jpg"
 
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/negx.bmp",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/posx.bmp",
@@ -49,12 +49,12 @@ std::vector<std::string> skyboxTexturePaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
 
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
 
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
@@ -78,11 +78,11 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
-    graphicsManager.pVkR_->gamma_ = 1.0f;
+    graphicsManager.pVkR_->gamma_ = 1.2f;
     graphicsManager.pVkR_->exposure_ = 10.0f;
     graphicsManager.pVkR_->applyTonemap = true;
-    graphicsManager.pVkR_->specularCont = 4.0f;
-    graphicsManager.pVkR_->nDotVSpec = 1.0f;
+    graphicsManager.pVkR_->specularCont = 0.4f;
+    graphicsManager.pVkR_->nDotVSpec = 0.5f;
     graphicsManager.pVkR_->bloomRadius = 0.00001f;
 
     PhysicsManager physicsManager = PhysicsManager();

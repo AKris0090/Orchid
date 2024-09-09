@@ -14,6 +14,9 @@ public:
 	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
 	std::chrono::milliseconds smoothDuration;
 	float smoothAmount;
+	int animateOn;
+	float timeAdditional;
+	int currentFrameAnimateOn;
 
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;

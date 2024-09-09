@@ -153,6 +153,18 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
 }
 
 void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime) {
+    if (currentFrameAnimateOn != animateOn) {
+        timeAdditional += deltaTime;
+        currentFrameAnimateOn++;
+        return;
+    }
+    else {
+        deltaTime += timeAdditional;
+        timeAdditional = 0.0f;
+        if (animateOn != 0) {
+            currentFrameAnimateOn %= animateOn;
+        }
+    }
     if (needsSmooth) {
         smoothStart = Time::getCurrentTime();
         smoothUntil = smoothStart + smoothDuration;
@@ -222,6 +234,8 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
     {
         updateJoints(node, bindMatrices);
     }
+
+    currentFrameAnimateOn++;
 }
 
 void AnimatedGameObject::createVertexBuffer() {

@@ -63,7 +63,7 @@ public:
 	void processSDL(SDL_Event& e);
 	void setPitchYaw(float nPitch, float nYaw);
 	glm::mat4 getViewMatrix();
-	glm::mat4 getProjectionMatrix();
+	glm::mat4 getProjectionMatrix() const;
 	void setNearPlane(float nearP);
 	void setFarPlane(float farP);
 	void setAspectRatio(float aspect);

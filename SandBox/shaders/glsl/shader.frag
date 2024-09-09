@@ -167,6 +167,9 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 void main()
 {
+	ALBEDO = ALBEDO += ubo.gammaExposure.z;
+	ALBEDO = pow(ALBEDO, vec3(1.0f / ubo.gammaExposure.w));
+
 	vec3 N = calculateNormal();
 
 	vec3 V = normalize(ubo.viewPos.xyz - fragPosition.xyz);
@@ -199,20 +202,20 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), ubo.gammaExposure.z)) * (shadow) * vec3(1.0f, 0.9569f, 0.898f)) + (emissionVec * ubo.gammaExposure.w);
+	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), 4.0f))) * (shadow) + (emissionVec);//4 is specular	
 
 	vec4 brightColor = vec4(color, 1.0f);
 
 	if(dot(brightColor.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0f) {
-		bloomColor = vec4(brightColor.rgb, 1.0f);
+		bloomColor = vec4(brightColor.rgb, 1.0f) * 0.25f;
 	} else {
 		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	vec3 realColor = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
-	realColor = pow(realColor, vec3(1.0 / ubo.gammaExposure.x));
+	color = mix(vec3(0.5f, 0.5f, 1.0f) * color, color, shadow);
 
-	realColor *= max(0.5f, shadow);
+	color = vec3(1.0) - exp(-color * 10);
+	//color = pow(color, vec3(1.0 / 1));
 
-	outColor = vec4(realColor, ALPHA);
+	outColor = vec4(color, ALPHA);
 }

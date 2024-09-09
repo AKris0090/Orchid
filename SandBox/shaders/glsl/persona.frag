@@ -95,7 +95,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 //vec3 mapped = ACESFilm(color * ubo.gammaExposure.y);//mapped = mapped * (1.0f / ACESFilm(vec3(11.2)));//mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x));
 
-vec3 lightColor = vec3(0.878431f, 0.862745f, 0.698039f);
+vec3 lightColor = vec3(0.65f, 0.65f, 0.1f);
 
 void main()
 {
@@ -115,27 +115,21 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	float ambientVAL = 1.0f;
+	//float ambientVAL = 1.0f;
 
 	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f);
 
-	vec3 color = vec3(ambientVAL + ((inner) * clamp(dot(N, L), 0.0f, 1.0f)));
+	//vec3 color = vec3(ambientVAL + ((inner) * clamp(dot(N, L), 0.0f, 1.0f)));
 
-	float altShadow = clamp(pow(shadow + 0.5f, 0.6f), 0.0f, 1.0f) * 2.3f;
+	float altShadow = clamp(pow(shadow + ubo.gammaExposure.w, 0.6f), 0.0f, 1.0f) * 2.3f;
 
-	color = ((ALBEDO * altShadow) + (clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor)));
+	vec3 color = (ALBEDO * altShadow) + (clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor));
 
+	color = mix(vec3(0.65f, 0.65f, 1.0f) * color, color, shadow);
+	color = mix(vec3(1.0f, 1.0f, 0.65f) * color, color, 1.0f - shadow);
 	color = pow(color, vec3(1.0 / 1.8f));
 
-	vec4 brightColor = vec4(color, 1.0f);
-
-	if(dot(brightColor.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0f) {
-		bloomColor = vec4(brightColor.rgb, 1.0f);
-	} else {
-		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-	}
-
-	bloomColor = vec4(0.0f);
+	bloomColor = vec4(vec3((clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor))), 1.0f) * 0.5f;
 
 	outColor = vec4(color, ALPHA);
 }

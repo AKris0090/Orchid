@@ -252,6 +252,7 @@ void GraphicsManager::startVulkan() {
         newAnimGO->isOutline = true;
         newAnimGO->smoothDuration = 150ms;
         newAnimGO->smoothAmount = FLT_MAX;
+        newAnimGO->animateOn = 1;
 
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();
