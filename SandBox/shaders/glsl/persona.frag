@@ -1,6 +1,6 @@
 #version 460
 
-#define SHADOW_MAP_CASCADE_COUNT 3
+#define SHADOW_MAP_CASCADE_COUNT 4
 
 #include "aces.glsl"
 
@@ -12,6 +12,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 gammaExposure;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
+    vec4 cascadeBiases;
 } ubo;
 
 const mat4 biasMat = mat4( 
@@ -35,8 +36,9 @@ layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in mat3 TBNMatrix;
+layout(location = 1) in vec4 fragNormal;
+layout(location = 2) in vec2 fragTexCoord;
+layout(location = 3) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
@@ -63,13 +65,13 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 
 	if ( shadowCoord.w > 0.0 && dist < shadowCoord.z - newBias ) 
 	{
-		return 0.0;
+		return 0.0f;
 	}
 
-	return 1.0;
+	return 1.0f;
 }
 
-const int range = 1;
+const int range = 2;
 const int kernelRange = (2 * range + 1) * (2 * range + 1);
 
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
@@ -93,9 +95,9 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	return shadowFactor / (kernelRange);
 }
 
-const vec3 lightColor = vec3(0.7333f, 0.8666f, 0.9921f);
-
 //vec3 mapped = ACESFilm(color * ubo.gammaExposure.y);//mapped = mapped * (1.0f / ACESFilm(vec3(11.2)));//mapped = pow(mapped, vec3(1.0 / ubo.gammaExposure.x));
+
+vec3 lightColor = (vec3(244.0f, 215.0f, 159.0f) / 255.0f);
 
 void main()
 {
@@ -107,29 +109,23 @@ void main()
 	vec3 res = step(ubo.cascadeSplits.xyz, vec3(fragPosition.w));
 	int cascadeIndex = SHADOW_MAP_CASCADE_COUNT - int(res.x + res.y + res.z);
 
-	float newBias = max(0.05 * (1.0 - dot(N, ubo.lightPos.xyz)), ubo.viewPos.w);
-
-	newBias *= 1 / (ubo.cascadeSplits[cascadeIndex] * 0.5);
+	float newBias = ubo.cascadeBiases[cascadeIndex];
 
 	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz, 1.0);
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
-	
-	float ambientVAL = 1.0f;
 
-	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f) * ubo.gammaExposure.z;
+	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f);
 
-	vec3 color = vec3(ambientVAL + (inner * clamp(dot(N, L), 0.0f, 1.0f)));
+	float altShadow = clamp(pow(shadow + 0.8f, 0.6f), 0.0f, 1.0f) * 2.3f;
 
-	color *= ALBEDO * max(0.5f, (shadow)) * max(1.0f, (shadow * 0.2f));
+	vec3 color = (ALBEDO * altShadow) + (clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor));
 
-	vec4 brightColor = vec4(color, 1.0f);
+	color = mix(vec3(0.65f, 0.65f, 1.0f) * color, color, shadow);
+	color = mix(lightColor * color, color, 1.0f - shadow);
+	color = pow(color, vec3(1.0 / 1.8f));
 
-	if(dot(brightColor.rgb, vec3(0.2126, 0.7152, 0.0722)) > 1.0f) {
-		bloomColor = vec4(brightColor.rgb, 1.0f);
-	} else {
-		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
-	}
+	bloomColor = vec4(vec3((clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor))), 1.0f) * 0.5f;
 
 	outColor = vec4(color, ALPHA);
 }

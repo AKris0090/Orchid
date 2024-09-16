@@ -5,11 +5,13 @@
 #include <imgui_impl_vulkan.h>
 #include "VulkanRenderer.h"
 #include "PlayerObject.h"
+#include "TrainObject.h"
 #include "Time.h"
+
+const int MAX_FRAMES_IN_FLIGHT = 3;
 
 class GraphicsManager {
 private:
-	const int MAX_FRAMES_IN_FLIGHT = 3;
 	float windowWidth;
 	float windowHeight;
 	uint32_t frameCount = 0;
@@ -33,7 +35,6 @@ public:
 	VulkanRenderer* pVkR_;
 	SDL_Window* pWindow_;
 	SDL_Renderer* pRenderer_;
-	VkDescriptorSet m_Dset;
 
 	PlayerObject* player;
 

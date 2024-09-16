@@ -46,9 +46,6 @@
     <Filter Include="Source Files\Engine\Graphics\Modules">
       <UniqueIdentifier>{6c40bf7d-5b40-495a-bb13-b27c62a05ce8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Engine\Graphics\Modules\Image Creation">
-      <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Engine\Physics">
       <UniqueIdentifier>{f6cfcb86-6bcc-4a0b-8ee8-c3f55527c8ee}</UniqueIdentifier>
     </Filter>
@@ -63,6 +60,9 @@
     </Filter>
     <Filter Include="Header Files\Engine\Graphics\Lights">
       <UniqueIdentifier>{69eecfc1-d13b-48ca-aef9-bf42b328e4f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Graphics\Helpers\Image Creation">
+      <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -103,13 +103,13 @@
       <Filter>Source Files\Engine\Graphics\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="BRDFLut.cpp">
-      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
     </ClCompile>
     <ClCompile Include="IrradianceCube.cpp">
-      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
     </ClCompile>
     <ClCompile Include="PrefilteredEnvMap.cpp">
-      <Filter>Source Files\Engine\Graphics\Modules\Image Creation</Filter>
+      <Filter>Source Files\Engine\Graphics\Helpers\Image Creation</Filter>
     </ClCompile>
     <ClCompile Include="mikktspace.cpp">
       <Filter>Source Files\Engine\Graphics\Helpers\EXTERNAL</Filter>
@@ -152,6 +152,9 @@
     </ClCompile>
     <ClCompile Include="Animation.cpp">
       <Filter>Source Files\Engine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="TrainObject.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -250,6 +253,9 @@
     </ClInclude>
     <ClInclude Include="Animation.h">
       <Filter>Header Files\Engine\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="TrainObject.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

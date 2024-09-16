@@ -1,9 +1,6 @@
 #pragma once
 
 #include "DirectionalLight.h"
-#include <PxPhysics.h>
-#include <PxPhysicsAPI.h>
-#include <PxCooking.h>
 #include "AnimatedGLTFObj.h"
 
 class AnimatedGameObject {
@@ -11,13 +8,23 @@ private:
 
 public:
 	Animation* activeAnimation;
+	Animation* previousAnimation;
+	bool needsSmooth;
+	std::chrono::time_point<std::chrono::system_clock> smoothStart;
+	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
+	std::chrono::milliseconds smoothDuration;
+	float smoothAmount;
+	int animateOn;
+	float timeAdditional;
+	int currentFrameAnimateOn;
+	int numInverseBindMatrices;
+
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
 	bool isDynamic;
 	bool isOutline;
 	bool isPlayerObj;
 	DeviceHelper* pDevHelper;
-	VkDevice device_;
 
 	std::vector<Vertex> basePoseVertices_;
 	std::vector<uint32_t> basePoseIndices_;
@@ -34,11 +41,9 @@ public:
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; this->device_ = pD->getDevice(); };
+	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; numInverseBindMatrices = 0; };
 
 	void createVertexBuffer();
-	void createSkinnedBuffer();
-	void createIndexBuffer();
 
 	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
 		glm::mat4 matrix = glm::mat4(1.0f);
@@ -53,12 +58,17 @@ public:
 		return vector;
 	}
 
+	glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
+		return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
+	}
+
+	void smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	glm::mat4 getNodeMatrix(AnimSceneNode* node);
 	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
 
 	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->modelTransform = newTransform; };
+	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 
 	void loopUpdate() {
 		setTransform(transform.to_matrix());

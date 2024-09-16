@@ -1,5 +1,66 @@
 #include "Camera.h"
 
+// frustum math from: https://github.com/zeux/niagara/blob/4507d4b5f818dbf8ddf0baf40dcdff4e9849ec39/src/niagara.cpp#L413
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
+void FPSCam::updateFrustrumPlanes() {
+    glm::mat4 matrix = this->projectionMatrix * this->viewMatrix;
+    frustumPlanes[0].x = matrix[0].w + matrix[0].x;
+    frustumPlanes[0].y = matrix[1].w + matrix[1].x;
+    frustumPlanes[0].z = matrix[2].w + matrix[2].x;
+    frustumPlanes[0].w = matrix[3].w + matrix[3].x;
+
+    frustumPlanes[1].x = matrix[0].w - matrix[0].x;
+    frustumPlanes[1].y = matrix[1].w - matrix[1].x;
+    frustumPlanes[1].z = matrix[2].w - matrix[2].x;
+    frustumPlanes[1].w = matrix[3].w - matrix[3].x;
+
+    frustumPlanes[2].x = matrix[0].w - matrix[0].y;
+    frustumPlanes[2].y = matrix[1].w - matrix[1].y;
+    frustumPlanes[2].z = matrix[2].w - matrix[2].y;
+    frustumPlanes[2].w = matrix[3].w - matrix[3].y;
+
+    frustumPlanes[3].x = matrix[0].w + matrix[0].y;
+    frustumPlanes[3].y = matrix[1].w + matrix[1].y;
+    frustumPlanes[3].z = matrix[2].w + matrix[2].y;
+    frustumPlanes[3].w = matrix[3].w + matrix[3].y;
+
+    frustumPlanes[4].x = matrix[0].w + matrix[0].z;
+    frustumPlanes[4].y = matrix[1].w + matrix[1].z;
+    frustumPlanes[4].z = matrix[2].w + matrix[2].z;
+    frustumPlanes[4].w = matrix[3].w + matrix[3].z;
+
+    frustumPlanes[5].x = matrix[0].w - matrix[0].z;
+    frustumPlanes[5].y = matrix[1].w - matrix[1].z;
+    frustumPlanes[5].z = matrix[2].w - matrix[2].z;
+    frustumPlanes[5].w = matrix[3].w - matrix[3].z;
+
+    for (auto i = 0; i < frustumPlanes.size(); i++)
+    {
+        float length = sqrtf(frustumPlanes[i].x * frustumPlanes[i].x + frustumPlanes[i].y * frustumPlanes[i].y + frustumPlanes[i].z * frustumPlanes[i].z);
+        frustumPlanes[i] /= length;
+    }
+
+    //glm::mat4 projectionTe = glm::transpose(projectionWeird(this->FOV, this->aspectRatio, this->nearPlane));
+
+    //glm::mat4 projectionT = glm::transpose(this->projectionMatrix);
+
+    //glm::mat4 projectionT = this->projectionMatrix;
+    //projectionT[1][1] *= -1.0f;
+    //projectionT *= this->viewMatrix;
+
+    //glm::vec4 frustumX = normalizePlane(projectionT[3] + projectionT[0]);
+    //glm::vec4 frustumY = normalizePlane(projectionT[3] + projectionT[1]);
+
+    //frustrumPlanes[0] = frustumX.x;
+    //frustrumPlanes[1] = frustumX.z;
+    //frustrumPlanes[2] = frustumY.y;
+    //frustrumPlanes[3] = frustumY.z;
+    //frustrumPlanes[4] = this->nearPlane;
+    //frustrumPlanes[5] = this->farPlane;
+}
+
 void FPSCam::baseUpdate() {
     // to have a real camera matrix, you dont rotate/move the camera, but you move/rotate the world in the opposite direction of camera motion. Matrices are accumulated by shaders (VKGuide)
     glm::mat4 camTranslation = glm::translate(glm::mat4(1.0f), transform.position);
@@ -12,6 +73,8 @@ void FPSCam::baseUpdate() {
     this->inverseViewMatrix = camTranslation * rotationMatrix;
 
     this->viewMatrix = glm::inverse(this->inverseViewMatrix);
+
+    this->backwardsViewMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0)) * viewMatrix;
 
     this->trueForward = inverseViewMatrix[2];
     this->right = inverseViewMatrix[0];
@@ -49,10 +112,13 @@ void FPSCam::update() {
     }
 
     baseUpdate();
+
+    setProjectionMatrix();
 }
 
 void FPSCam::alterUpdate(Transform playerTransform, float capHeight) {
     this->viewMatrix = glm::lookAt(transform.position, (playerTransform.position + glm::vec3(0.0f, capHeight, 0.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
+    this->backwardsViewMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0)) * viewMatrix;
     this->inverseViewMatrix = glm::inverse(this->viewMatrix);
 
     this->trueForward = inverseViewMatrix[2];
@@ -80,6 +146,8 @@ void FPSCam::physicsUpdate(Transform playerTransform, physx::PxScene* scene, phy
     }
 
     alterUpdate(playerTransform, capsuleHeight);
+
+    setProjectionMatrix();
 }
 
 void FPSCam::processSDL(SDL_Event& event) {
@@ -90,11 +158,13 @@ void FPSCam::processSDL(SDL_Event& event) {
 }
 
 void FPSCam::setProjectionMatrix() {
-    this->projectionMatrix = glm::perspective(FOV, aspectRatio, nearPlane, farPlane);
+    this->projectionMatrix = glm::perspectiveZO(FOV, aspectRatio, nearPlane, farPlane);
     this->projectionMatrix[1][1] *= -1.0f;
+
+    updateFrustrumPlanes();
 }
 
-glm::mat4 FPSCam::getProjectionMatrix() {
+glm::mat4 FPSCam::getProjectionMatrix() const {
     return this->projectionMatrix;
 }
 

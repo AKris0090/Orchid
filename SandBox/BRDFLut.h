@@ -4,7 +4,6 @@
 
 class BRDFLut {
 private:
-	VkDevice device_;
 	DeviceHelper* pDevHelper_;
 	uint32_t mipLevels_;
 	VkFormat imageFormat_;
@@ -13,37 +12,29 @@ private:
 
 	VkImage brdfLUTImage_;
 	VkDeviceMemory brdfLUTImageMemory_;
-	VkBuffer stagingBuffer_;
-	VkDeviceMemory stagingBufferMemory_;
-
 	VkFramebuffer brdfLUTFrameBuffer_;
 	VkRenderPass brdfLUTRenderpass_;
-
-	VkDescriptorSetLayout brdfLUTDescriptorSetLayout_;
+	VulkanDescriptorLayoutBuilder* brdfLUTDescriptorSetLayout_;
 	VkDescriptorPool brdfLUTDescriptorPool_;
-	VkDescriptorSet brdfLUTDescriptorSet_;
 
-	VkPipelineLayout brdfLUTPipelineLayout_;
-	VkPipeline brdfLUTPipeline_;
+	VulkanPipelineBuilder* brdfLutPipeline_;
 
+	void generateBRDFLUT();
 	void createBRDFLutImage();
 	void createBRDFLutImageView();
 	void createBRDFLutImageSampler();
-
 	void createBRDFLutDescriptors();
-
 	void createRenderPass();
 	void createFrameBuffer();
-
 	void createPipeline();
 	void render();
+	void preDelete();
 
 public:
+	VkDescriptorSet brdfLUTDescriptorSet_;
 	VkImageView brdfLUTImageView_;
 	VkSampler brdfLUTImageSampler_;
 
 	BRDFLut(DeviceHelper* devHelper);
-
-	void genBRDFLUT();
-	VkDescriptorSet getDescriptorSet() { return this->brdfLUTDescriptorSet_; };
+	~BRDFLut();
 };

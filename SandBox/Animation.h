@@ -12,7 +12,7 @@ struct AnimSceneNode {
 	glm::vec3 scale{ 1.0f };
 	glm::quat rotation{}; 
 	glm::mat4 matrix;
-	glm::mat4 getAnimatedMatrix();
+	glm::mat4 getAnimatedMatrix() const;
 
 	int32_t skinIndex = -1;
 };

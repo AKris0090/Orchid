@@ -8,19 +8,32 @@
 
 std::vector<std::string> staticModelPaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
+    //"C:/Users/arjoo/Downloads/helmet2.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    "C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb"
+    
+    //"C:/Users/arjoo/Downloads/free__subway_station__r46_subway.glb"
+    //"C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb",
+    "C:/Users/arjoo/OneDrive/Documents/otherAlt.glb",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/Train.glb",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/axis/Answer Arena.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/Train-4.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/leftDoors.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/rightDoors.glb",
+
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedTrain.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedRightDoors.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedLeftDoors.glb"
 };
 
 std::vector<std::string> animatedModelPaths = {
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/wolf_animated/Wolf-2.glb"
    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"
-   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk.glb"
+   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk2.glb",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
 };
 
@@ -52,6 +65,13 @@ std::vector<std::string> skyboxTexturePaths = {
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
     "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
+
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
+    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png"
 };
 
 std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.glb";
@@ -62,17 +82,17 @@ int main(int argc, char* argv[]) {
 
     //graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(50.0f, 40.0f, 2.0f));
     graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
-    graphicsManager.pVkR_->depthBias_ = 0.0003f;
+    graphicsManager.pVkR_->depthBias_ = 0.05f;
     graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
-    graphicsManager.pVkR_->camera_.setFarPlane(50.0f);
+    graphicsManager.pVkR_->camera_.setFarPlane(100.0f);
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
     graphicsManager.pVkR_->gamma_ = 1.2f;
-    graphicsManager.pVkR_->exposure_ = 1.0f;
+    graphicsManager.pVkR_->exposure_ = 10.0f;
     graphicsManager.pVkR_->applyTonemap = true;
-    graphicsManager.pVkR_->specularCont = 6.0f;
-    graphicsManager.pVkR_->nDotVSpec = 2.0f;
+    graphicsManager.pVkR_->specularCont = 0.05f;
+    graphicsManager.pVkR_->nDotVSpec = 0.8f;
     graphicsManager.pVkR_->bloomRadius = 0.00001f;
 
     PhysicsManager physicsManager = PhysicsManager();
@@ -89,43 +109,35 @@ int main(int argc, char* argv[]) {
 
     graphicsManager.gameObjects[0]->isDynamic = true; // helmet
 
-    // cleanup
-    for (auto& gameObject : graphicsManager.gameObjects) {
-        gameObject->renderTarget->remove();
-    }
-
     glm::vec3 scale = glm::vec3(0.01f);
+    //glm::vec3 scale = glm::vec3(1.0f);
     graphicsManager.gameObjects[1]->transform.scale = scale;
 
     for (GameObject* g : graphicsManager.gameObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
+        g->renderTarget->localModelTransform = g->transform.to_matrix();
     }
-
-    // second helmet
-    //------graphicsManager.animatedObjects[1]->transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
-    //------graphicsManager.animatedObjects[1]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
 
     graphicsManager.animatedObjects[0]->isPlayerObj = true;
-
-    // WOLF
-     //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
-     //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(2.0f, 2.0f, 2.0f);
      
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
-    graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.0075f, 0.0075f, 0.0075f);
-    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.00615f, 0.00615f, 0.00615f);
+    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroRun2.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
-    //graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2, 0.0f, 0.0f);
-    //graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.01f, 0.01f, 0.01f);
-    //graphicsManager.animatedObjects[0]->transform.position = glm::vec3(1.0f, 0.0f, 0.0f);
+    graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
+    graphicsManager.animatedObjects[0]->previousAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
 
     for (AnimatedGameObject* g : graphicsManager.animatedObjects) {
-        g->renderTarget->modelTransform = g->transform.to_matrix();
+        g->renderTarget->localModelTransform = g->transform.to_matrix();
     }
 
+    // Model Matrices TODO: MOVE THIS SOMEWHERE ELSE LOL
+    graphicsManager.pVkR_->addToDrawCalls();
+    graphicsManager.pVkR_->createDrawCallBuffer();
+    graphicsManager.pVkR_->createModelMatrixBuffer(MAX_FRAMES_IN_FLIGHT);
+    graphicsManager.pVkR_->createComputeCullResources(MAX_FRAMES_IN_FLIGHT);
+   
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     scale = glm::vec3(1.0f);
-    //physicsManager.addPlane();
     physicsManager.addShapeToGameObject(graphicsManager.gameObjects[1], physx::PxVec3(0, 0, 0), graphicsManager.pVkR_->vertices_, graphicsManager.pVkR_->indices_, scale);
 
     graphicsManager.pVkR_->vertices_.clear();
@@ -137,6 +149,23 @@ int main(int argc, char* argv[]) {
     player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
     player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
     player->playerGameObject = graphicsManager.animatedObjects[0];
+    player->currentState = PLAYERSTATE::IDLE;
+
+    // Right Train setup
+    TrainObject* rightTrain = new TrainObject(glm::vec3(-50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
+    rightTrain->trainBodyObject = graphicsManager.gameObjects[2];
+    rightTrain->trainLeftDoorObject = graphicsManager.gameObjects[3];
+    rightTrain->trainRightDoorObject = graphicsManager.gameObjects[4];
+    rightTrain->updatePosition();
+
+    TrainObject* leftTrain = new TrainObject(glm::vec3(50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
+    leftTrain->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
+    leftTrain->trainBodyObject = graphicsManager.gameObjects[5];
+    leftTrain->trainLeftDoorObject = graphicsManager.gameObjects[6];
+    leftTrain->trainRightDoorObject = graphicsManager.gameObjects[7];
+    leftTrain->updatePosition();
+
+    graphicsManager.pVkR_->capHeight = player->cap_height;
 
     graphicsManager.player = player;
 
@@ -185,27 +214,19 @@ int main(int argc, char* argv[]) {
 
         // player update -----------
         player->loopUpdate(&(graphicsManager.pVkR_->camera_));
+        rightTrain->loopUpdate();
+        leftTrain->loopUpdate();
 
         // update camera ------------
         if (graphicsManager.pVkR_->camera_.isAttatched) {
             graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
+            graphicsManager.pVkR_->playerPosition = player->transform.position;
         }
         else {
             graphicsManager.pVkR_->camera_.update();
         }
 
         // player animation -------------
-        if (player->isWalking) {
-            if (player->isRunning) {
-                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->runAnim);
-            }
-            else {
-                graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->walkAnim);
-            }
-        }
-        else {
-            graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
-        }
 
         graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
         graphicsManager.pVkR_->updateBindMatrices();
@@ -213,6 +234,7 @@ int main(int argc, char* argv[]) {
         // update physics -------------------
         // includes game object position updates TODO: REMOVE FROM HERE
         physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
+        graphicsManager.pVkR_->updateModelMatrices();
         
         // update graphics -------------------
         graphicsManager.loopUpdate();

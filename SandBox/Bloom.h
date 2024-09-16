@@ -25,7 +25,6 @@ private:
 	};
 
 	DeviceHelper* pDevHelper_;
-	VkDevice device;
 
 	VkImage* emissionImage;
 	VkImageView* emissionImageView_;

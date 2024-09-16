@@ -3,10 +3,11 @@
 #include <SDL.h>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
-#include "DeviceHelper.h"
+#include "VulkanUtils.h"
 #include <physx/PxPhysicsAPI.h>
 #include <physx/PxPhysics.h>
 #include "Input.h"
+#include <math.h>
 
 class FPSCam { // TEMPLATE FROM VKGUIDE
 private:
@@ -15,7 +16,6 @@ private:
 	float pitch_ = 0.0f;
 	// left-right
 	float yaw_ = 0.0f;
-	glm::mat4 getRotationMatrix();
 	float aspectRatio;
 	float FOV;
 
@@ -26,10 +26,14 @@ public:
 	glm::mat4 viewMatrix;
 	glm::mat4 inverseViewMatrix;
 	glm::mat4 projectionMatrix;
+	glm::mat4 backwardsViewMatrix;
 	glm::vec3 right;
 	glm::vec3 forward;
 	glm::vec3 trueForward;
 	glm::vec3 up;
+
+	std::array<glm::vec4, 6> frustumPlanes;
+
 	float distanceToPlayer;
 	bool isAttatched;
 
@@ -59,7 +63,7 @@ public:
 	void processSDL(SDL_Event& e);
 	void setPitchYaw(float nPitch, float nYaw);
 	glm::mat4 getViewMatrix();
-	glm::mat4 getProjectionMatrix();
+	glm::mat4 getProjectionMatrix() const;
 	void setNearPlane(float nearP);
 	void setFarPlane(float farP);
 	void setAspectRatio(float aspect);
@@ -68,4 +72,5 @@ public:
 	float getFarPlane() { return this->farPlane; };
 	float getAspectRatio() { return this->aspectRatio; };
 	float getFOV() { return this->FOV; };
+	void updateFrustrumPlanes();
 };

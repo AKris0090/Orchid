@@ -2,7 +2,7 @@
 
 #include "aces.glsl"
 
-#define SHADOW_MAP_CASCADE_COUNT 3
+#define SHADOW_MAP_CASCADE_COUNT 4
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec4 gammaExposure;
     vec4 cascadeSplits;
     mat4 cascadeViewProj[SHADOW_MAP_CASCADE_COUNT];
-    float specularCont;
+    vec4 cascadeBiases;
 } ubo;
 
 layout(location = 0) in vec2 texCoords;
@@ -25,7 +25,11 @@ layout(set = 1, binding = 1) uniform sampler2D bloomSampler;
 void main()
 {	
 	outColor = texture(colorSampler, texCoords) + texture(bloomSampler, texCoords);
-	outColor = vec4(1.0) - exp(-outColor * ubo.gammaExposure.y);
-	outColor = pow(outColor, vec4(1.0 / ubo.gammaExposure.x));
+
+    	const vec3 W = vec3(0.2125, 0.7154, 0.0721);
+    	vec3 intensity = vec3(dot(outColor.xyz, W));
+    	outColor = vec4(mix(intensity, outColor.xyz, ubo.gammaExposure.x), outColor.w);
+	//outColor = vec4(1.0) - exp(-outColor * ubo.gammaExposure.y);
+	//outColor = pow(outColor, vec4(1.0 / ubo.gammaExposure.x));
 	//outColor = vec4(ACESFilm(outColor.rgb), 1.0f);
 }

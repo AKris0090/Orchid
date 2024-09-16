@@ -2,146 +2,7 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
-// MIKKTSPACE TANGENT FUNCTIONS, REFERENCED OFF OF: https://github.com/Eearslya/glTFView. SUCH AN AMAZING PERSON
-struct MikkTContext {
-    MeshHelper* mesh;
-};
-
-static int MikkTGetNumFaces(const SMikkTSpaceContext* context) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    return data->mesh->stagingVertices_.size() / 3;
-}
-
-static int MikkTGetNumVerticesOfFace(const SMikkTSpaceContext* context, const int face) {
-    return 3;
-}
-
-static void MikkTGetPosition(const SMikkTSpaceContext* context, float fvPosOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 pos = data->mesh->stagingVertices_[face * 3 + vert].pos;
-    fvPosOut[0] = pos.x;
-    fvPosOut[1] = pos.y;
-    fvPosOut[2] = pos.z;
-}
-
-static void MikkTGetNormal(const SMikkTSpaceContext* context, float fvNormOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    const glm::vec3 norm = data->mesh->stagingVertices_[face * 3 + vert].normal;
-    fvNormOut[0] = norm.x;
-    fvNormOut[1] = norm.y;
-    fvNormOut[2] = norm.z;
-}
-
-static void MikkTGetTexCoord(const SMikkTSpaceContext* context, float fvTexcOut[], const int face, const int vert) {
-    const auto data = reinterpret_cast<const MikkTContext*>(context->m_pUserData);
-    glm::vec2 uv = glm::vec2(data->mesh->stagingVertices_[face * 3 + vert].pos.w, data->mesh->stagingVertices_[face * 3 + vert].normal.w);
-    fvTexcOut[0] = uv.x;
-    fvTexcOut[1] = 1.0 - uv.y;
-}
-
-static void MikkTSetTSpaceBasic(
-    const SMikkTSpaceContext* context, const float fvTangent[], const float fSign, const int face, const int vert) {
-    auto data = reinterpret_cast<MikkTContext*>(context->m_pUserData);
-
-    data->mesh->stagingVertices_[face * 3 + vert].tangent = glm::vec4(glm::make_vec3(fvTangent), fSign);
-}
-
-static SMikkTSpaceInterface MikkTInterface = { .m_getNumFaces = MikkTGetNumFaces,
-                                              .m_getNumVerticesOfFace = MikkTGetNumVerticesOfFace,
-                                              .m_getPosition = MikkTGetPosition,
-                                              .m_getNormal = MikkTGetNormal,
-                                              .m_getTexCoord = MikkTGetTexCoord,
-                                              .m_setTSpaceBasic = MikkTSetTSpaceBasic,
-                                              .m_setTSpace = nullptr };
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void AnimatedGLTFObj::callIndexedDraw(VkCommandBuffer& commandBuffer, MeshHelper::indirectDrawInfo& indexedDrawInfo) {
-    vkCmdDrawIndexed(commandBuffer, indexedDrawInfo.numIndices, indexedDrawInfo.instanceCount, indexedDrawInfo.firstIndex, indexedDrawInfo.globalVertexOffset, indexedDrawInfo.firstInstance);
-}
-
-void AnimatedGLTFObj::drawIndexedOpaque(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    for (auto& mat : opaqueDraws) {
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
-        for (auto& draw : mat.second) {
-            glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            callIndexedDraw(commandBuffer, draw->indirectInfo);
-        }
-    }
-}
-
-void AnimatedGLTFObj::drawIndexedOutline(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    for (auto& mat : opaqueDraws) {
-        for (auto& draw : mat.second) {
-            glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            callIndexedDraw(commandBuffer, draw->indirectInfo);
-        }
-    }
-}
-
-void AnimatedGLTFObj::drawIndexedTransparent(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    for (auto& mat : transparentDraws) {
-        Material* material = mat.first;
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(material->descriptorSet), 0, nullptr);
-        //pcBlock newBlock{ 1, material->alphaCutOff };
-        //vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
-        for (auto& draw : mat.second) {
-            glm::mat4 trueModelMat = modelTransform * (*(draw->worldTransformMatrix));
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMat));
-            callIndexedDraw(commandBuffer, draw->indirectInfo);
-        }
-    }
-}
-
-void AnimatedGLTFObj::drawShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex, AnimSceneNode* node) {
-    cascadeBlock.model = modelTransform * node->getAnimatedMatrix();
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cascadeMVP), &cascadeBlock);
-    for (auto& mesh : node->meshPrimitives) {
-        callIndexedDraw(commandBuffer, mesh->indirectInfo);
-    }
-    for (auto& child : node->children) {
-        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, child);
-    }
-}
-
-void AnimatedGLTFObj::renderShadow(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cascadeIndex) {
-    cascadeBlock.cascadeIndex = cascadeIndex;
-
-    for (auto& node : pParentNodes) {
-        drawShadow(commandBuffer, pipelineLayout, cascadeIndex, node);
-    }
-}
-
-void AnimatedGLTFObj::drawDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, AnimSceneNode* node) {
-    for (auto& mat : opaqueDraws) {
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
-        for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
-        }
-    }
-    for (auto& mat : transparentDraws) {
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &(mat.first->descriptorSet), 0, nullptr);
-        pcBlock newBlock{ 1, mat.first->alphaCutOff };
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(pcBlock), &(newBlock));
-        for (auto& dC : mat.second) {
-            glm::mat4 trueModelMatrix = modelTransform * (*(dC->worldTransformMatrix));
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &(trueModelMatrix));
-            callIndexedDraw(commandBuffer, dC->indirectInfo);
-        }
-    }
-}
-
-void AnimatedGLTFObj::renderDepth(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
-    for (auto& node : pParentNodes) {
-        drawDepth(commandBuffer, pipelineLayout, node);
-    }
-}
-
-glm::mat4 AnimSceneNode::getAnimatedMatrix() {
+glm::mat4 AnimSceneNode::getAnimatedMatrix() const {
     return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
 }
 
@@ -364,8 +225,8 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
             p->indirectInfo.firstIndex = firstIndex + globalIndexOffset;
             p->indirectInfo.firstInstance = 0;
             p->indirectInfo.instanceCount = 1;
-            p->indirectInfo.globalVertexOffset = globalVertexOffset;
-            p->worldTransformMatrix = &scNode->matrix;
+            p->indirectInfo.vertexOffset = globalVertexOffset;
+            p->worldTransformMatrix = scNode->matrix;
             p->materialIndex = gltfPrims.material;
 
             // TANGENT SPACE CREATION - ALSO REFERENCED OFF OF: https://github.com/Eearslya/glTFView.
@@ -374,14 +235,14 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 std::vector<Vertex> unpacked(p->stagingIndices_.size());
                 uint32_t newInd = 0;
                 for (uint32_t index : p->stagingIndices_) {
-                    unpacked[newInd] = p->stagingVertices_[index - firstVertex];
+                    unpacked[newInd] = p->stagingVertices_[static_cast<std::vector<Vertex, std::allocator<Vertex>>::size_type>(index) - firstVertex];
                     newInd++;
                 }
                 p->stagingVertices_ = std::move(unpacked);
                 p->stagingIndices_.clear();
 
                 // GEN TANGENT SPACE
-                MikkTContext context{ p };
+                MikkTSpaceHelper::MikkTContext context{ p };
                 mikktContext.m_pUserData = &context;
                 genTangSpaceDefault(&mikktContext);
 
@@ -409,16 +270,24 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
                 }
                 p->stagingVertices_.resize(postTVertexCount);
 
-                currentNumIndices = p->stagingIndices_.size();
-                currentNumVertices = p->stagingVertices_.size();
+                currentNumIndices = static_cast<uint32_t>(p->stagingIndices_.size());
+                currentNumVertices = static_cast<uint32_t>(p->stagingVertices_.size());
             }
 
-            p->indirectInfo.numIndices = currentNumIndices;
+            p->indirectInfo.indexCount = currentNumIndices;
 
             totalIndices_ += currentNumIndices;
             totalVertices_ += currentNumVertices;
 
             scNode->meshPrimitives.push_back(p);
+
+            vertices_.insert(vertices_.end(), p->stagingVertices_.begin(), p->stagingVertices_.end());
+            indices_.insert(indices_.end(), p->stagingIndices_.begin(), p->stagingIndices_.end());
+
+            p->stagingIndices_.clear();
+            p->stagingIndices_.shrink_to_fit();
+            p->stagingVertices_.clear();
+            p->stagingVertices_.shrink_to_fit();
         }
     }
 
@@ -526,7 +395,6 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
 
         loadSkins();
         walkAnim.loadAnimation(gltfPath_, pParentNodes);
-        //loadAnimations(in, animations_);
 
         for (auto& skin : skins_) {
             skin.finalJointMatrices = new std::vector<glm::mat4>();
@@ -604,12 +472,12 @@ void AnimatedGLTFObj::createDescriptors() {
     for (Material& m : mats_) {
         VkDescriptorSetAllocateInfo allocateInfo{};
         allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocateInfo.descriptorPool = pDevHelper_->getDescriptorPool();
+        allocateInfo.descriptorPool = pDevHelper_->descPool_;
         allocateInfo.descriptorSetCount = 1;
-        const VkDescriptorSetLayout texSet = pDevHelper_->getTextureDescSetLayout();
+        const VkDescriptorSetLayout texSet = pDevHelper_->texDescSetLayout_;
         allocateInfo.pSetLayouts = &(texSet);
 
-        VkResult res = vkAllocateDescriptorSets(pDevHelper_->getDevice(), &allocateInfo, &(m.descriptorSet));
+        VkResult res = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &(m.descriptorSet));
         if (res != VK_SUCCESS) {
             std::_Xruntime_error("Failed to allocate descriptor sets!");
         }
@@ -686,62 +554,7 @@ void AnimatedGLTFObj::createDescriptors() {
 
         std::vector<VkWriteDescriptorSet> descriptorWriteSets = { colorDescriptorWriteSet, normalDescriptorWriteSet, metallicRoughnessDescriptorWriteSet, aoDescriptorWriteSet, emDescriptorWriteSet };
 
-        vkUpdateDescriptorSets(pDevHelper_->getDevice(), static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
-    }
-}
-
-void AnimatedGLTFObj::recursiveVertexAdd(std::vector<Vertex>* vertices, AnimSceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        for (int i = 0; i < mesh->stagingVertices_.size(); i++) {
-            vertices->push_back(mesh->stagingVertices_[i]);
-        }
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveVertexAdd(vertices, node);
-    }
-}
-
-void AnimatedGLTFObj::recursiveIndexAdd(std::vector<uint32_t>* indices, AnimSceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        for (int i = 0; i < mesh->stagingIndices_.size(); i++) {
-            indices->push_back(mesh->stagingIndices_[i]);
-        }
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveIndexAdd(indices, node);
-    }
-}
-
-void AnimatedGLTFObj::addVertices(std::vector<Vertex>* vertices) {
-    for (auto& node : pParentNodes) {
-        recursiveVertexAdd(vertices, node);
-    }
-}
-
-void AnimatedGLTFObj::addIndices(std::vector<uint32_t>* indices) {
-    for (auto& node : pParentNodes) {
-        recursiveIndexAdd(indices, node);
-    }
-}
-
-void AnimatedGLTFObj::recursiveRemove(AnimSceneNode* parentNode) {
-    for (auto& mesh : parentNode->meshPrimitives) {
-        mesh->stagingVertices_.clear();
-        mesh->stagingVertices_.shrink_to_fit();
-        mesh->stagingIndices_.clear();
-        mesh->stagingIndices_.shrink_to_fit();
-    }
-
-    for (auto& node : parentNode->children) {
-        recursiveRemove(node);
-    }
-}
-
-void AnimatedGLTFObj::remove() {
-    for (auto& node : pParentNodes) {
-        recursiveRemove(node);
+        vkUpdateDescriptorSets(pDevHelper_->device_, static_cast<uint32_t>(descriptorWriteSets.size()), descriptorWriteSets.data(), 0, nullptr);
     }
 }
 
@@ -750,4 +563,41 @@ AnimatedGLTFObj::AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelpe
     pDevHelper_ = deviceHelper;
     this->globalFirstVertex = globalVertexOffset;
     this->globalFirstIndex = globalIndexOffset;
+    this->globalSkinningMatrixOffset = 0;
+    this->localModelTransform = glm::mat4(1.0f);
+    this->pInputModel_ = nullptr;
+    this->totalIndices_ = 0;
+    this->totalVertices_ = 0;
+
+    loadGLTF(globalVertexOffset, globalIndexOffset);
+}
+
+// DELETION
+
+void AnimatedGLTFObj::recursiveDeleteNode(AnimSceneNode* node) {
+    for (auto& childNode : node->children) {
+        recursiveDeleteNode(childNode);
+    }
+
+    for (auto& mesh : node->meshPrimitives) {
+        delete mesh;
+    }
+    delete node;
+}
+
+AnimatedGLTFObj::~AnimatedGLTFObj() {
+    for (auto& node : pParentNodes) {
+        recursiveDeleteNode(node);
+    }
+
+    for (auto& texture : images_) {
+        delete texture;
+    }
+
+    for (auto& skin : skins_) {
+        delete skin.finalJointMatrices;
+    }
+
+    delete pInputModel_;
+    pDevHelper_ = nullptr;
 }

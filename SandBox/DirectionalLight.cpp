@@ -1,9 +1,6 @@
 #include "DirectionalLight.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 uint32_t DirectionalLight::findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
@@ -85,11 +82,11 @@ void DirectionalLight::createRenderPass() {
 	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 	renderPassCreateInfo.pDependencies = dependencies.data();
 
-	vkCreateRenderPass(device_, &renderPassCreateInfo, nullptr, &sMRenderpass_);
+	vkCreateRenderPass(pDevHelper_->device_, &renderPassCreateInfo, nullptr, &sMRenderpass_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void DirectionalLight::createFrameBuffer() {
+void DirectionalLight::createFrameBuffer(int framesInFlight) {
 	VkImageCreateInfo image{};
 	image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image.imageType = VK_IMAGE_TYPE_2D;
@@ -102,16 +99,16 @@ void DirectionalLight::createFrameBuffer() {
 	image.tiling = VK_IMAGE_TILING_OPTIMAL;
 	image.format = imageFormat_;																// Depth stencil attachment
 	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;		// We will sample directly from the depth attachment for the shadow mapping
-	vkCreateImage(device_, &image, nullptr, &offscreen.image);
+	vkCreateImage(pDevHelper_->device_, &image, nullptr, &offscreen.image);
 
 	VkMemoryAllocateInfo memAlloc{};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	VkMemoryRequirements memReqs;
-	vkGetImageMemoryRequirements(device_, offscreen.image, &memReqs);
+	vkGetImageMemoryRequirements(pDevHelper_->device_, offscreen.image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->getPhysicalDevice(), memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	vkAllocateMemory(device_, &memAlloc, nullptr, &offscreen.memory);
-	vkBindImageMemory(device_, offscreen.image, offscreen.memory, 0);
+	memAlloc.memoryTypeIndex = findMemoryType(pDevHelper_->gpu_, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vkAllocateMemory(pDevHelper_->device_, &memAlloc, nullptr, &offscreen.memory);
+	vkBindImageMemory(pDevHelper_->device_, offscreen.image, offscreen.memory, 0);
 
 	VkImageViewCreateInfo depthStencilView{};
 	depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -124,33 +121,35 @@ void DirectionalLight::createFrameBuffer() {
 	depthStencilView.subresourceRange.baseArrayLayer = 0;
 	depthStencilView.subresourceRange.layerCount = SHADOW_MAP_CASCADE_COUNT;
 	depthStencilView.image = offscreen.image;
-	vkCreateImageView(device_, &depthStencilView, nullptr, &sMImageView_);
+	vkCreateImageView(pDevHelper_->device_, &depthStencilView, nullptr, &sMImageView_);
 
 	createRenderPass();
 
-	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-		viewInfo.format = imageFormat_;
-		viewInfo.subresourceRange = {};
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = i;
-		viewInfo.subresourceRange.layerCount = 1;
-		viewInfo.image = offscreen.image;
-		vkCreateImageView(device_, &viewInfo, nullptr, &cascades[i].imageView);
+	for (int j = 0; j < framesInFlight; j++) {
+		for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+			VkImageViewCreateInfo viewInfo{};
+			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			viewInfo.format = imageFormat_;
+			viewInfo.subresourceRange = {};
+			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			viewInfo.subresourceRange.baseMipLevel = 0;
+			viewInfo.subresourceRange.levelCount = 1;
+			viewInfo.subresourceRange.baseArrayLayer = i;
+			viewInfo.subresourceRange.layerCount = 1;
+			viewInfo.image = offscreen.image;
+			vkCreateImageView(pDevHelper_->device_, &viewInfo, nullptr, &cascades[j][i].imageView);
 
-		VkFramebufferCreateInfo fbufCreateInfo{};
-		fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		fbufCreateInfo.renderPass = sMRenderpass_;
-		fbufCreateInfo.attachmentCount = 1;
-		fbufCreateInfo.pAttachments = &cascades[i].imageView;
-		fbufCreateInfo.width = width_;
-		fbufCreateInfo.height = height_;
-		fbufCreateInfo.layers = 1;
-		vkCreateFramebuffer(device_, &fbufCreateInfo, nullptr, &cascades[i].frameBuffer);
+			VkFramebufferCreateInfo fbufCreateInfo{};
+			fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			fbufCreateInfo.renderPass = sMRenderpass_;
+			fbufCreateInfo.attachmentCount = 1;
+			fbufCreateInfo.pAttachments = &cascades[j][i].imageView;
+			fbufCreateInfo.width = width_;
+			fbufCreateInfo.height = height_;
+			fbufCreateInfo.layers = 1;
+			vkCreateFramebuffer(pDevHelper_->device_, &fbufCreateInfo, nullptr, &cascades[j][i].frameBuffer);
+		}
 	}
 
 	VkFilter shadowmap_filter = VK_FILTER_LINEAR;
@@ -167,21 +166,23 @@ void DirectionalLight::createFrameBuffer() {
 	sampler.minLod = 0.0f;
 	sampler.maxLod = 1.0f;
 	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	vkCreateSampler(device_, &sampler, nullptr, &sMImageSampler_);
+	vkCreateSampler(pDevHelper_->device_, &sampler, nullptr, &sMImageSampler_);
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/shadowmapping/shadowmapping.cpp
-void DirectionalLight::createSMDescriptors(FPSCam* camera) {
+void DirectionalLight::createSMDescriptors(FPSCam* camera, int framesInFlight) {
 	VkDeviceSize bufferSize = sizeof(UBO);
 
-	uniformBuffer.resize(1);
-	uniformMemory.resize(1);
-	mappedBuffer.resize(1);
+	uniformBuffer.resize(framesInFlight);
+	uniformMemory.resize(framesInFlight);
+	mappedBuffer.resize(framesInFlight);
 
-	pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[0], uniformMemory[0]);
-	VkResult res1 = vkMapMemory(pDevHelper_->getDevice(), uniformMemory[0], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[0]);
+	for (int i = 0; i < framesInFlight; i++) {
+		pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[i], uniformMemory[i]);
+		VkResult res1 = vkMapMemory(pDevHelper_->device_, uniformMemory[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[i]);
+	}
 	
-	updateUniBuffers(camera);
+	updateUniBuffers(camera, 0);
 
 	VkDescriptorSetLayoutBinding UBOLayoutBinding{};
 	UBOLayoutBinding.binding = 0;
@@ -195,20 +196,22 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	layoutCInfo.bindingCount = 1;
 	layoutCInfo.pBindings = &(UBOLayoutBinding);
 
-	vkCreateDescriptorSetLayout(device_, &layoutCInfo, nullptr, &cascadeSetLayout);
-
-	std::array<VkDescriptorPoolSize, 1> poolSizes{};
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
+	vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &cascadeSetLayout);
+	std::vector<VkDescriptorPoolSize> poolSizes{};
+	poolSizes.resize(framesInFlight);
+	for (int i = 0; i < framesInFlight; i++) {
+		poolSizes[i].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[i].descriptorCount = SHADOW_MAP_CASCADE_COUNT;
+	}
 
 	VkDescriptorPoolCreateInfo poolCInfo{};
 	poolCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolCInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	poolCInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolCInfo.pPoolSizes = poolSizes.data();
-	poolCInfo.maxSets = SHADOW_MAP_CASCADE_COUNT;
+	poolCInfo.maxSets = SHADOW_MAP_CASCADE_COUNT * framesInFlight;
 
-	if (vkCreateDescriptorPool(device_, &poolCInfo, nullptr, &sMDescriptorPool_) != VK_SUCCESS) {
+	if (vkCreateDescriptorPool(pDevHelper_->device_, &poolCInfo, nullptr, &sMDescriptorPool_) != VK_SUCCESS) {
 		std::_Xruntime_error("Failed to create the descriptor pool!");
 	}
 
@@ -218,26 +221,28 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera) {
 	allocateInfo.descriptorSetCount = 1;
 	allocateInfo.pSetLayouts = &cascadeSetLayout;
 
-	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-		VkResult res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &cascades[i].descriptorSet);
+	for (int j = 0; j < framesInFlight; j++) {
+		for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+			VkResult res2 = vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &cascades[j][i].descriptorSet);
 
-		VkDescriptorBufferInfo descriptorBufferInfo{};
-		descriptorBufferInfo.buffer = uniformBuffer[0];
-		descriptorBufferInfo.offset = 0;
-		descriptorBufferInfo.range = sizeof(UBO);
+			VkDescriptorBufferInfo descriptorBufferInfo{};
+			descriptorBufferInfo.buffer = uniformBuffer[j];
+			descriptorBufferInfo.offset = 0;
+			descriptorBufferInfo.range = sizeof(UBO);
 
-		VkWriteDescriptorSet bufferWriteSet{};
-		bufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		bufferWriteSet.dstSet = cascades[i].descriptorSet;
-		bufferWriteSet.dstBinding = 0;
-		bufferWriteSet.dstArrayElement = 0;
-		bufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		bufferWriteSet.descriptorCount = 1;
-		bufferWriteSet.pBufferInfo = &descriptorBufferInfo;
+			VkWriteDescriptorSet bufferWriteSet{};
+			bufferWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			bufferWriteSet.dstSet = cascades[j][i].descriptorSet;
+			bufferWriteSet.dstBinding = 0;
+			bufferWriteSet.dstArrayElement = 0;
+			bufferWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			bufferWriteSet.descriptorCount = 1;
+			bufferWriteSet.pBufferInfo = &descriptorBufferInfo;
 
-		std::array<VkWriteDescriptorSet, 1> descriptors = { bufferWriteSet };
+			std::array<VkWriteDescriptorSet, 1> descriptors = { bufferWriteSet };
 
-		vkUpdateDescriptorSets(device_, 1, descriptors.data(), 0, NULL);
+			vkUpdateDescriptorSets(pDevHelper_->device_, 1, descriptors.data(), 0, NULL);
+		}
 	}
 }
 
@@ -274,27 +279,29 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 	return buffer;
 }
 
-void DirectionalLight::createPipeline() {
+void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrixDescriptorSet) {
 	VkPushConstantRange pcRange{};
 	pcRange.offset = 0;
-	pcRange.size = sizeof(GLTFObj::cascadeMVP);
+	pcRange.size = sizeof(int);
 	pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	std::array<VkDescriptorSetLayout, 2> sets = { cascadeSetLayout, modelMatrixDescriptorSet->layout };
 
 	VkPipelineLayoutCreateInfo pipeLineLayoutCInfo{};
 	pipeLineLayoutCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeLineLayoutCInfo.setLayoutCount = 1;
-	pipeLineLayoutCInfo.pSetLayouts = &cascadeSetLayout;
+	pipeLineLayoutCInfo.setLayoutCount = 2;
+	pipeLineLayoutCInfo.pSetLayouts = sets.data();
 	pipeLineLayoutCInfo.pushConstantRangeCount = 1;
 	pipeLineLayoutCInfo.pPushConstantRanges = &pcRange;
 
-	if (vkCreatePipelineLayout(device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(pDevHelper_->device_, &pipeLineLayoutCInfo, nullptr, &(sMPipelineLayout_)) != VK_SUCCESS) {
 		std::cout << "nah you buggin" << std::endl;
 		std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
 	}
 
 	std::vector<char> sMVertShader = readFile("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
 
-	VkShaderModule sMVertexShaderModule = createShaderModule(device_, sMVertShader);
+	VkShaderModule sMVertexShaderModule = createShaderModule(pDevHelper_->device_, sMVertShader);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCInfo{};
 	inputAssemblyCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -316,9 +323,9 @@ void DirectionalLight::createPipeline() {
 	rasterizerCInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 	rasterizerCInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizerCInfo.depthBiasEnable = VK_FALSE;
-	rasterizerCInfo.depthBiasConstantFactor = 0.0f;
-	rasterizerCInfo.depthBiasClamp = 0.0f;
-	rasterizerCInfo.depthBiasSlopeFactor = 0.0f;
+	//rasterizerCInfo.depthBiasConstantFactor = 1.0f;
+	//rasterizerCInfo.depthBiasSlopeFactor = 2.0f;
+	//rasterizerCInfo.depthBiasClamp = 0.0f;
 	rasterizerCInfo.lineWidth = 1.0f;
 
 	VkPipelineMultisampleStateCreateInfo multiSamplingCInfo{};
@@ -332,12 +339,12 @@ void DirectionalLight::createPipeline() {
 	depthStencilCInfo.depthTestEnable = VK_TRUE;
 	depthStencilCInfo.depthWriteEnable = VK_TRUE;
 	depthStencilCInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
-	depthStencilCInfo.stencilTestEnable = VK_FALSE;
-	depthStencilCInfo.front = {};
-	depthStencilCInfo.back = {};
-	depthStencilCInfo.minDepthBounds = 0.0f;
-	depthStencilCInfo.maxDepthBounds = 1.0f;
+	//depthStencilCInfo.depthBoundsTestEnable = VK_FALSE;
+	//depthStencilCInfo.stencilTestEnable = VK_FALSE;
+	//depthStencilCInfo.front = {};
+	//depthStencilCInfo.back = {};
+	//depthStencilCInfo.minDepthBounds = 0.0f;
+	//depthStencilCInfo.maxDepthBounds = 1.0f;
 
 	VkPipelineColorBlendStateCreateInfo colorBlendingCInfo{};
 	colorBlendingCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -345,7 +352,8 @@ void DirectionalLight::createPipeline() {
 
 	std::vector<VkDynamicState> dynaStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
+			VK_DYNAMIC_STATE_SCISSOR,
+			VK_DYNAMIC_STATE_CULL_MODE
 	};
 
 	VkPipelineDynamicStateCreateInfo dynamicStateCInfo{};
@@ -396,13 +404,13 @@ void DirectionalLight::createPipeline() {
 
 	shadowMapPipelineCInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
+	VkResult res2 = vkCreateGraphicsPipelines(pDevHelper_->device_, VK_NULL_HANDLE, 1, &shadowMapPipelineCInfo, nullptr, &sMPipeline_);
 
 	//std::cout << "pipeline created" << std::endl;
 }
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
-DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex) {
+DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex, int currentFrame) {
     VkClearValue clearValues[1];
     clearValues[0].depthStencil = { 1.0f, 0 };
 
@@ -413,7 +421,7 @@ DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdB
     renderPassBeginInfo.renderArea.extent.height = height_;
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clearValues;
-	renderPassBeginInfo.framebuffer = cascades[cascadeIndex].frameBuffer;
+	renderPassBeginInfo.framebuffer = cascades[currentFrame][cascadeIndex].frameBuffer;
 
 	VkViewport viewport{};
 	viewport.width = width_;
@@ -433,24 +441,104 @@ DirectionalLight::PostRenderPacket DirectionalLight::render(VkCommandBuffer cmdB
 	return { renderPassBeginInfo, sMPipeline_, sMPipelineLayout_, cmdBuf };
 }
 
-void DirectionalLight::updateUniBuffers(FPSCam* camera) {
-	float clipRange = camera->getFarPlane() - camera->getNearPlane();
+void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
+	//float nearClip = camera->getNearPlane();
+	//float farClip = camera->getFarPlane();
+	//float clipRange = farClip - nearClip;
 
-	float minZ = camera->getNearPlane();
-	float maxZ = minZ + clipRange;
+	//float minZ = nearClip;
+	//float maxZ = nearClip + clipRange;
+
+	//float range = maxZ - minZ;
+	//float ratio = maxZ / minZ;
+
+	//std::vector<float> shadowCascadeLevels{};
+	//shadowCascadeLevels.resize(SHADOW_MAP_CASCADE_COUNT);
+
+	//for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+	//	float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
+	//	float log = minZ * std::pow(ratio, p);
+	//	float uniform = minZ + range * p;
+	//	float d = cascadeSplitLambda * (log - uniform) + uniform;
+	//	shadowCascadeLevels[i] = (d - nearClip) / clipRange;
+	//}
+
+	//// Calculate orthographic projection matrix for each cascade
+	//float lastSplitDist = 0.0;
+	//for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+	//	float splitDist = shadowCascadeLevels[i];
+
+	//	glm::vec3 frustumCorners[8] = {
+	//		glm::vec3(-1.0f,  1.0f, 0.0f),
+	//		glm::vec3(1.0f,  1.0f, 0.0f),
+	//		glm::vec3(1.0f, -1.0f, 0.0f),
+	//		glm::vec3(-1.0f, -1.0f, 0.0f),
+	//		glm::vec3(-1.0f,  1.0f,  1.0f),
+	//		glm::vec3(1.0f,  1.0f,  1.0f),
+	//		glm::vec3(1.0f, -1.0f,  1.0f),
+	//		glm::vec3(-1.0f, -1.0f,  1.0f),
+	//	};
+
+	//	// Project frustum corners into world space
+	//	glm::mat4 invCam = glm::inverse(camera->getProjectionMatrix() * camera->getViewMatrix());
+	//	for (uint32_t j = 0; j < 8; j++) {
+	//		glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
+	//		frustumCorners[j] = invCorner / invCorner.w;
+	//	}
+
+	//	for (uint32_t j = 0; j < 4; j++) {
+	//		glm::vec3 dist = frustumCorners[j + 4] - frustumCorners[j];
+	//		frustumCorners[j + 4] = frustumCorners[j] + (dist * splitDist);
+	//		frustumCorners[j] = frustumCorners[j] + (dist * lastSplitDist);
+	//	}
+
+	//	// Get frustum center
+	//	glm::vec3 frustumCenter = glm::vec3(0.0f);
+	//	for (uint32_t j = 0; j < 8; j++) {
+	//		frustumCenter += frustumCorners[j];
+	//	}
+	//	frustumCenter /= 8.0f;
+
+	//	float radius = 0.0f;
+	//	for (uint32_t j = 0; j < 8; j++) {
+	//		float distance = glm::length(frustumCorners[j] - frustumCenter);
+	//		radius = glm::max(radius, distance);
+	//	}
+	//	radius = std::ceil(radius * 16.0f) / 16.0f;
+
+	//	glm::vec3 maxExtents = glm::vec3(radius);
+	//	glm::vec3 minExtents = -maxExtents;
+
+	//	glm::vec3 lightDir = normalize(-(transform.position));
+	//	glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+	//	glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+
+	//	// Store split distance and matrix in cascade
+	//	cascades[i].splitDepth = (camera->getNearPlane() + splitDist * clipRange) * -1.0f;
+	//	//lightOrthoMatrix[1][1] *= -1.0f;
+	//	cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
+
+	//	lastSplitDist = shadowCascadeLevels[i];
+	//}
+
+	float nearClip = camera->getNearPlane();
+	float farClip = camera->getFarPlane();
+	float clipRange = farClip - nearClip;
+
+	float minZ = nearClip;
+	float maxZ = nearClip + clipRange;
 
 	float range = maxZ - minZ;
 	float ratio = maxZ / minZ;
 
-	std::vector<float> shadowCascadeLevels{};
-	shadowCascadeLevels.resize(3);
-
+	// Calculate split depths based on view camera frustum
+	// Based on method presented in https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float p = (i + 1) / static_cast<float>(SHADOW_MAP_CASCADE_COUNT);
 		float log = minZ * std::pow(ratio, p);
 		float uniform = minZ + range * p;
 		float d = cascadeSplitLambda * (log - uniform) + uniform;
-		shadowCascadeLevels[i] = (d - minZ) / clipRange;
+		shadowCascadeLevels[i] = (d - nearClip) / clipRange;
 	}
 
 	// Calculate orthographic projection matrix for each cascade
@@ -458,21 +546,32 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float splitDist = shadowCascadeLevels[i];
 
+		//glm::vec3 frustumCorners[8] = {
+		//	glm::vec3(-1.0f,  1.0f, 0.0f),
+		//	glm::vec3(1.0f,  1.0f, 0.0f),
+		//	glm::vec3(1.0f, -1.0f, 0.0f),
+		//	glm::vec3(-1.0f, -1.0f, 0.0f),
+		//	glm::vec3(-1.0f,  1.0f,  1.0f),
+		//	glm::vec3(1.0f,  1.0f,  1.0f),
+		//	glm::vec3(1.0f, -1.0f,  1.0f),
+		//	glm::vec3(-1.0f, -1.0f,  1.0f),
+		//};
+
 		glm::vec3 frustumCorners[8] = {
-			glm::vec3(-1.0f,  1.0f, 0.0f),
-			glm::vec3(1.0f,  1.0f, 0.0f),
-			glm::vec3(1.0f, -1.0f, 0.0f),
-			glm::vec3(-1.0f, -1.0f, 0.0f),
-			glm::vec3(-1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f,  1.0f,  1.0f),
-			glm::vec3(1.0f, -1.0f,  1.0f),
-			glm::vec3(-1.0f, -1.0f,  1.0f),
+		glm::vec3(-1.0f,  1.0f, 0.0f),
+		glm::vec3(1.0f,  1.0f, 0.0f),
+		glm::vec3(1.0f, -1.0f, 0.0f),
+		glm::vec3(-1.0f, -1.0f, 0.0f),
+		glm::vec3(-1.0f,  1.0f,  1.0f),
+		glm::vec3(1.0f,  1.0f,  1.0f),
+		glm::vec3(1.0f, -1.0f,  1.0f),
+		glm::vec3(-1.0f, -1.0f,  1.0f),
 		};
 
 		// Project frustum corners into world space
-		glm::mat4 invCam = glm::inverse(camera->getProjectionMatrix() * camera->getViewMatrix());
+		glm::mat4 invCam = glm::inverse(camera->projectionMatrix * camera->viewMatrix);
 		for (uint32_t j = 0; j < 8; j++) {
-			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f);
+			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f); //
 			frustumCorners[j] = invCorner / invCorner.w;
 		}
 
@@ -499,41 +598,39 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera) {
 		glm::vec3 maxExtents = glm::vec3(radius);
 		glm::vec3 minExtents = -maxExtents;
 
-		glm::vec3 lightDir = normalize(-(transform.position));
+		glm::vec3 lightDir = glm::normalize(-transform.position);
 		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
 		// Store split distance and matrix in cascade
-		cascades[i].splitDepth = (minZ + splitDist * clipRange) * -1.0f;
-		lightOrthoMatrix[1][1] *= -1.0f;
-		cascades[i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
+		cascades[currentFrame][i].splitDepth = (camera->getNearPlane() + splitDist * clipRange) * -1.0f;
+		cascades[currentFrame][i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
 
 		lastSplitDist = shadowCascadeLevels[i];
 	}
 
 	UBO ubo;
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-		ubo.cascadeMVP[i] = cascades[i].viewProjectionMatrix;
+		ubo.cascadeMVPUniform[i] = cascades[currentFrame][i].viewProjectionMatrix;
 	}
 
-	memcpy(mappedBuffer[0], &ubo, sizeof(ubo));
+	memcpy(mappedBuffer[currentFrame], &ubo, sizeof(ubo));
 }
 
-void DirectionalLight::genShadowMap(FPSCam* camera) {
+void DirectionalLight::genShadowMap(FPSCam* camera, VkDescriptorSetLayout* modelMatrixDescriptorSet, int framesInFlight) {
 	width_ = 4096;
 	height_ = 4096;
-	zNear = 1.f;
-	zFar = 100.0f;
 	
-	imageFormat_ = findSupportedFormat(pDevHelper_->getPhysicalDevice());
+	imageFormat_ = findSupportedFormat(pDevHelper_->gpu_);
+	cascades.resize(framesInFlight);
+	shadowCascadeLevels.resize(SHADOW_MAP_CASCADE_COUNT);
+	mappedBuffer.resize(framesInFlight);
 
-	cascadeSplitLambda = 0.77f;
+	cascadeSplitLambda = 0.91f;
 
-	createFrameBuffer(); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
+	createFrameBuffer(framesInFlight); // includes createRenderPass. CreateRenderPass includes creating image, image view, and image sampler
 
-	createSMDescriptors(camera);
-
-	createPipeline();
+	createSMDescriptors(camera, framesInFlight);
 }
 
 DirectionalLight::DirectionalLight(glm::vec3 lPos) {
@@ -542,7 +639,6 @@ DirectionalLight::DirectionalLight(glm::vec3 lPos) {
 
 void DirectionalLight::setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight) {
 	this->pDevHelper_ = devHelper;
-	this->device_ = devHelper->getDevice();
 	this->pGraphicsQueue_ = graphicsQueue;
 	this->pCommandPool_ = cmdPool;
 	this->swapChainHeight = swapChainHeight;

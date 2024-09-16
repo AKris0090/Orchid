@@ -1,0 +1,76 @@
+#version 460
+
+struct IndexedIndirectCommand 
+{
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	uint vertexOffset;
+	uint firstInstance;
+};
+
+layout(set = 0, binding = 0) uniform UBO 
+{
+	vec4 frustumPlanes[6];
+} ubo;	
+
+layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
+	IndexedIndirectCommand indirectDrawsOut[];
+};
+
+layout(std430, set = 0, binding = 2) readonly buffer BoundingBoxes {
+	vec4 boxes[];
+};
+
+layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
+};
+
+layout(push_constant) uniform pushConstant
+{
+    mat4 viewMatrix;
+    int numDraws;
+} pcs;
+
+
+bool frustumCheck(vec4 pos, float radius)
+{
+	// Check sphere against frustum planes
+	for (int i = 0; i < 6; i++) 
+	{
+		if (dot(pos, ubo.frustumPlanes[i]) + radius < 0.0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+   	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+
+	if (idx >= pcs.numDraws) {
+        	return;
+    	}
+
+	IndexedIndirectCommand command = indirectDrawsOut[idx];
+
+	mat4 modelMatrix = modelMatrices[idx];
+
+	vec4 trueBox = modelMatrix * vec4(boxes[idx].xyz, 1.0);
+	trueBox.w = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0]));
+	
+	bool isVisible = frustumCheck(vec4(trueBox.xyz, 1.0f), trueBox.w);
+
+   	if (frustumCheck(vec4(trueBox.xyz, 1.0f), trueBox.w)) {
+		command.instanceCount = 1;
+	}
+	else{
+		command.instanceCount = 0;
+	}
+
+	indirectDrawsOut[idx] = command;
+}
