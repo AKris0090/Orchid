@@ -47,6 +47,7 @@ struct UniformBufferObject {
 	glm::vec4 gammaExposure;
 	float cascadeSplits[4];
 	glm::mat4 cascadeViewProjMat[4];
+	float cascadeBiases[4];
 };
 
 struct TransformHolder {
@@ -108,7 +109,7 @@ private:
 	std::vector<VkDeviceMemory> uniformBuffersMemory_;
 
 	std::vector<VkDescriptorSet> descriptorSets_;
-	std::vector<VkDescriptorSet> computeDescriptorSets_;
+	std::vector<std::vector<VkDescriptorSet>> computeDescriptorSets_;
 	std::vector<VkDescriptorSet> computeCullingDescriptorSets_;
 	VkDescriptorSet toneMappingDescriptorSet_;
 	std::vector<VkDescriptorSet> modelMatrixDescriptorSets_;
@@ -144,6 +145,7 @@ public:
 	float bloomRadius;
 	float specularCont;
 	float nDotVSpec;
+	std::vector<float> biases;
 	DirectionalLight* pDirectionalLight_;
 	FPSCam camera_;
 
@@ -318,6 +320,7 @@ public:
 	void fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
 	void animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
 	void nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
+	void shadowDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
 	void createComputeCullResources(int framesInFlight);
 	void shutdown();
 };

@@ -1,6 +1,6 @@
 #version 460
 
-#define SHADOW_MAP_CASCADE_COUNT 3
+#define SHADOW_MAP_CASCADE_COUNT 4
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4[SHADOW_MAP_CASCADE_COUNT] cascadeViewProj;

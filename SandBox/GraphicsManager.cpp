@@ -78,6 +78,10 @@ void GraphicsManager::imGUIUpdate() {
 
     //ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
     ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
+    ImGui::DragFloat("bias0", &pVkR_->biases[0]);
+    ImGui::DragFloat("bias1", &pVkR_->biases[1]);
+    ImGui::DragFloat("bias2", &pVkR_->biases[2]);
+    ImGui::DragFloat("bias3", &pVkR_->biases[3]);
     ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
     ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
     ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
@@ -85,8 +89,6 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight_->transform.position.z);
     ImGui::DragFloat("zNear", &pVkR_->camera_.nearPlane);
     ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
-    ImGui::DragFloat("near plane", &pVkR_->pDirectionalLight_->zNear);
-    ImGui::DragFloat("far plane", &pVkR_->pDirectionalLight_->zFar);
     ImGui::DragFloat("gamma", &pVkR_->gamma_);
     ImGui::DragFloat("exposure", &pVkR_->exposure_);
     ImGui::Checkbox("tonemap", &pVkR_->applyTonemap);
@@ -155,7 +157,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     pVkR_->camera_.setProjectionMatrix();
-    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout));
+    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout), MAX_FRAMES_IN_FLIGHT);
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 
@@ -246,6 +248,7 @@ void GraphicsManager::startVulkan() {
             for (glm::mat4& matrix : *(skin.finalJointMatrices)) {
                 pVkR_->inverseBindMatrices.push_back(matrix);
                 globalSkinMatrixOffset++;
+                newAnimGO->numInverseBindMatrices++;
             }
         }
 

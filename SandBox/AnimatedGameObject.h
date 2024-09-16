@@ -17,6 +17,7 @@ public:
 	int animateOn;
 	float timeAdditional;
 	int currentFrameAnimateOn;
+	int numInverseBindMatrices;
 
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
@@ -40,7 +41,7 @@ public:
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; };
+	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; numInverseBindMatrices = 0; };
 
 	void createVertexBuffer();
 

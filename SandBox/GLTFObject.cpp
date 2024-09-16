@@ -205,6 +205,9 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
         loadedFile = gltfContext.LoadASCIIFromFile(pInputModel_, &error, &warning, gltfPath_);
     }
 
+    std::cout << "ERRORS: " << error.c_str() << std::endl;
+    std::cout << "WARNINGS: " << warning.c_str() << std::endl;
+
     if (loadedFile) {
         if (pInputModel_->images.size() != 0) {
             loadImages();
@@ -224,6 +227,7 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
     }
     else {
         std::cout << "couldnt open gltf file" << std::endl;
+        std::cout << error.c_str() << std::endl;
     }
 
     delete pInputModel_;
@@ -268,6 +272,7 @@ void GLTFObj::loadMaterials() {
     mats_.resize(pInputModel_->materials.size());
     for (int i = 0; i < mats_.size(); i++) {
         Material& m = mats_[i];
+        m.doubleSides = false;
         tinygltf::Material gltfMat = pInputModel_->materials[i];
         if (gltfMat.values.find("baseColorTexture") != gltfMat.values.end()) {
             m.baseColorTexIndex = gltfMat.values["baseColorTexture"].TextureIndex();

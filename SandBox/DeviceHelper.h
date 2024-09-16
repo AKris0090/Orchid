@@ -30,7 +30,7 @@
 #include <filesystem>
 
 constexpr auto PI = 3.141592653589793;
-constexpr auto SHADOW_MAP_CASCADE_COUNT = 3;
+constexpr auto SHADOW_MAP_CASCADE_COUNT = 4;
 
 
 class DeviceHelper {

@@ -42,10 +42,10 @@ private:
 	void findDepthFormat(VkPhysicalDevice GPU_);
 	VkFormat findSupportedFormat(VkPhysicalDevice GPU_);
 
-	void createSMDescriptors(FPSCam* camera);
+	void createSMDescriptors(FPSCam* camera, int framesInFlight);
 
 	void createRenderPass();
-	void createFrameBuffer();
+	void createFrameBuffer(int framesInFlight);
 
 	uint32_t findMemoryType(VkPhysicalDevice gpu_, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	VkShaderModule createShaderModule(VkDevice dev, const std::vector<char>& binary);
@@ -63,8 +63,6 @@ public:
 
 	// Keep depth range as small as possible
     // for better shadow map precision
-	float zNear;
-	float zFar;
 
 	Transform transform;
 
@@ -74,7 +72,7 @@ public:
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;
 
-	std::array<Cascade, SHADOW_MAP_CASCADE_COUNT> cascades;
+	std::vector<std::array<Cascade, SHADOW_MAP_CASCADE_COUNT>> cascades;
 
 	float cascadeSplitLambda;
 
@@ -97,8 +95,8 @@ public:
 	DirectionalLight(glm::vec3 lPos);
 
 	void setup(DeviceHelper* devHelper, VkQueue* graphicsQueue, VkCommandPool* cmdPool, float swapChainWidth, float swapChainHeight);
-	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex);
-	void genShadowMap(FPSCam* camera, VkDescriptorSetLayout* modelMatrixDescriptorSet);
-	void updateUniBuffers(FPSCam* camera);
+	PostRenderPacket render(VkCommandBuffer cmdBuf, uint32_t cascadeIndex, int currentFrame);
+	void genShadowMap(FPSCam* camera, VkDescriptorSetLayout* modelMatrixDescriptorSet, int framesInFlight);
+	void updateUniBuffers(FPSCam* camera, int currentFrame);
 	void createPipeline(VulkanDescriptorLayoutBuilder* modelMatrixDescriptorSet);
 };
