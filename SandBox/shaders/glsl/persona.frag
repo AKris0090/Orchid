@@ -123,7 +123,7 @@ void main()
 
 	//color = mix(vec3(0.35f, 0.35f, 1.0f) * color, color, shadow);
 	//color = mix(lightColor * color, color, 1.0f - shadow);
-	color = mix(vec3(120.0f / 255.0f, 120.0f / 255.0f, 225.0f / 255.0f) * color, color, shadow);
+	color = mix(vec3(135.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f) * color, color, shadow);
 	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 195.0f / 255.0f) * color, color, 1.0f - shadow);
 
 	color = pow(color, vec3(1.0 / ubo.gammaExposure.x));

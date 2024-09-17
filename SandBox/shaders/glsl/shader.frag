@@ -222,7 +222,7 @@ void main()
 		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	color = mix(vec3(95.0f / 255.0f, 95.0f / 255.0f, 225.0f / 255.0f) * color, color, shadow);
+	color = mix(vec3(150.0f / 255.0f, 150.0f / 255.0f, 225.0f / 255.0f) * color, color, shadow);
 	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 140.0f / 255.0f) * color, color, 1.0f - shadow);
 
 	color = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
