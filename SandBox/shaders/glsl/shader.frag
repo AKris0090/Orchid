@@ -144,7 +144,7 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 	return 1.0f;
 }
 
-const int range = 2;
+const int range = 3;
 const int kernelRange = (2 * range + 1) * (2 * range + 1);
 
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
@@ -166,34 +166,6 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	}
 
 	return shadowFactor / (kernelRange);
-}
-
-// JAKER CODE
-
-float GetShadowBias(vec3 N, vec3 L, float texelWidth)
-{
-  const float sqrt2 = 1.41421356; // Mul by sqrt2 to get diagonal length
-  const float quantize = 2.0 / (1 << 23); // Arbitrary constant that should help prevent most numerical issues
-  const float b = sqrt2 * texelWidth / 2.0;
-  const float NoL = clamp(abs(dot(N, L)), 0.0001, 1.0);
-  return quantize + b * length(cross(N, L)) / NoL;
-}
-
-float CalcVsmShadowBias(uint clipmapLevel, vec3 faceNormal)
-{
-  ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
-
-
-  float shadowTexelSize = 0.0f;
-
-	if(clipmapLevel > 0) {
-		shadowTexelSize = (-ubo.cascadeSplits[clipmapLevel] - (-ubo.cascadeSplits[clipmapLevel - 1])) / float(texDim.x);
-	} else {
-		shadowTexelSize = (-ubo.cascadeSplits[clipmapLevel] - (0.01f)) / float(texDim.x);
-	}
-
-  const float bias = GetShadowBias(fragNormal.xyz, normalize(ubo.lightPos.xyz - fragPosition.xyz), shadowTexelSize);
-  return bias;
 }
 
 void main()
@@ -238,7 +210,9 @@ void main()
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
 	
-	color = ((color * max(specularContribution(L, V, N, F0, metallic, roughness), 4.0f))) * (shadow) + (emissionVec);//4 is specular	
+	vec3 specularVal = specularContribution(L, V, N, F0, metallic, roughness);
+	
+	color = ((color * max(specularVal, 4.0f))) * (shadow) + (emissionVec);//4 is specular	
 
 	vec4 brightColor = vec4(color, 1.0f);
 
@@ -248,9 +222,10 @@ void main()
 		bloomColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	color = mix(vec3(0.5f, 0.5f, 1.0f) * color, color, shadow);
+	color = mix(vec3(95.0f / 255.0f, 95.0f / 255.0f, 225.0f / 255.0f) * color, color, shadow);
+	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 140.0f / 255.0f) * color, color, 1.0f - shadow);
 
-	color = vec3(1.0) - exp(-color * 10);
+	color = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
 	//color = pow(color, vec3(1.0 / 1));
 
 	outColor = vec4(color, ALPHA);

@@ -71,7 +71,7 @@ float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 	return 1.0f;
 }
 
-const int range = 2;
+const int range = 3;
 const int kernelRange = (2 * range + 1) * (2 * range + 1);
 
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
@@ -121,11 +121,14 @@ void main()
 
 	vec3 color = (ALBEDO * altShadow) + (clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor));
 
-	color = mix(vec3(0.65f, 0.65f, 1.0f) * color, color, shadow);
-	color = mix(lightColor * color, color, 1.0f - shadow);
-	color = pow(color, vec3(1.0 / 1.8f));
+	//color = mix(vec3(0.35f, 0.35f, 1.0f) * color, color, shadow);
+	//color = mix(lightColor * color, color, 1.0f - shadow);
+	color = mix(vec3(120.0f / 255.0f, 120.0f / 255.0f, 225.0f / 255.0f) * color, color, shadow);
+	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 195.0f / 255.0f) * color, color, 1.0f - shadow);
 
-	bloomColor = vec4(vec3((clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor))), 1.0f) * 0.5f;
+	color = pow(color, vec3(1.0 / ubo.gammaExposure.x));
+
+	bloomColor = vec4(vec3((clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor))), 1.0f) * shadow * 0.5f;
 
 	outColor = vec4(color, ALPHA);
 }

@@ -88,8 +88,8 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->camera_.setFOV(glm::radians(75.0f));
     graphicsManager.pVkR_->camera_.setAspectRatio(WINDOW_WIDTH / WINDOW_HEIGHT);
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
-    graphicsManager.pVkR_->gamma_ = 1.2f;
-    graphicsManager.pVkR_->exposure_ = 10.0f;
+    graphicsManager.pVkR_->gamma_ = 1.5f;
+    graphicsManager.pVkR_->exposure_ = 12.5f;
     graphicsManager.pVkR_->applyTonemap = true;
     graphicsManager.pVkR_->specularCont = 0.05f;
     graphicsManager.pVkR_->nDotVSpec = 0.8f;

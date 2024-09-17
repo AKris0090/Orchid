@@ -2555,6 +2555,7 @@ void VulkanRenderer::recreateSwapChain(SDL_Window* window) {
     createColorResources();
     createDepthResources();
     createFrameBuffer();
+    createDescriptorSets();
 
     delete bloomHelper;
 
