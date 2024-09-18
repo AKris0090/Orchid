@@ -1,22 +1,26 @@
-# 🌸 ORCHID
+# 🌸 ORCHID ![Language](https://img.shields.io/badge/Language-C%2B%2B-blue) ![Vulkan](https://img.shields.io/badge/API-Vulkan-red) ![PhysX](https://img.shields.io/badge/Physics-PhysX-yellow) 
 ![](README_IMAGES/Finals/main.png)  
 
 Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vulkan and PhysX. 
 
 ## 🔥 Feature Highlights:
+### 👁️ Graphics Features
 - [PBR Textures](#PBR-Textures)
 - [Image-Based Lighting](#Image-Based-Lighting)
 - [Cascaded Shadow Mapping](#Shadow-Mapping--Cascaded-Shadow-Mapping)
 - [Compute Skinning / Animation](#Animations--Compute-Skinning)
 - [Frustum Culling](#Frustum-Culling)
 - [Physically Based Bloom](#Physically-Based-Bloom)
-- Inverse Hull Outlines
-- [Nvidia PhysX](#Nvidia-PhysX-Implementation)
+### 🔨 Engine Features:
+- [Nvidia PhysX](#Engine---Nvidia-PhysX-Implementation)
+- [Scripting](#Engine---Scripting)
 
 ## 🎯 My goals for this project
 * Create an engine I can use as a base for a third person rpg game demo
 * Have a space I can use to try to implement various graphics programming concepts
 * Create a portfolio piece I can use to demonstrate both my game engine and graphics programming knowledge
+
+## 🌟 Core Features:
 
 ### PBR Textures
 |                                                     Base Color                                                  |                                                     Normal                                                                    |
@@ -88,14 +92,31 @@ void main() {
 For each object in the scene, a bounding sphere is generated and packed into a buffer. This buffer is passed into a compute shader to determine which objects are visible based on the camera's frustum planes.
 
 ### Physically-Based Bloom
-
+f
 ![](README_IMAGES/bloom/bloom.png)
 
 Bloom implementation with downscaling and upscaling based on https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom. 
 
-### Nvidia PhysX Implementation
+### Engine - Nvidia PhysX Implementation
 |                              PhysX Simulation               |          Vulkan Output                                |
 | :---------------------------------------------------------: | :---------------------------------------------------: |
 |                   ![](README_IMAGES/physics/PVD.png)        |           ![](README_IMAGES/Finals/main.png)          |
 
-A physX simulation runs in tandem with the graphical output. This includes the built-in character controller class for player moevment and raycasts for a clip-proof third person camera.
+A physX simulation runs in tandem with the graphical output. This includes the built-in character controller class for player movement and raycasts for a clip-proof third person camera.
+
+### Engine - Scripting
+
+https://github.com/user-attachments/assets/73828231-60a6-4f17-bab3-e61811900011
+
+With my implementation of time and input recording, it is easy to script and animate objects.
+
+## Credits:
+* [Abandoned Train Station](https://sketchfab.com/3d-models/abandoned-underground-train-station-86cce05689704587ad295b49205304a8)
+* [Goro Akechi - credit to Atlus](https://sketchfab.com/3d-models/goro-akechi-winter-elite-persona-5-8220905479194d749fc81feafe1ec80d)
+* [Train Model](https://sketchfab.com/3d-models/free-subway-station-r46-subway-ae5aadde1c6f48a19b32b309417a669b)
+
+### Special Thanks to:
+* [Sascha Willems' Examples](https://github.com/SaschaWillems/Vulkan/tree/master/examples)
+* [LearnOpenGL](https://learnopengl.com/)
+* Vulkan Discord
+* Graphics Programming Discord
