@@ -10,8 +10,9 @@ Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vu
 - [Compute Skinning / Animation](#Animations--Compute-Skinning)
 - [Frustum Culling](#Frustum-Culling)
 - [Physically Based Bloom](#Physically-Based-Bloom)
-- [Nvidia PhysX](#Nvidia-PhysX-Implementation)
-- Scripting
+## 🔨 Engine Highlights:
+- [Nvidia PhysX](#Engine---Nvidia-PhysX-Implementation)
+- [Scripting](#Engine---Scripting)
 
 ## 🎯 My goals for this project
 * Create an engine I can use as a base for a third person rpg game demo
@@ -90,15 +91,20 @@ void main() {
 For each object in the scene, a bounding sphere is generated and packed into a buffer. This buffer is passed into a compute shader to determine which objects are visible based on the camera's frustum planes.
 
 ### Physically-Based Bloom
-
+f
 ![](README_IMAGES/bloom/bloom.png)
 
 Bloom implementation with downscaling and upscaling based on https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom. 
 
-### Nvidia PhysX Implementation
+### Engine - Nvidia PhysX Implementation
 |                              PhysX Simulation               |          Vulkan Output                                |
 | :---------------------------------------------------------: | :---------------------------------------------------: |
 |                   ![](README_IMAGES/physics/PVD.png)        |           ![](README_IMAGES/Finals/main.png)          |
 
-A physX simulation runs in tandem with the graphical output. This includes the built-in character controller class for player moevment and raycasts for a clip-proof third person camera.
+A physX simulation runs in tandem with the graphical output. This includes the built-in character controller class for player movement and raycasts for a clip-proof third person camera.
 
+### Engine - Scripting
+
+https://github.com/user-attachments/assets/73828231-60a6-4f17-bab3-e61811900011
+
+With my implementation of time and input recording, it is easy to script and animate objects.
