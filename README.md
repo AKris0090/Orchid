@@ -56,9 +56,9 @@ https://github.com/AKris0090/Orchid/assets/58652090/cb83ed30-a5de-4a8e-af59-68d8
 GLTF files have the ability to store bone data and skinning information, and the gltf loader library I use (tinygltf) has a way to access these. I felt it was beneficial to have the vertex data be of the same format as the other static objects (to reduce overall complicatedness at draw time), so I implemented a compute shader in order to modify the vertex buffer itself, which I then pass through a single rendering pipeline.
 
 ### Nvidia PhysX Implementation
-|                              Shadow Map Slices              |          Final Output                                 |
+|                              PhysX Simulation               |          Vulkan Output                                |
 | :---------------------------------------------------------: | :---------------------------------------------------: |
-|                   ![](README_IMAGES/physics/PVD.png)       |           ![](README_IMAGES/Finals/main.png)           |
+|                   ![](README_IMAGES/physics/PVD.png)        |           ![](README_IMAGES/Finals/main.png)          |
 
 A physX simulation runs in tandem with the graphical output. This includes the built-in character controller class for player moevment and raycasts for a clip-proof third person camera.
 
