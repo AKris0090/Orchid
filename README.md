@@ -25,14 +25,19 @@ Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vu
 |                                                     Metallic Roughness                                          |                                                     Final Output                                                              |
 |                                      ![](README_IMAGES/pbr/metallicroughness.png)                               |                                          ![](README_IMAGES/pbr/combined.png)                                                  |
 
-I implemented the Cook-Torrence BRDF with reference from: https://learnopengl.com/PBR/Theory. When loading a gltf file, my loader implemntation searches for each texture (albedo, normal, metallic/roughness, ao, and emission), and if it cannot find any, a default texture is used. 
+I implemented the Cook-Torrence BRDF with reference from: https://learnopengl.com/PBR/Theory. My loader implemntation searches for essential textures: albedo, normal, metallic/roughness, ambient occlusion, and emission. If one is not found, a default texture is used. 
 
 ### Image-Based Lighting
 |                                      Warm Skybox                         |                     Cool Skybox                                          |
 | :----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
 |                   ![](README_IMAGES/IBL/blaze.png)                       |                    ![](README_IMAGES/IBL/sky.png)                        |
 
-Ambient lighting is entirely controlled by the chosen skybox images. I create 2 cubemaps based on the skybox: an Irradiance cubemap which provides the total diffuse lighting from the skybox, and a Prefiltered Environment cubemap, which filters the skybox based on roughness levels to aid in computation of specular reflections. Each cubemap/image is generated in its own offscreen renderpass.
+The ambient lighting is driven by the chosen skybox images. Two cubemaps are generated:
+
+1. Irradiance Cubemap for diffuse lighting.
+2. Prefiltered Environment Cubemap for specular reflections, filtered by roughness.
+
+Each cubemap is generated with offscreen render passes.
 
 ### Shadow Mapping / Cascaded Shadow Mapping
 
@@ -40,7 +45,7 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 | :---------------------------------------------------------: | :---------------------------------------------------: |
 |                   ![](README_IMAGES/CSM/combined.png)       |           ![](README_IMAGES/CSM/YvUQO8.png)           |
 
-Basic directional light shadowmapping by rendering the scene from the light's perspective. Based on shadow coordinates and the shadow map, if the fragment is visible from the light's perspective, then it is lit accordingly. Cascaded shadow mapping is a technique where you split the camera's view frustrum into smaller frustra, and for each frustra you render a shadow map with its respective center and extents. The subfrustra furthest will have the widest extent (meaning lower level of detail), and the one closer to the camera will have a smaller extent (meaning a higher level of detail). This solves quality issues that come with a single shadow map from a far distance.
+Cascaded Shadow Mapping (CSM) splits the camera’s view frustum into smaller sections, allowing detailed shadows close to the camera while reducing detail farther away. This technique solves shadow quality issues in scenes with distant light sources.
 
 ### Animations / Compute skinning
 
