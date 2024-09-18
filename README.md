@@ -1,6 +1,7 @@
 # ORCHID
 ![](README_IMAGES/Finals/main.png)  
-Orchid is a non-photorealistic forward-rendered graphics engine made in C++ using Vulkan and PhysX. 
+
+Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vulkan and PhysX. 
 
 ### Current Feature List:
 - [PBR Textures](#PBR-Textures)
@@ -35,7 +36,7 @@ Ambient lighting is entirely controlled by the chosen skybox images. I create 2 
 
 ### Shadow Mapping / Cascaded Shadow Mapping
 
-|                              Shadow Map Slice 1             |          Final Output                                 |
+|                              Shadow Map Slices              |          Final Output                                 |
 | :---------------------------------------------------------: | :---------------------------------------------------: |
 |                   ![](README_IMAGES/CSM/combined.png)       |           ![](README_IMAGES/CSM/YvUQO8.png)           |
 
