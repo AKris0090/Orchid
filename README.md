@@ -9,7 +9,7 @@ Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vu
 - [Cascaded Shadow Mapping](#Shadow-Mapping--Cascaded-Shadow-Mapping)
 - [Compute Skinning / Animation](#Animations--Compute-Skinning)
 - [Frustum Culling](#Frustum-Culling)
-- Physically Based Bloom
+- [Physically Based Bloom](#Physically-Based-Bloom)
 - Inverse Hull Outlines
 - [Nvidia PhysX](#Nvidia-PhysX-Implementation)
 
@@ -86,6 +86,12 @@ void main() {
 ```
 
 For each object in the scene, a bounding sphere is generated and packed into a buffer. This buffer is passed into a compute shader to determine which objects are visible based on the camera's frustum planes.
+
+### Physically-Based Bloom
+
+![](README_IMAGES/bloom/bloom.png)
+
+Bloom implementation with downscaling and upscaling based on https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom. 
 
 ### Nvidia PhysX Implementation
 |                              PhysX Simulation               |          Vulkan Output                                |
