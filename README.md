@@ -1,11 +1,22 @@
 # ORCHID
+![](README_IMAGES/Finals/main.png)  
+Orchid is a non-photorealistic forward-rendered graphics engine made in C++ using Vulkan and PhysX. 
+
+### Current Feature List:
+- [PBR Textures](#PBR-Textures)
+- [Image-Based Lighting](#Image-Based-Lighting)
+- [Cascaded Shadow Mapping](#Shadow-Mapping--Cascaded-Shadow-Mapping)
+- Compute Skinning / Animation
+- Frustum Culling
+- Physically Based Bloom
+- Inverse Hull Outlines
+- Nvidia PhysX
 
 ## My goals for this project
 * Create an engine I can use as a base for a third person rpg game demo
 * Have a space I can use to try to implement various graphics programming concepts
 * Create a portfolio piece I can use to demonstrate both my game engine and graphics programming knowledge
 
-## Current Features
 ### PBR Textures
 |                                                     Base Color                                                  |                                                     Normal                                                                    |
 | :-------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: |
@@ -20,28 +31,15 @@ I implemented the Cook-Torrence BRDF with reference from: https://learnopengl.co
 | :----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
 |                   ![](README_IMAGES/IBL/blaze.png)                       |                    ![](README_IMAGES/IBL/sky.png)                        |
 
-Ambient lighting is entirely controlled by the chosen skybox images. I create 2 cubemaps based on the skybox: an Irradiance cubemap, which provides the total diffuse lighting from the skybox, and a Prefiltered Environment cubemap, which filters the skybox based on roughness levels to aid in computation of specular reflections. I also generate a BRDF Lookup Table as a texture which contains a scale in the red channel and a bias in the green channel that get multiplied by the Fresnel value and the prefiltered environment map color to provide the specular component. Each cubemap/image is generated in its own offscreen renderpass.
+Ambient lighting is entirely controlled by the chosen skybox images. I create 2 cubemaps based on the skybox: an Irradiance cubemap which provides the total diffuse lighting from the skybox, and a Prefiltered Environment cubemap, which filters the skybox based on roughness levels to aid in computation of specular reflections. Each cubemap/image is generated in its own offscreen renderpass.
 
-### Shadow Mapping
-|                                      Shadow Map                          |          Fragment Shader Output                                          |
-| :----------------------------------------------------------------------: | :----------------------------------------------------------------------: |
-|                   ![](README_IMAGES/shadow/shadowmap-3.png)              |               ![](README_IMAGES/shadow/shadowmap-1.png)                  |
+### Shadow Mapping / Cascaded Shadow Mapping
 
-Basic area light shadowmapping by rendering the scene from the light's perspective. This texture is then passed into the fragment shader where a shadow coordinate is calculated by multiplying the world coordinates by the light's View * Projection matrix. Based on these coordinates and the shadow map, it is determined whether or not the fragment is visible or not from the light's point of view, and that decides if the fragment is lit or shaded. Currently working on cascaded shadow mapping, where I aim to change the perspective area light implementation into an orthographic directional light.
+|                              Shadow Map Slice 1             |          Final Output                                 |
+| :---------------------------------------------------------: | :---------------------------------------------------: |
+|                   ![](README_IMAGES/CSM/combined.png)       |           ![](README_IMAGES/CSM/YvUQO8.png)           |
 
-### Cascaded Shadow Mapping - 06/17/2024
-
-|                              Shadow Map Slice 1             |          Shadow Map Slice 2                                 |
-| :---------------------------------------------------------: | :---------------------------------------------------------: |
-|                   ![](README_IMAGES/CSM/3.png)              |               ![](README_IMAGES/CSM/2.png)                  |
-|                                Shadow Map Slice 3           |                  Shadow Map Slice 4                         |
-|                   ![](README_IMAGES/CSM/1.png)              |               ![](README_IMAGES/CSM/0.png)                  |
-
-|                                 Final Output                             |
-| :----------------------------------------------------------------------: |
-|                  ![](README_IMAGES/CSM/YvUQO8.png)                       |
-
-One common downside to shadow maps is that they are notoriously bad for detailed shadows and they take up a lot of GPU memory. By splitting the large shadow map into pieces, only rendering what is in view from the camera, we can address both issues at once. This technique is called Cascaded Shadow Mapping, where you split the camera's view frustrum into smaller frustra, and for each frustra you render a shadow map with its respective center and extents. The subfrustra furthest will have the widest extent (meaning lower level of detail), and the one closer to the camera will have a smaller extent (meaning a higher level of detail).
+Basic directional light shadowmapping by rendering the scene from the light's perspective. Based on shadow coordinates and the shadow map, if the fragment is visible from the light's perspective, then it is lit accordingly. Cascaded shadow mapping is a technique where you split the camera's view frustrum into smaller frustra, and for each frustra you render a shadow map with its respective center and extents. The subfrustra furthest will have the widest extent (meaning lower level of detail), and the one closer to the camera will have a smaller extent (meaning a higher level of detail). This solves quality issues that come with a single shadow map from a far distance.
 
 ### Animations / Compute skinning
 
