@@ -51,9 +51,9 @@ Cascaded Shadow Mapping (CSM) splits the camera’s view frustum into smaller se
 
 https://github.com/AKris0090/Orchid/assets/58652090/a1662d30-31e1-4b9d-9ecd-0a9f098e5afa
 
-https://github.com/AKris0090/Orchid/assets/58652090/cb83ed30-a5de-4a8e-af59-68d82ffc80a4
+https://github.com/user-attachments/assets/1af90fad-33f5-442f-94e3-69beb2525d03
 
-GLTF files have the ability to store bone data and skinning information, and the gltf loader library I use (tinygltf) has a way to access these. I felt it was beneficial to have the vertex data be of the same format as the other static objects (to reduce overall complicatedness at draw time), so I implemented a compute shader in order to modify the vertex buffer itself, which I then pass through a single rendering pipeline.
+GLTF files can store bone data and skinning matrices, and using tinygltf, I can implement animations. To speed up the animation process, I implemented a compute shader to handle the matrix-vertex multiplication and normalize vertex data.
 
 ### Nvidia PhysX Implementation
 |                              PhysX Simulation               |          Vulkan Output                                |
