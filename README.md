@@ -2,7 +2,7 @@
 ![](README_IMAGES/Finals/main.png)  
 
 Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vulkan and PhysX. 
-
+--
 ### Current Feature List:
 - [PBR Textures](#PBR-Textures)
 - [Image-Based Lighting](#Image-Based-Lighting)
