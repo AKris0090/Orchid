@@ -1,3 +1,4 @@
+// SHADER PULLED FROM: https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 #version 450
 
 layout(set = 0, binding = 0) uniform sampler2D bloomTex;

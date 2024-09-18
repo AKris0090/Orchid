@@ -33,9 +33,8 @@ layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec4 fragNormal;
-layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in mat3 TBNMatrix;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
@@ -226,7 +225,6 @@ void main()
 	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 140.0f / 255.0f) * color, color, 1.0f - shadow);
 
 	color = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
-	//color = pow(color, vec3(1.0 / 1));
 
 	outColor = vec4(color, ALPHA);
 }

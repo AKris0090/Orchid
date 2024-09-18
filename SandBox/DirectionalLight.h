@@ -30,7 +30,7 @@ private:
 	VkBuffer stagingBuffer_;
 	VkDeviceMemory stagingBufferMemory_;
 
-	VkDescriptorSetLayout cascadeSetLayout;
+	VulkanDescriptorLayoutBuilder* cascadeSetLayout;
 	VkDescriptorPool sMDescriptorPool_;
 
 	VkAttachmentDescription sMAttachment;
@@ -61,13 +61,9 @@ public:
 	} postRenderPacket;
 	VkRenderPass sMRenderpass_;
 
-	// Keep depth range as small as possible
-    // for better shadow map precision
-
 	Transform transform;
 
-	VkPipeline sMPipeline_;
-	VkPipelineLayout sMPipelineLayout_;
+	VulkanPipelineBuilder* sMPipeline_;
 
 	VkImageView sMImageView_;
 	VkSampler sMImageSampler_;

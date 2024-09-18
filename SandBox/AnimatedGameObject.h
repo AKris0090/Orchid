@@ -4,9 +4,13 @@
 #include "AnimatedGLTFObj.h"
 
 class AnimatedGameObject {
-private:
-
 public:
+	struct secondaryTransform {
+		glm::vec3 position;
+		glm::quat rotation;
+		glm::vec3 scale;
+	};
+
 	Animation* activeAnimation;
 	Animation* previousAnimation;
 	bool needsSmooth;
@@ -14,11 +18,10 @@ public:
 	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
 	std::chrono::milliseconds smoothDuration;
 	float smoothAmount;
-	int animateOn;
 	float timeAdditional;
-	int currentFrameAnimateOn;
 	int numInverseBindMatrices;
-
+	std::vector<secondaryTransform>* src;
+	std::vector<secondaryTransform>* dst;
 	Transform transform;
 	AnimatedGLTFObj* renderTarget;
 	bool isDynamic;
@@ -27,50 +30,38 @@ public:
 	DeviceHelper* pDevHelper;
 
 	std::vector<Vertex> basePoseVertices_;
-	std::vector<uint32_t> basePoseIndices_;
 
 	VkBuffer vertexBuffer_;
 	VkDeviceMemory vertexBufferMemory_;
-
-	VkBuffer indexBuffer_;
-	VkDeviceMemory indexBufferMemory_;
-
-	VkBuffer skinnedBuffer_;
-	VkDeviceMemory skinnedBufferDeviceMemory_;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
 	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; numInverseBindMatrices = 0; };
 
-	void createVertexBuffer();
-
-	glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
-		glm::mat4 matrix = glm::mat4(1.0f);
-		for (int x = 0; x < 4; x++)
-			for (int y = 0; y < 4; y++)
-				matrix[x][y] = pxMatrix[x][y];
-		return matrix;
-	}
-
-	glm::vec3 PxVec3toGlmVec3(physx::PxVec3 pxVec) {
-		glm::vec3 vector = glm::vec3(pxVec.x, pxVec.y, pxVec.z);
-		return vector;
-	}
-
-	glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
-		return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
-	}
-
 	void smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
-	glm::mat4 getNodeMatrix(AnimSceneNode* node);
-	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
-
 	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 
+	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 	void loopUpdate() {
 		setTransform(transform.to_matrix());
 	}
+
+private:
+	enum STRINGENUM {
+		TRANSLATION,
+		ROTATION,
+		SCALE
+	};
+
+	STRINGENUM hash_str(std::string const& inString) {
+		if (inString == "translation") return TRANSLATION;
+		if (inString == "rotation") return ROTATION;
+		if (inString == "scale") return SCALE;
+	}
+
+	glm::mat4 getNodeMatrix(AnimSceneNode* node);
+	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
+	static void getAnimatedNodeTransform(std::vector<AnimatedGameObject::secondaryTransform>* transforms, Animation* anim);
 };;

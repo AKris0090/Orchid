@@ -15,7 +15,7 @@ std::vector<std::string> staticModelPaths = {
     
     //"C:/Users/arjoo/Downloads/free__subway_station__r46_subway.glb"
     //"C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb",
-    "C:/Users/arjoo/OneDrive/Documents/otherAlt.glb",
+    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/trainStation/station.gltf",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/Train.glb",
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/axis/Answer Arena.glb"
     //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf",
@@ -90,17 +90,13 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->maxReflectionLOD_ = 7.0f;
     graphicsManager.pVkR_->gamma_ = 1.5f;
     graphicsManager.pVkR_->exposure_ = 12.5f;
-    graphicsManager.pVkR_->applyTonemap = true;
     graphicsManager.pVkR_->specularCont = 0.05f;
     graphicsManager.pVkR_->nDotVSpec = 0.8f;
     graphicsManager.pVkR_->bloomRadius = 0.00001f;
-
-    PhysicsManager physicsManager = PhysicsManager();
-
-    // Camera Setup
-    graphicsManager.pVkR_->camera_.setVelocity(glm::vec3(0.0f));
     graphicsManager.pVkR_->camera_.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
+
+    PhysicsManager physicsManager = PhysicsManager();
 
     graphicsManager.setup();
     physicsManager.setup();

@@ -22,9 +22,8 @@ layout(location = 1) in vec4 inNormal;
 layout(location = 2) in vec4 inTangent;
 
 layout(location = 0) out vec4 fragPosition;
-layout(location = 1) out vec4 fragNormal;
-layout(location = 2) out vec2 fragTexCoord;
-layout(location = 3) out mat3 TBNMatrix;
+layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out mat3 TBNMatrix;
 
 invariant gl_Position;
 
@@ -34,8 +33,6 @@ void main() {
     vec4 pos = modelMatrices[gl_BaseInstance] * vec4(inPosition.xyz, 1.0f);
 
     TBNMatrix = mat3(normalize((vec4((modelMatrices[gl_BaseInstance] * inTangent).xyz, inTangent.w)).xyz), normalize(cross(inNormal.xyz, inTangent.xyz) * inTangent.w), normalize((mat3(modelMatrices[gl_BaseInstance]) * inNormal.xyz)));
-
-    fragNormal = modelMatrices[gl_BaseInstance] * inNormal;
 
     fragPosition = vec4(pos.xyz, (ubo.view * pos).z);
 

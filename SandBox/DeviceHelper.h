@@ -65,6 +65,23 @@ public:
 
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevel, uint16_t arrayLevels, VkImageCreateFlagBits flags, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) const;    void createImageView(const VkImage& image, VkImageView& imageView, const VkFormat format, const VkImageAspectFlags aspectFlags, const uint32_t mipLevels) const;
     void transitionImageLayout(VkCommandBuffer& cmdBuff, const VkImageSubresourceRange& subresourceRange, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkImage& image);
+
+    static glm::mat4 toGLMMat4(physx::PxMat44 pxMatrix) {
+        glm::mat4 matrix = glm::mat4(1.0f);
+        for (int x = 0; x < 4; x++)
+            for (int y = 0; y < 4; y++)
+                matrix[x][y] = pxMatrix[x][y];
+        return matrix;
+    }
+
+    static glm::vec3 PxVec3toGlmVec3(physx::PxVec3 pxVec) {
+        glm::vec3 vector = glm::vec3(pxVec.x, pxVec.y, pxVec.z);
+        return vector;
+    }
+
+    static glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
+        return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
+    }
 };
 
 static struct pcBlock {
@@ -83,7 +100,7 @@ public:
 
     glm::mat4 matrix = glm::mat4(1.0f);
 
-    glm::mat4 to_matrix() {
+    glm::mat4 to_matrix() const {
         glm::mat4 retM = glm::translate(glm::mat4(1.0f), position);
         retM *= glm::mat4_cast(glm::quat(rotation));
         retM *= glm::scale(glm::mat4(1.0f), scale);

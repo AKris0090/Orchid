@@ -91,7 +91,6 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
     ImGui::DragFloat("gamma", &pVkR_->gamma_);
     ImGui::DragFloat("exposure", &pVkR_->exposure_);
-    ImGui::Checkbox("tonemap", &pVkR_->applyTonemap);
     ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
     ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
     ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
@@ -255,12 +254,13 @@ void GraphicsManager::startVulkan() {
         newAnimGO->isOutline = true;
         newAnimGO->smoothDuration = 150ms;
         newAnimGO->smoothAmount = FLT_MAX;
-        newAnimGO->animateOn = 1;
+        newAnimGO->src = new std::vector<AnimatedGameObject::secondaryTransform>(newAnimGO->renderTarget->walkAnim.numChannels);
+        newAnimGO->dst = new std::vector<AnimatedGameObject::secondaryTransform>(newAnimGO->renderTarget->walkAnim.numChannels);
 
         globalVertexOffset = pVkR_->vertices_.size();
         globalIndexOffset = pVkR_->indices_.size();
 
-        newAnimGO->createVertexBuffer();
+        MeshHelper::createVertexBuffer(pVkR_->pDevHelper_, newAnimGO->basePoseVertices_, newAnimGO->vertexBuffer_, newAnimGO->vertexBufferMemory_);
 
         std::cout << "\nloaded model: " << s << ": " << mod->totalVertices_ << " vertices, " << mod->totalIndices_ << " indices\n" << std::endl;
     }

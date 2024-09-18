@@ -161,13 +161,13 @@ void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vecto
 
 	for (GameObject* g : gameObjects) {
 		if (g->isDynamic && g->physicsActor != nullptr) {
-			glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
+			glm::mat4 transform = DeviceHelper::toGLMMat4(g->physicsActor->getGlobalPose());
 			g->setTransform(transform * g->transform.to_matrix());
 		}
 	}
 	for (AnimatedGameObject* g : animatedGameObjects) {
 		if (g->isDynamic && g->physicsActor != nullptr && !g->isPlayerObj) {
-			glm::mat4 transform = g->toGLMMat4(g->physicsActor->getGlobalPose());
+			glm::mat4 transform = DeviceHelper::toGLMMat4(g->physicsActor->getGlobalPose());
 			g->setTransform(transform * g->transform.to_matrix());
 		}
 	}

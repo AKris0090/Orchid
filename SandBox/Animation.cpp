@@ -117,8 +117,9 @@ void Animation::loadAnimation(std::string gltfPath_, std::vector<AnimSceneNode*>
         }
 
         // Channels
-        channels.resize(glTFAnimation.channels.size());
-        for (size_t j = 0; j < glTFAnimation.channels.size(); j++)
+        numChannels = glTFAnimation.channels.size();
+        channels.resize(numChannels);
+        for (size_t j = 0; j < numChannels; j++)
         {
             tinygltf::AnimationChannel glTFChannel = glTFAnimation.channels[j];
             Animation::AnimationChannel& dstChannel = channels[j];

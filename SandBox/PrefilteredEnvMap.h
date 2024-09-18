@@ -26,12 +26,12 @@ private:
 	VkImage prefEMapImage_;
 	VkFramebuffer prefEMapFrameBuffer_;
 	VkRenderPass prefEMapRenderpass_;
-	VkDescriptorSetLayout prefEMapDescriptorSetLayout_;
 	VkDescriptorPool prefEMapDescriptorPool_;
 	VkDeviceMemory prefEMapImageMemory_;
 	VkAttachmentDescription prefEMapattachment;
 	VkDescriptorImageInfo prefevImageInfo;
 
+	VulkanDescriptorLayoutBuilder* prefEMapDescriptorSetLayout_;
 	VulkanPipelineBuilder* prefEMPipeline_;
 
 	void createprefEMapImage();

@@ -44,19 +44,13 @@ void IrradianceCube::createiRCubeImageSampler() {
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void IrradianceCube::createiRCubeDescriptors() {
-    VkDescriptorSetLayoutBinding samplerLayoutBindingColor{};
-    samplerLayoutBindingColor.binding = 0;
-    samplerLayoutBindingColor.descriptorCount = 1;
-    samplerLayoutBindingColor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBindingColor.pImmutableSamplers = nullptr;
-    samplerLayoutBindingColor.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> binding{};
+    binding.push_back(VulkanDescriptorLayoutBuilder::BindingStruct{
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .stageBits = VK_SHADER_STAGE_FRAGMENT_BIT
+        });
 
-    VkDescriptorSetLayoutCreateInfo layoutCInfo{};
-    layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCInfo.bindingCount = 1;
-    layoutCInfo.pBindings = &(samplerLayoutBindingColor);
-
-    vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &iRCubeDescriptorSetLayout_);
+    iRCubeDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, binding);
 
     std::array<VkDescriptorPoolSize, 1> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -77,7 +71,7 @@ void IrradianceCube::createiRCubeDescriptors() {
     allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocateInfo.descriptorPool = iRCubeDescriptorPool_;
     allocateInfo.descriptorSetCount = 1;
-    allocateInfo.pSetLayouts = &iRCubeDescriptorSetLayout_;
+    allocateInfo.pSetLayouts = &iRCubeDescriptorSetLayout_->layout;
 
     vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &iRCubeDescriptorSet_);
 
@@ -222,7 +216,7 @@ void IrradianceCube::createPipeline() {
     auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
-    pipelineInfo.pDescriptorSetLayouts = &iRCubeDescriptorSetLayout_;
+    pipelineInfo.pDescriptorSetLayouts = &iRCubeDescriptorSetLayout_->layout;
     pipelineInfo.numSets = 1;
     pipelineInfo.pShaderStages = shaderStages.data();
     pipelineInfo.numStages = static_cast<int>(shaderStages.size());
@@ -401,7 +395,7 @@ IrradianceCube::IrradianceCube(DeviceHelper* devHelper, Skybox* pSkybox, VkBuffe
 void IrradianceCube::preDelete() {
     vkDestroyFramebuffer(this->pDevHelper_->device_, this->iRCubeFrameBuffer_, nullptr);
     vkDestroyRenderPass(this->pDevHelper_->device_, this->iRCubeRenderpass_, nullptr);
-    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->iRCubeDescriptorSetLayout_, nullptr);
+    delete iRCubeDescriptorSetLayout_;
     delete iRPipeline_;
     this->pDevHelper_ = nullptr;
 }

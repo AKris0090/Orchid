@@ -26,12 +26,12 @@ private:
 	VkImage iRCubeImage_;
 	VkFramebuffer iRCubeFrameBuffer_;
 	VkRenderPass iRCubeRenderpass_;
-	VkDescriptorSetLayout iRCubeDescriptorSetLayout_;
 	VkDescriptorPool iRCubeDescriptorPool_;
 	VkDeviceMemory iRCubeImageMemory_;
 	VkAttachmentDescription iRCubeattachment;
 	VkDescriptorImageInfo irImageInfo;
 
+	VulkanDescriptorLayoutBuilder* iRCubeDescriptorSetLayout_;
 	VulkanPipelineBuilder* iRPipeline_;
 
 	void geniRCube(VkBuffer& vertexBuffer, VkBuffer& indexBuffer);

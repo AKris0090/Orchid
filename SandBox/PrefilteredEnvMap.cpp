@@ -44,19 +44,13 @@ void PrefilteredEnvMap::createprefEMapImageSampler() {
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void PrefilteredEnvMap::createprefEMapDescriptors() {
-    VkDescriptorSetLayoutBinding samplerLayoutBindingColor{};
-    samplerLayoutBindingColor.binding = 0;
-    samplerLayoutBindingColor.descriptorCount = 1;
-    samplerLayoutBindingColor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBindingColor.pImmutableSamplers = nullptr;
-    samplerLayoutBindingColor.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> binding{};
+    binding.push_back(VulkanDescriptorLayoutBuilder::BindingStruct{
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .stageBits = VK_SHADER_STAGE_FRAGMENT_BIT
+        });
 
-    VkDescriptorSetLayoutCreateInfo layoutCInfo{};
-    layoutCInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCInfo.bindingCount = 1;
-    layoutCInfo.pBindings = &(samplerLayoutBindingColor);
-
-    vkCreateDescriptorSetLayout(pDevHelper_->device_, &layoutCInfo, nullptr, &prefEMapDescriptorSetLayout_);
+    prefEMapDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, binding);
 
     std::array<VkDescriptorPoolSize, 1> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -77,7 +71,7 @@ void PrefilteredEnvMap::createprefEMapDescriptors() {
     allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocateInfo.descriptorPool = prefEMapDescriptorPool_;
     allocateInfo.descriptorSetCount = 1;
-    allocateInfo.pSetLayouts = &prefEMapDescriptorSetLayout_;
+    allocateInfo.pSetLayouts = &prefEMapDescriptorSetLayout_->layout;
 
     vkAllocateDescriptorSets(pDevHelper_->device_, &allocateInfo, &prefEMapDescriptorSet_);
 
@@ -223,7 +217,7 @@ void PrefilteredEnvMap::createPipeline() {
     auto attributeDescriptions = Vertex::getPositionAttributeDescription();
 
     VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
-    pipelineInfo.pDescriptorSetLayouts = &prefEMapDescriptorSetLayout_;
+    pipelineInfo.pDescriptorSetLayouts = &prefEMapDescriptorSetLayout_->layout;
     pipelineInfo.numSets = 1;
     pipelineInfo.pShaderStages = shaderStages.data();
     pipelineInfo.numStages = shaderStages.size();
@@ -404,7 +398,7 @@ PrefilteredEnvMap::PrefilteredEnvMap(DeviceHelper* devHelper, Skybox* pSkybox, V
 void PrefilteredEnvMap::preDelete() {
     vkDestroyFramebuffer(this->pDevHelper_->device_, this->prefEMapFrameBuffer_, nullptr);
     vkDestroyRenderPass(this->pDevHelper_->device_, this->prefEMapRenderpass_, nullptr);
-    vkDestroyDescriptorSetLayout(this->pDevHelper_->device_, this->prefEMapDescriptorSetLayout_, nullptr);
+    delete prefEMapDescriptorSetLayout_;
     delete prefEMPipeline_;
     this->pDevHelper_ = nullptr;
 }

@@ -141,7 +141,6 @@ public:
 	float maxReflectionLOD_;
 	float gamma_;
 	float exposure_;
-	bool applyTonemap;
 	float bloomRadius;
 	float specularCont;
 	float nDotVSpec;

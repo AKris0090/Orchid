@@ -115,6 +115,25 @@ public:
 	static void callIndexedDraw(VkCommandBuffer& commandBuffer, VkDrawIndexedIndirectCommand& indexedDrawInfo) {
 		vkCmdDrawIndexed(commandBuffer, indexedDrawInfo.indexCount, indexedDrawInfo.instanceCount, indexedDrawInfo.firstIndex, indexedDrawInfo.vertexOffset, indexedDrawInfo.firstInstance);
 	}
+
+	static void createVertexBuffer(DeviceHelper* pDevHelper, std::vector<Vertex>& vertices, VkBuffer& vertexBuffer_, VkDeviceMemory& vertexBufferMemory_) {
+		VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		pDevHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(pDevHelper->device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkUnmapMemory(pDevHelper->device_, stagingBufferMemory);
+
+		pDevHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
+		pDevHelper->copyBuffer(stagingBuffer, vertexBuffer_, bufferSize);
+
+		vkDestroyBuffer(pDevHelper->device_, stagingBuffer, nullptr);
+		vkFreeMemory(pDevHelper->device_, stagingBufferMemory, nullptr);
+	}
 };
 
 namespace std {

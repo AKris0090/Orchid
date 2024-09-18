@@ -51,7 +51,7 @@ public:
 
 	Transform transform;
 
-	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; moveSpeed_ = 0.0085; };
+	FPSCam() { distanceToPlayer = 1.75f; isAttatched = true; moveSpeed_ = 0.0085; velocity_ = glm::vec3(0.0f); };
 
 	void update();
 	void setProjectionMatrix();

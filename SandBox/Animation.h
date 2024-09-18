@@ -35,6 +35,7 @@ public:
 		uint32_t samplerIndex;
 	};
 
+	int numChannels;
 	std::string name;
 	std::vector<AnimationSampler> samplers;
 	std::vector<AnimationChannel> channels;

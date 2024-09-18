@@ -2,8 +2,6 @@
 
 #define SHADOW_MAP_CASCADE_COUNT 4
 
-#include "aces.glsl"
-
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
@@ -21,10 +19,6 @@ const mat4 biasMat = mat4(
 	0.0, 0.0, 1.0, 0.0,
 	0.5, 0.5, 0.0, 1.0 );
 
-layout(push_constant) uniform pushConstant {
-    layout(offset = 64) bool isOutline;
-} pc;
-
 layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
@@ -36,9 +30,8 @@ layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec4 fragNormal;
-layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in mat3 TBNMatrix;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
@@ -102,7 +95,6 @@ vec3 lightColor = (vec3(244.0f, 215.0f, 159.0f) / 255.0f);
 void main()
 {
 	vec3 N = calculateNormal();
-
 	vec3 V = normalize(ubo.viewPos.xyz - fragPosition.xyz);
 	vec3 L = normalize(ubo.lightPos.xyz - fragPosition.xyz);
 
@@ -121,8 +113,6 @@ void main()
 
 	vec3 color = (ALBEDO * altShadow) + (clamp(dot(N, L), 0.0f, 1.0f) * (inner * lightColor));
 
-	//color = mix(vec3(0.35f, 0.35f, 1.0f) * color, color, shadow);
-	//color = mix(lightColor * color, color, 1.0f - shadow);
 	color = mix(vec3(135.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f) * color, color, shadow);
 	color = mix(vec3(255.0f / 255.0f, 215.0f / 255.0f, 195.0f / 255.0f) * color, color, 1.0f - shadow);
 

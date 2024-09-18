@@ -316,14 +316,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdEndRenderPass(commandBuffer);
 
     // SHAODW PASS ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_->pipeline);
 
     for (uint32_t j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
         DirectionalLight::PostRenderPacket cmdBuf = pDirectionalLight_->render(commandBuffer, j, currentFrame_);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipelineLayout_, 0, 1, &(pDirectionalLight_->cascades[currentFrame_][j].descriptorSet), 0, nullptr);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipelineLayout_, 1, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_->layout, 0, 1, &(pDirectionalLight_->cascades[currentFrame_][j].descriptorSet), 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pDirectionalLight_->sMPipeline_->layout, 1, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
 
-        vkCmdPushConstants(commandBuffer, pDirectionalLight_->sMPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &j);
+        vkCmdPushConstants(commandBuffer, pDirectionalLight_->sMPipeline_->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &j);
 
         shadowDraw(commandBuffer, nullptr, drawCallBuffer, -1);
 
@@ -783,6 +783,8 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
     SWChainExtent_ = extent;
     SWChainImages_.resize(numImages);
     vkGetSwapchainImagesKHR(device_, swapChain_, &numImages, SWChainImages_.data());
+
+    camera_.setAspectRatio((SWChainExtent_.width / (float) SWChainExtent_.height));
 }
 
 bool VulkanRenderer::isSuitable(VkPhysicalDevice physicalDevice) {

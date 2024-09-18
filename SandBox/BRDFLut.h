@@ -14,9 +14,9 @@ private:
 	VkDeviceMemory brdfLUTImageMemory_;
 	VkFramebuffer brdfLUTFrameBuffer_;
 	VkRenderPass brdfLUTRenderpass_;
-	VulkanDescriptorLayoutBuilder* brdfLUTDescriptorSetLayout_;
 	VkDescriptorPool brdfLUTDescriptorPool_;
 
+	VulkanDescriptorLayoutBuilder* brdfLUTDescriptorSetLayout_;
 	VulkanPipelineBuilder* brdfLutPipeline_;
 
 	void generateBRDFLUT();

@@ -103,7 +103,6 @@ void TrainObject::loopUpdate() {
 
 		break;
 	}
-	//std::cout << currentState << std::endl;
 
 	updatePosition();
 }

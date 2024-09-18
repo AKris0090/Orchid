@@ -1,5 +1,4 @@
-// Generates an irradiance cube from an environment map using convolution // SHADER PULLED FROM: https://github.com/SaschaWillems/Vulkan/blob/4d2117d3d9bc27910140c1fe668003a248a2d36a/shaders/glsl/pbribl/irradiancecube.frag
-
+// SHADER PULLED FROM: https://github.com/SaschaWillems/Vulkan/blob/4d2117d3d9bc27910140c1fe668003a248a2d36a/shaders/glsl/pbribl/irradiancecube.frag
 #version 450
 
 layout (location = 0) in vec3 inPos;

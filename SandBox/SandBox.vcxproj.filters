@@ -64,6 +64,9 @@
     <Filter Include="Source Files\Engine\Graphics\Helpers\Image Creation">
       <UniqueIdentifier>{28bbc177-064e-4680-9dc6-08a98e5f6abd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Engine\Graphics\Modules">
+      <UniqueIdentifier>{a7aa887f-4d75-4fe7-a0f4-11d8f1a1d1c9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SandBox.cpp">
@@ -185,9 +188,6 @@
     <ClInclude Include="Camera.h">
       <Filter>Header Files\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="VulkanRenderer.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
     <ClInclude Include="GraphicsManager.h">
       <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
@@ -198,12 +198,6 @@
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
     <ClInclude Include="TextureHelper.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
-    <ClInclude Include="GLTFObject.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
-    <ClInclude Include="Skybox.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
     <ClInclude Include="BRDFLut.h">
@@ -221,22 +215,13 @@
     <ClInclude Include="PointLight.h">
       <Filter>Header Files\Engine\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="GameObject.h">
-      <Filter>Header Files\Engine</Filter>
-    </ClInclude>
     <ClInclude Include="PhysicsManager.h">
       <Filter>Header Files\Engine\Physics</Filter>
     </ClInclude>
     <ClInclude Include="Input.h">
       <Filter>Header Files\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="AnimatedGLTFObj.h">
-      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
-    </ClInclude>
     <ClInclude Include="PlayerObject.h">
-      <Filter>Header Files\Engine</Filter>
-    </ClInclude>
-    <ClInclude Include="AnimatedGameObject.h">
       <Filter>Header Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="DirectionalLight.h">
@@ -256,6 +241,24 @@
     </ClInclude>
     <ClInclude Include="TrainObject.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimatedGameObject.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimatedGLTFObj.h">
+      <Filter>Header Files\Engine\Graphics\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="GLTFObject.h">
+      <Filter>Header Files\Engine\Graphics\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Skybox.h">
+      <Filter>Header Files\Engine\Graphics\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanRenderer.h">
+      <Filter>Header Files\Engine\Graphics\Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
