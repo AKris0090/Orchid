@@ -1,11 +1,22 @@
 # ORCHID
+![](README_IMAGES/Finals/main.png)  
+Orchid is a non-photorealistic forward-rendered graphics engine made in C++ using Vulkan and PhysX. 
+
+### Current Feature List:
+- [PBR Textures](#PBR-Textures)
+- Image-Based Lighting
+- Cascaded Shadow Mapping
+- Compute Skinning / Animation
+- Frustum Culling
+- Physically Based Bloom
+- Inverse Hull Outlines
+- Nvidia PhysX
 
 ## My goals for this project
 * Create an engine I can use as a base for a third person rpg game demo
 * Have a space I can use to try to implement various graphics programming concepts
 * Create a portfolio piece I can use to demonstrate both my game engine and graphics programming knowledge
 
-## Current Features
 ### PBR Textures
 |                                                     Base Color                                                  |                                                     Normal                                                                    |
 | :-------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: |
