@@ -4,13 +4,14 @@
 Orchid is a non-photorealistic forward-rendered game engine made in C++ using Vulkan and PhysX. 
 
 ## 🔥 Feature Highlights:
+### 👁️ Graphics Features
 - [PBR Textures](#PBR-Textures)
 - [Image-Based Lighting](#Image-Based-Lighting)
 - [Cascaded Shadow Mapping](#Shadow-Mapping--Cascaded-Shadow-Mapping)
 - [Compute Skinning / Animation](#Animations--Compute-Skinning)
 - [Frustum Culling](#Frustum-Culling)
 - [Physically Based Bloom](#Physically-Based-Bloom)
-## 🔨 Engine Highlights:
+### 🔨 Engine Features:
 - [Nvidia PhysX](#Engine---Nvidia-PhysX-Implementation)
 - [Scripting](#Engine---Scripting)
 
@@ -108,3 +109,14 @@ A physX simulation runs in tandem with the graphical output. This includes the b
 https://github.com/user-attachments/assets/73828231-60a6-4f17-bab3-e61811900011
 
 With my implementation of time and input recording, it is easy to script and animate objects.
+
+## Credits:
+* [Abandoned Train Station](https://sketchfab.com/3d-models/abandoned-underground-train-station-86cce05689704587ad295b49205304a8)
+* [Goro Akechi - credit to Atlus](https://sketchfab.com/3d-models/goro-akechi-winter-elite-persona-5-8220905479194d749fc81feafe1ec80d)
+* [Train Model](https://sketchfab.com/3d-models/free-subway-station-r46-subway-ae5aadde1c6f48a19b32b309417a669b)
+
+### Special Thanks to:
+* [Sascha Willems' Examples](https://github.com/SaschaWillems/Vulkan/tree/master/examples)
+* [LearnOpenGL](https://learnopengl.com/)
+* Vulkan Discord
+* Graphics Programming Discord
