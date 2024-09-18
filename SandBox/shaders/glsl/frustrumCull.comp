@@ -32,20 +32,19 @@ layout(push_constant) uniform pushConstant
     int numDraws;
 } pcs;
 
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-bool frustumCheck(vec4 pos, float radius)
+bool frustumCheck(vec3 center, float radius)
 {
 	for (int i = 0; i < 6; i++) 
 	{
-		if (dot(pos, ubo.frustumPlanes[i]) + radius < 0.0)
+		if (dot(vec4(center, 1.0f), ubo.frustumPlanes[i]) + radius < 0.0)  // check center+radius against each plane
 		{
 			return false;
 		}
 	}
 	return true;
 }
-
-layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
@@ -55,20 +54,16 @@ void main()
         	return;
     	}
 
-	IndexedIndirectCommand command = indirectDrawsOut[idx];
-
 	mat4 modelMatrix = modelMatrices[idx];
 
-	vec3 boxCenter = (modelMatrix * vec4(boxes[idx].xyz, 1.0)).xyz;
-	float boxRadius = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0]));
-	
-	bool isVisible = frustumCheck(vec4(boxCenter, 1.0f), boxRadius);
+	vec3 center = (modelMatrix * vec4(boxes[idx].xyz, 1.0)).xyz; // transform bounding sphere into world space
+	float radius = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0])); // scale bounding sphere radius into world space
 
-   	if (isVisible) {
-		command.instanceCount = 1;
+   	if (frustumCheck(center, radius)) 
+	{
+		indirectDrawsOut[idx].instanceCount = 1; // if visible, set the draw instance count to 1
 	}
 	else{
-		command.instanceCount = 0;
+		indirectDrawsOut[idx].instanceCount = 0; // if not visible, set the draw instance count to 1
 	}
-	indirectDrawsOut[idx] = command;
 }
