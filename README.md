@@ -5,7 +5,7 @@ Orchid is a non-photorealistic forward-rendered graphics engine made in C++ usin
 ### Current Feature List:
 - [PBR Textures](#PBR-Textures)
 - [Image-Based Lighting](#Image-Based-Lighting)
-- [Cascaded Shadow Mapping](#Shadow-Mapping-/-Cascaded-Shadow-Mapping)
+- [Cascaded Shadow Mapping](#Shadow-Mapping--Cascaded-Shadow-Mapping)
 - Compute Skinning / Animation
 - Frustum Culling
 - Physically Based Bloom
