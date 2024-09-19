@@ -50,8 +50,8 @@ void GraphicsManager::shutDown() {
 
     //pVkR_->shutdown();
     
-    //ImGui_ImplSDL2_Shutdown();
-    //ImGui::DestroyContext();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
 
     SDL_DestroyWindowSurface(pWindow_);
     SDL_DestroyWindow(pWindow_);
@@ -299,13 +299,13 @@ void GraphicsManager::startVulkan() {
 }
 
 void GraphicsManager::loopUpdate() {
-    //imGUIUpdate();
+    imGUIUpdate();
 
     pVkR_->drawNewFrame(pWindow_, MAX_FRAMES_IN_FLIGHT);
 
     // IMGUI Rendering
-    //ImGui::Render();
-    //ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
 
     pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, MAX_FRAMES_IN_FLIGHT);
 
