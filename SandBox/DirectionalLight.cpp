@@ -275,7 +275,7 @@ std::vector<char> DirectionalLight::readFile(const std::string& filename) {
 }
 
 void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrixDescriptorSet) {
-	VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/shadowMap.spv");
+	VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(pDevHelper_->device_, "./shaders/spv/shadowMap.spv");
 
 	std::array<VulkanPipelineBuilder::VulkanShaderModule, 1> shaderStages = { vertexShaderModule };
 

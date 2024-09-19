@@ -47,7 +47,7 @@ void TextureHelper::createTextureImages() {
     stbi_uc* pixels = nullptr;
     switch (index_) {
     case -1:
-        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("./shaders/dummyAO.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
         this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -58,7 +58,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     case -2:
-        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("./shaders/dummyMetallicRoughness.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
         this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -69,7 +69,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     case -3:
-        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("./shaders/dummyNormal.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
         this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -80,7 +80,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     case -4:
-        pixels = stbi_load("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/dummyEmission.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        pixels = stbi_load("./shaders/dummyEmission.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         imageSize = static_cast<VkDeviceSize>(texWidth) * texHeight * 4;
         this->mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 

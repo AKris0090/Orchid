@@ -1544,8 +1544,8 @@ void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
 }
 
 void VulkanRenderer::createDepthPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPass.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/depthPassAlpha.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPass.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPassAlpha.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -1587,8 +1587,8 @@ void VulkanRenderer::createDepthPipeline() {
 }
 
 void VulkanRenderer::createOutlinePipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/outlineVert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/outlineFrag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/outlineVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/outlineFrag.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -1618,8 +1618,8 @@ void VulkanRenderer::createOutlinePipeline() {
 }
 
 void VulkanRenderer::createToonPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/toonFrag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/vert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/toonFrag.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -1645,8 +1645,8 @@ void VulkanRenderer::createToonPipeline() {
 }
 
 void VulkanRenderer::createToneMappingPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/screenQuadVert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/tonemappingFrag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/screenQuadVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/tonemappingFrag.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -1677,8 +1677,8 @@ void VulkanRenderer::createToneMappingPipeline() {
 }
 
 void VulkanRenderer::createGraphicsPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/vert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/vert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/frag.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -1714,8 +1714,8 @@ void VulkanRenderer::createGraphicsPipeline() {
 }
 
 void VulkanRenderer::createSkyBoxPipeline() {
-    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxVert.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/skyboxFrag.spv");
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/skyboxVert.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/skyboxFrag.spv");
 
     std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
 
@@ -2328,7 +2328,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 
     // COMPUTE PIPELINE CREATION
 
-    VulkanPipelineBuilder::VulkanShaderModule compute = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/computeSkin.spv");
+    VulkanPipelineBuilder::VulkanShaderModule compute = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/computeSkin.spv");
 
     VkPipelineShaderStageCreateInfo computeStageCInfo{};
     computeStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -2487,7 +2487,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
 
     // COMPUTE PIPELINE CREATION
 
-    VulkanPipelineBuilder::VulkanShaderModule compute = VulkanPipelineBuilder::VulkanShaderModule(device_, "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/shaders/spv/frustrumCull.spv");
+    VulkanPipelineBuilder::VulkanShaderModule compute = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/frustrumCull.spv");
 
     VkPipelineShaderStageCreateInfo computeStageCInfo{};
     computeStageCInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

@@ -7,80 +7,37 @@
 #define WINDOW_HEIGHT 720.0f
 
 std::vector<std::string> staticModelPaths = {
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
-    //"C:/Users/arjoo/Downloads/helmet2.gltf",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/DamagedHelmet.glb"
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/bistro.glb"
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Helmet/FlightHelmet.gltf"
-    
-    //"C:/Users/arjoo/Downloads/free__subway_station__r46_subway.glb"
-    //"C:/Users/arjoo/Downloads/abandoned_underground_train_station.glb",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/trainStation/station.gltf",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/Train.glb",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/axis/Answer Arena.glb"
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/sponza/Sponza.gltf",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Bistro/terrain_gridlines.glb"
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/Train-4.glb",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/leftDoors.glb",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/rightDoors.glb",
-
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedTrain.glb",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedRightDoors.glb",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/train/turnedLeftDoors.glb"
+    "./dmgHel/DamagedHelmet.gltf",
+    "./trainStation/station.gltf",
+    "./train/Train-4.glb",
+    "./train/leftDoors.glb",
+    "./train/rightDoors.glb",
+    "./train/turnedTrain.glb",
+    "./train/turnedRightDoors.glb",
+    "./train/turnedLeftDoors.glb"
 };
 
 std::vector<std::string> animatedModelPaths = {
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/emily/Emily_Walk.glb",
-   //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/wolf_animated/Wolf-2.glb"
-   //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goro.glb"
-   "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroWalk2.glb",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/dmgHel/DamagedHelmet.gltf",
+   "./goro/goroWalk2.glb",
 };
 
 std::vector<std::string> skyboxTexturePaths = {
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/right.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/left.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/top.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/bottom.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/front.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/skymap/back.jpg"
-
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/negx.bmp",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/posx.bmp",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/posy.bmp",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/negy.bmp",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/posz.bmp",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze/negz.bmp"
-
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posx.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negx.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posy.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negy.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/posz.jpg",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cubemap/negz.jpg"
-
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nx.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/px.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/py.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/ny.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/pz.png",
-    "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/blaze2/nz.png"
-
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png",
-    //"C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/pD/DiffuseTexture4.png"
+    "./Cube/blaze2/nx.png",
+    "./Cube/blaze2/px.png",
+    "./Cube/blaze2/py.png",
+    "./Cube/blaze2/ny.png",
+    "./Cube/blaze2/pz.png",
+    "./Cube/blaze2/nz.png"
 };
 
-std::string skyboxModelPath = "C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/Cube/cube.glb";
+std::string skyboxModelPath = "./Cube/cube.glb";
 
 int main(int argc, char* argv[]) {
+    std::cout << std::filesystem::current_path() << std::endl;
+
     GraphicsManager graphicsManager = GraphicsManager(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths, WINDOW_WIDTH, WINDOW_HEIGHT);
     graphicsManager.pVkR_ = new VulkanRenderer();
 
-    //graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(50.0f, 40.0f, 2.0f));
     graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
     graphicsManager.pVkR_->depthBias_ = 0.05f;
     graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
@@ -117,8 +74,8 @@ int main(int argc, char* argv[]) {
      
     graphicsManager.animatedObjects[0]->transform.rotation = glm::vec3(PI / 2.0f, 0.0f, 0.0f);
     graphicsManager.animatedObjects[0]->transform.scale = glm::vec3(0.00615f, 0.00615f, 0.00615f);
-    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroRun2.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
-    graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("C:/Users/arjoo/OneDrive/Documents/GameProjects/SndBx/SandBox/goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->renderTarget->runAnim.loadAnimation(std::string("./goro/goroRun2.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
+    graphicsManager.animatedObjects[0]->renderTarget->idleAnim.loadAnimation(std::string("./goro/goroIdle.glb"), graphicsManager.animatedObjects[0]->renderTarget->pParentNodes);
     graphicsManager.animatedObjects[0]->activeAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
     graphicsManager.animatedObjects[0]->previousAnimation = &(graphicsManager.animatedObjects[0]->renderTarget->idleAnim);
 
