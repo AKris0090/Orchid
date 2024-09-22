@@ -64,6 +64,6 @@ void main()
 		indirectDrawsOut[idx].instanceCount = 1; // if visible, set the draw instance count to 1
 	}
 	else{
-		indirectDrawsOut[idx].instanceCount = 0; // if not visible, set the draw instance count to 1
+		indirectDrawsOut[idx].instanceCount = 0; // if not visible, set the draw instance count to 0
 	}
 }
