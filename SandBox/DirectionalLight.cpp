@@ -322,15 +322,6 @@ void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrix
 	sMPipeline_->info.pColorBlendState->attachmentCount = 0;
 	sMPipeline_->info.pColorBlendState->pAttachments = nullptr;
 
-	std::vector<VkDynamicState> dynaStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR,
-			VK_DYNAMIC_STATE_CULL_MODE
-	};
-
-	sMPipeline_->info.pDynamicState->dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-	sMPipeline_->info.pDynamicState->pDynamicStates = dynaStates.data();
-
 	sMPipeline_->generate(pipelineInfo, sMRenderpass_);
 }
 

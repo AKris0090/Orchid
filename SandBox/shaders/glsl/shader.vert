@@ -25,8 +25,6 @@ layout(location = 0) out vec4 fragPosition;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out mat3 TBNMatrix;
 
-invariant gl_Position;
-
 void main() {
     fragTexCoord = vec2(inPosition.w, inNormal.w);
 

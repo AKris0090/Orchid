@@ -38,7 +38,6 @@ layout(location = 2) in mat3 TBNMatrix;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
-layout (depth_unchanged) out float gl_FragDepth;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
 vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;

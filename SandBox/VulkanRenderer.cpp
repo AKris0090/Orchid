@@ -60,12 +60,6 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
 void VulkanRenderer::fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
     for (IndirectBatch& draw : drawBatches)
     {
-        if (draw.material->doubleSides) {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_BACK_BIT);
-        }
-        else {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_BACK_BIT);
-        }
         if (materialPosition > 0) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
         }
@@ -97,13 +91,6 @@ void VulkanRenderer::nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineL
         VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
         uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
 
-        if (draw.material->doubleSides) {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_BACK_BIT);
-        }
-        else {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_BACK_BIT);
-        }
-
         if (materialPosition > 0) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
         }
@@ -114,12 +101,6 @@ void VulkanRenderer::nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineL
 
 void VulkanRenderer::shadowDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
     for (IndirectBatch& draw : drawBatches) {
-        if (draw.material->doubleSides) {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_NONE);
-        }
-        else {
-            vkCmdSetCullMode(commandBuffer, VK_CULL_MODE_FRONT_BIT);
-        }
 
         VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
         uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
@@ -218,6 +199,17 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     cullDependencyInfo.pMemoryBarriers = &cullMemoryBarrier;
 
     vkCmdPipelineBarrier2(commandBuffer, &cullDependencyInfo);
+
+    VkBufferMemoryBarrier bufferBarrier = {};
+    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.buffer = finalDrawCallBuffers_[this->currentFrame_];
+    bufferBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
 
     VkBufferCopy copyRegion{};
     copyRegion.size = sizeof(VkDrawIndexedIndirectCommand) * ((drawCommands.size() - (drawCommands.size() - animatedIndex)) - 2);
@@ -1574,15 +1566,6 @@ void VulkanRenderer::createDepthPipeline() {
     prepassPipeline_->info.pColorBlendState->attachmentCount = 0;
     prepassPipeline_->info.pColorBlendState->pAttachments = nullptr;
 
-    std::vector<VkDynamicState> dynaStates = {
-    VK_DYNAMIC_STATE_VIEWPORT,
-    VK_DYNAMIC_STATE_SCISSOR,
-    VK_DYNAMIC_STATE_CULL_MODE
-    };
-
-    prepassPipeline_->info.pDynamicState->dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    prepassPipeline_->info.pDynamicState->pDynamicStates = dynaStates.data();
-
     prepassPipeline_->generate(pipelineInfo, depthPrepass_);
 }
 
@@ -1700,15 +1683,6 @@ void VulkanRenderer::createGraphicsPipeline() {
     pipelineInfo.numVertexAttributeDescriptions = static_cast<int>(attributes.size());
 
     opaquePipeline_ = new VulkanPipelineBuilder(device_, pipelineInfo, pDevHelper_);
-
-    std::vector<VkDynamicState> dynaStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_CULL_MODE
-    };
-
-    opaquePipeline_->info.pDynamicState->dynamicStateCount = static_cast<uint32_t>(dynaStates.size());
-    opaquePipeline_->info.pDynamicState->pDynamicStates = dynaStates.data();
 
     opaquePipeline_->generate(pipelineInfo, renderPass_);
 }

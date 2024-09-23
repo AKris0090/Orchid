@@ -67,6 +67,7 @@ void GraphicsManager::imGUIUpdate() {
     auto framesPerSecond = 1.0f / Time::getDeltaTime();
     ImGui::Text("rfps: %.0f", framesPerSecond);
     ImGui::Text("  ft: %.2f ms", Time::getDeltaTime() * 1000.0f);
+    ImGui::End();
 }
 
 using namespace std::literals;
