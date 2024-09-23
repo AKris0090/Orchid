@@ -98,6 +98,8 @@ void GraphicsManager::startVulkan() {
     pVkR_->createSWChain(pWindow_);
     std::cout << "chreated swap chain" << std::endl;
 
+    std::cout << "FRAMES IN FLIGHT: " << pVkR_->frames << std::endl;
+
     pVkR_->createImageViews();
     std::cout << "created swap chain image views" << std::endl;
 
@@ -124,7 +126,7 @@ void GraphicsManager::startVulkan() {
     pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
 
     pVkR_->camera_.setProjectionMatrix();
-    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout), MAX_FRAMES_IN_FLIGHT);
+    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout), pVkR_->frames);
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 
@@ -281,15 +283,15 @@ void GraphicsManager::startVulkan() {
     pVkR_->createToneMappingPipeline();
     std::cout << "created tonemapping pipeline" << std::endl;
 
-    pVkR_->createCommandBuffers(MAX_FRAMES_IN_FLIGHT);
+    pVkR_->createCommandBuffers(pVkR_->frames);
     std::cout << "created commaned buffers" << std::endl;
 
-    pVkR_->createSemaphores(MAX_FRAMES_IN_FLIGHT);
+    pVkR_->createSemaphores(pVkR_->frames);
     std::cout << "created semaphores \n" << std::endl;
 
     pVkR_->separateDrawCalls();
 
-    pVkR_->setupCompute(MAX_FRAMES_IN_FLIGHT);
+    pVkR_->setupCompute(pVkR_->frames);
 
     pVkR_->bloomHelper = new BloomHelper(pVkR_->pDevHelper_);
         
@@ -302,13 +304,13 @@ void GraphicsManager::startVulkan() {
 void GraphicsManager::loopUpdate() {
     imGUIUpdate();
 
-    pVkR_->drawNewFrame(pWindow_, MAX_FRAMES_IN_FLIGHT);
+    pVkR_->drawNewFrame(pWindow_, pVkR_->frames);
 
     // IMGUI Rendering
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
 
-    pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, MAX_FRAMES_IN_FLIGHT);
+    pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, pVkR_->frames);
 
     frameCount++;
 }

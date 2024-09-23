@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
     // Model Matrices TODO: MOVE THIS SOMEWHERE ELSE LOL
     graphicsManager.pVkR_->addToDrawCalls();
     graphicsManager.pVkR_->createDrawCallBuffer();
-    graphicsManager.pVkR_->createModelMatrixBuffer(MAX_FRAMES_IN_FLIGHT);
-    graphicsManager.pVkR_->createComputeCullResources(MAX_FRAMES_IN_FLIGHT);
+    graphicsManager.pVkR_->createModelMatrixBuffer(graphicsManager.pVkR_->frames);
+    graphicsManager.pVkR_->createComputeCullResources(graphicsManager.pVkR_->frames);
    
     physicsManager.addCubeToGameObject(graphicsManager.gameObjects[0], physx::PxVec3(2.25, 40, 0), 0.85f);
     scale = glm::vec3(1.0f);

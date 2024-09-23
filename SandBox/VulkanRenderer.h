@@ -134,6 +134,7 @@ private:
 
 public:
 	int numModels_;
+	int frames;
 	int numTextures_;
 	bool rotate_;
 	bool frBuffResized_;

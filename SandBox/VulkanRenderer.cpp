@@ -740,6 +740,8 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
         numImages = swInfo.capabilities.maxImageCount;
     }
 
+    frames = numImages;
+
     VkSwapchainCreateInfoKHR swapchainCreateInfo{};
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.surface = surface_;
