@@ -20,8 +20,6 @@ layout(std430, set = 1, binding = 0) readonly buffer ModelMatrices {
 layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec4 inNormal;
 
-invariant gl_Position;
-
 void main() {
 	gl_Position = ubo.proj * ubo.view * modelMatrices[gl_BaseInstance] * vec4((inPosition + (inNormal * vec4(0.0035f))).xyz, 1.0f);
 }
