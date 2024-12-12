@@ -40,5 +40,6 @@ public:
 
 	TrainObject(glm::vec3 startPos, float enterTime, float exitTime, float openTime, float waitTime);
 	void updatePosition();
+	void transitionState();
 	void loopUpdate();
 };

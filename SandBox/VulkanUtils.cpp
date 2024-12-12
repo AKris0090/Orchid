@@ -183,12 +183,12 @@ void VulkanPipelineBuilder::generate(const PipelineBuilderInfo& builder, const V
     }
 }
 
-VulkanDescriptorLayoutBuilder::VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings) {
+VulkanDescriptorLayoutBuilder::VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, int bindingCount, VulkanDescriptorLayoutBuilder::BindingStruct* bindings) {
     this->device = &(devHelper->device_);
 
     std::vector<VkDescriptorSetLayoutBinding> descriptorWrites;
-    descriptorWrites.resize(bindings.size());
-    for (int i = 0; i < bindings.size(); i++) {
+    descriptorWrites.resize(bindingCount);
+    for (int i = 0; i < bindingCount; i++) {
         descriptorWrites[i].binding = i;
         descriptorWrites[i].descriptorType = bindings[i].descriptorType;
         descriptorWrites[i].descriptorCount = 1;

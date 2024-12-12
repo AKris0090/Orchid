@@ -40,7 +40,6 @@ public:
 	}
 
 	MeshHelper* playerMesh;
-	Transform transform;
 
 	PlayerObject(physx::PxMaterial* material, physx::PxScene* pScene);
 

@@ -1,0 +1,69 @@
+#version 460
+
+struct IndexedIndirectCommand 
+{
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	uint vertexOffset;
+	uint firstInstance;
+};
+
+layout(set = 0, binding = 0) uniform UBO 
+{
+	vec4 frustumPlanes[6];
+} ubo;	
+
+layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
+	IndexedIndirectCommand indirectDrawsOut[];
+};
+
+layout(std430, set = 0, binding = 2) readonly buffer BoundingBoxes {
+	vec4 boxes[];
+};
+
+layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
+};
+
+layout(push_constant) uniform pushConstant
+{
+    mat4 viewMatrix;
+    int numDraws;
+} pcs;
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+bool frustumCheck(vec3 center, float radius)
+{
+	for (int i = 0; i < 6; i++) 
+	{
+		if (dot(vec4(center, 1.0f), ubo.frustumPlanes[i]) + radius < 0.0)  // check center+radius against each plane
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void main()
+{
+   	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+
+	if (idx >= pcs.numDraws) {
+        	return;
+    	}
+
+	mat4 modelMatrix = modelMatrices[idx];
+
+	vec3 center = (modelMatrix * vec4(boxes[idx].xyz, 1.0)).xyz; // transform bounding sphere into world space
+	float radius = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0])); // scale bounding sphere radius into world space
+
+   	if (frustumCheck(center, radius)) 
+	{
+		indirectDrawsOut[idx].instanceCount = 1; // if visible, set the draw instance count to 1
+	}
+	else{
+		indirectDrawsOut[idx].instanceCount = 0; // if not visible, set the draw instance count to 0
+	}
+}

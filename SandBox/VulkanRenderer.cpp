@@ -1157,13 +1157,11 @@ DESCRIPTOR SET LAYOUT
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void VulkanRenderer::createDescriptorSetLayout() {
-    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings;
-    bindings.resize(1);
-
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings(1);
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bindings[0].stageBits = static_cast<VkShaderStageFlagBits>((VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT));
 
-    uniformDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    uniformDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
     bindings.resize(9);
 
@@ -1186,14 +1184,14 @@ void VulkanRenderer::createDescriptorSetLayout() {
     bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     bindings[8].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    textureDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    textureDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
     bindings.resize(1);
 
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT);
 
-    modelMatrixSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    modelMatrixSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
     bindings.resize(2);
 
@@ -1203,7 +1201,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
     bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     bindings[1].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    tonemappingDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    tonemappingDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 }
 
 void VulkanRenderer::createVertexBuffer() {
@@ -1964,8 +1962,8 @@ void VulkanRenderer::createDescriptorSets() {
 void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
     VkDescriptorImageInfo BRDFLutImageInfo{};
     BRDFLutImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    BRDFLutImageInfo.imageView = brdfLut->brdfLUTImageView_;
-    BRDFLutImageInfo.sampler = brdfLut->brdfLUTImageSampler_;
+    BRDFLutImageInfo.imageView = brdfLut->imageTarget_.imageView_;
+    BRDFLutImageInfo.sampler = brdfLut->imageTarget_.imageSampler_;
 
     VkDescriptorImageInfo IrradianceImageInfo{};
     IrradianceImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -2212,8 +2210,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
         memcpy(mappedSkinBuffers[i], inverseBindMatrices.data(), bufferSize);
     }
 
-    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings;
-    bindings.resize(3);
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings (3);
 
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
@@ -2222,7 +2219,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
     bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[2].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
 
-    computeDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    computeDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;
@@ -2353,8 +2350,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
         pDevHelper_->copyBuffer(stagingBuffer, bbBuffers[i], bbSize);
     }
 
-    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings;
-    bindings.resize(4);
+    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings(4);
 
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
@@ -2365,7 +2361,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     bindings[3].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT);
 
-    computeCullDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+    computeCullDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
     VkPushConstantRange pcRange{};
     pcRange.offset = 0;

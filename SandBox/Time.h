@@ -35,4 +35,5 @@ namespace Time {
 
 	std::chrono::time_point<std::chrono::system_clock> getCurrentTime();
 	float getDeltaTime();
+	void setInitialTime();
 };

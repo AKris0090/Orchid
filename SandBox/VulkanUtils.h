@@ -6,6 +6,37 @@
 /// Pipeline Helper Classes
 /// </summary>
 
+struct VulkanImage {
+	DeviceHelper* pDevHelper_;
+
+	struct Extents {
+		uint16_t width_, height_;
+	} extents;
+
+	VkFormat imageFormat_;
+
+	VkImage image_;
+	VkDeviceMemory imageMemory_;
+	VkImageView imageView_;
+	VkSampler imageSampler_;
+
+	VulkanImage() {};
+
+	VulkanImage(DeviceHelper* pDev) {
+		pDevHelper_ = pDev;
+		image_ = VK_NULL_HANDLE;
+		imageMemory_ = VK_NULL_HANDLE;
+		imageView_ = VK_NULL_HANDLE;
+		imageSampler_ = VK_NULL_HANDLE;
+	}
+
+	~VulkanImage() {
+		vkDestroySampler(pDevHelper_->device_, this->imageSampler_, nullptr);
+		vkDestroyImageView(pDevHelper_->device_, this->imageView_, nullptr);
+		vkDestroyImage(pDevHelper_->device_, this->image_, nullptr);
+		vkFreeMemory(pDevHelper_->device_, imageMemory_, nullptr);
+	}
+};
 
 class VulkanDescriptorLayoutBuilder {
 public:
@@ -18,7 +49,7 @@ public:
 
 	VkDescriptorSetLayout layout;
 
-	VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, std::vector<BindingStruct> bindings);
+	VulkanDescriptorLayoutBuilder(DeviceHelper* devHelper, int bindingCount, VulkanDescriptorLayoutBuilder::BindingStruct* bindings);
 	~VulkanDescriptorLayoutBuilder() {
 		vkDestroyDescriptorSetLayout(*device, layout, nullptr);
 	}

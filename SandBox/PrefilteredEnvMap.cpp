@@ -44,13 +44,11 @@ void PrefilteredEnvMap::createprefEMapImageSampler() {
 
 // CODE PARTIALLY FROM: https://github.com/SaschaWillems/Vulkan/blob/master/examples/pbrtexture/pbrtexture.cpp
 void PrefilteredEnvMap::createprefEMapDescriptors() {
-    std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> binding{};
-    binding.push_back(VulkanDescriptorLayoutBuilder::BindingStruct{
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .stageBits = VK_SHADER_STAGE_FRAGMENT_BIT
-        });
+    VulkanDescriptorLayoutBuilder::BindingStruct binding{};
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binding.stageBits = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    prefEMapDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, binding);
+    prefEMapDescriptorSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, 1, &binding);
 
     std::array<VkDescriptorPoolSize, 1> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

@@ -79,13 +79,12 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 					transitionState(WALKING);
 				}
 			}
-			localDisplacement = glm::normalize(localDisplacement);
-			localDisplacement *= currentSpeed;
+			localDisplacement = glm::normalize(localDisplacement) * currentSpeed;
 			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
 			if (theta - playerGameObject->transform.rotation.y > PI) {
 				theta -= 2.0f * PI;
 			}
-			else if (theta - playerGameObject->transform.rotation.y < -PI) {
+			else {
 				theta += 2.0f * PI;
 			}
 			playerGameObject->transform.rotation.y = Time::lerp(playerGameObject->transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
@@ -93,9 +92,8 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		else {
 			if (currentState != PLAYERSTATE::IDLE) {
 				transitionState(IDLE);
+				currentSpeed = 0.0f;
 			}
-			currentState = PLAYERSTATE::IDLE;
-			currentSpeed = 0.0f;
 		}
 
 		physx::PxFilterData filterData;
@@ -103,8 +101,8 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		physx::PxControllerFilters data;
 		data.mFilterData = &filterData;
 
-		characterController->move(physx::PxVec3(localDisplacement.x, -transform.position.y, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
-		playerGameObject->transform.position = transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
-		playerGameObject->setTransform(playerGameObject->transform.to_matrix());
+		characterController->move(physx::PxVec3(localDisplacement.x, -playerGameObject->transform.position.y, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
+		playerGameObject->transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
+		playerGameObject->loopUpdate();
 	}
 }

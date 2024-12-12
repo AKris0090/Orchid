@@ -268,7 +268,6 @@ public:
 	PrefilteredEnvMap* prefEMap;
 
 	float capHeight;
-	glm::vec3 playerPosition;
 
 	VulkanRenderer();
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);

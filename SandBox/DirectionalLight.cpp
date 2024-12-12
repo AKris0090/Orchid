@@ -181,16 +181,14 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera, int framesInFlight) {
 		pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer[i], uniformMemory[i]);
 		VkResult res1 = vkMapMemory(pDevHelper_->device_, uniformMemory[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[i]);
 	}
-	
+
 	updateUniBuffers(camera, 0);
 
-	std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings;
-	bindings.resize(1);
+	VulkanDescriptorLayoutBuilder::BindingStruct binding{};
+	binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	binding.stageBits = VK_SHADER_STAGE_VERTEX_BIT;
 
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageBits = VK_SHADER_STAGE_VERTEX_BIT;
-
-	cascadeSetLayout = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings);
+	cascadeSetLayout = new VulkanDescriptorLayoutBuilder(pDevHelper_, 1, &binding);
 
 	std::vector<VkDescriptorPoolSize> poolSizes{};
 	poolSizes.resize(framesInFlight);

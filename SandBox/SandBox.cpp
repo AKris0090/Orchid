@@ -36,9 +36,11 @@ int main(int argc, char* argv[]) {
     std::cout << std::filesystem::current_path() << std::endl;
 
     GraphicsManager graphicsManager = GraphicsManager(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths, WINDOW_WIDTH, WINDOW_HEIGHT);
-    graphicsManager.pVkR_ = new VulkanRenderer();
+    VulkanRenderer renderer = VulkanRenderer();
+    graphicsManager.pVkR_ = &renderer;
 
-    graphicsManager.pVkR_->pDirectionalLight_ = new DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
+    DirectionalLight light = DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
+    graphicsManager.pVkR_->pDirectionalLight_ = &light;
     graphicsManager.pVkR_->depthBias_ = 0.05f;
     graphicsManager.pVkR_->camera_.setNearPlane(0.01f);
     graphicsManager.pVkR_->camera_.setFarPlane(100.0f);
@@ -97,30 +99,31 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->vertices_.shrink_to_fit();
 
     // Player setup
-    PlayerObject* player = new PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
-    player->playerGameObject = graphicsManager.animatedObjects[0];
-    player->characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
-    player->transform.scale = graphicsManager.animatedObjects[0]->transform.scale;
-    player->playerGameObject = graphicsManager.animatedObjects[0];
-    player->currentState = PLAYERSTATE::IDLE;
+    PlayerObject player = PlayerObject(physicsManager.pMaterial, physicsManager.pScene);
+    player.playerGameObject = graphicsManager.animatedObjects[0];
+    player.characterController->setFootPosition(physx::PxExtendedVec3(0.0, 0.0, 0.0));
+    player.playerGameObject = graphicsManager.animatedObjects[0];
+    player.currentState = PLAYERSTATE::IDLE;
 
     // Right Train setup
-    TrainObject* rightTrain = new TrainObject(glm::vec3(-50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
-    rightTrain->trainBodyObject = graphicsManager.gameObjects[2];
-    rightTrain->trainLeftDoorObject = graphicsManager.gameObjects[3];
-    rightTrain->trainRightDoorObject = graphicsManager.gameObjects[4];
-    rightTrain->updatePosition();
+    TrainObject rightTrain = TrainObject(glm::vec3(-50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
+    rightTrain.trainBodyObject = graphicsManager.gameObjects[2];
+    rightTrain.trainLeftDoorObject = graphicsManager.gameObjects[3];
+    rightTrain.trainRightDoorObject = graphicsManager.gameObjects[4];
+    rightTrain.updatePosition();
 
-    TrainObject* leftTrain = new TrainObject(glm::vec3(50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
-    leftTrain->transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
-    leftTrain->trainBodyObject = graphicsManager.gameObjects[5];
-    leftTrain->trainLeftDoorObject = graphicsManager.gameObjects[6];
-    leftTrain->trainRightDoorObject = graphicsManager.gameObjects[7];
-    leftTrain->updatePosition();
+    TrainObject leftTrain = TrainObject(glm::vec3(50.0f, 0.0f, 0.0f), 10000, 5000, 1500, 10000);
+    leftTrain.transform.rotation = glm::vec3(0.0f, PI / 2.0f, 0.0f);
+    leftTrain.trainBodyObject = graphicsManager.gameObjects[5];
+    leftTrain.trainLeftDoorObject = graphicsManager.gameObjects[6];
+    leftTrain.trainRightDoorObject = graphicsManager.gameObjects[7];
+    leftTrain.updatePosition();
 
-    graphicsManager.pVkR_->capHeight = player->cap_height;
+    graphicsManager.pVkR_->capHeight = player.cap_height;
 
-    graphicsManager.player = player;
+    graphicsManager.player = &player;
+
+    Time::setInitialTime();
 
     bool running = true;
     while (running) {
@@ -166,14 +169,13 @@ int main(int argc, char* argv[]) {
         Time::updateTime();
 
         // player update -----------
-        player->loopUpdate(&(graphicsManager.pVkR_->camera_));
-        rightTrain->loopUpdate();
-        leftTrain->loopUpdate();
+        player.loopUpdate(&graphicsManager.pVkR_->camera_);
+        rightTrain.loopUpdate();
+        leftTrain.loopUpdate();
 
         // update camera ------------
         if (graphicsManager.pVkR_->camera_.isAttatched) {
-            graphicsManager.pVkR_->camera_.physicsUpdate(player->transform, physicsManager.pScene, player->characterController, player->cap_height);
-            graphicsManager.pVkR_->playerPosition = player->transform.position;
+            graphicsManager.pVkR_->camera_.physicsUpdate(player.playerGameObject->transform, physicsManager.pScene, player.characterController, player.cap_height);
         }
         else {
             graphicsManager.pVkR_->camera_.update();
@@ -181,12 +183,12 @@ int main(int argc, char* argv[]) {
 
         // player animation -------------
 
-        graphicsManager.animatedObjects[0]->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
+        player.playerGameObject->updateAnimation(graphicsManager.pVkR_->inverseBindMatrices, Time::getDeltaTime());
         graphicsManager.pVkR_->updateBindMatrices();
 
         // update physics -------------------
         // includes game object position updates TODO: REMOVE FROM HERE
-        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
+        physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, &player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
         graphicsManager.pVkR_->updateModelMatrices();
         
         // update graphics -------------------

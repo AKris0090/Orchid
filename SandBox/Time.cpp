@@ -8,17 +8,9 @@ namespace Time {
 
 	void Time::updateTime() {
 		currentTime = std::chrono::system_clock::now();
-
-		if (!start) {
-			lastTime = currentTime;
-			deltaTime = 0;
-			start = true;
-		}
-		else {
-			std::chrono::duration<float> elapsed_seconds = currentTime - lastTime;
-			deltaTime = elapsed_seconds.count();
-			lastTime = currentTime;
-		}
+		std::chrono::duration<float> elapsed_seconds = currentTime - lastTime;
+		deltaTime = elapsed_seconds.count();
+		lastTime = currentTime;
 	}
 
 	float Time::getDeltaTime() {
@@ -27,5 +19,11 @@ namespace Time {
 
 	std::chrono::time_point<std::chrono::system_clock> getCurrentTime() {
 		return currentTime;
+	}
+
+	void Time::setInitialTime() {
+		currentTime = std::chrono::system_clock::now();
+		lastTime = currentTime;
+		deltaTime = 0;
 	}
 }

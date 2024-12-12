@@ -20,16 +20,8 @@ void TrainObject::updatePosition() {
 	trainRightDoorObject->renderTarget->localModelTransform = trainRightDoorObject->transform.to_matrix();
 }
 
-void TrainObject::loopUpdate() {
-	if (Input::leftMouseDown() && currentState == TRAINSTATE::IDLEWAITING) {
-		currentState = TRAINSTATE::ISENTERING;
-		startTime = Time::getCurrentTime();
-		transitionTimer = 0.0f;
-	}
-
-	currentTime += std::chrono::milliseconds(static_cast<int>(Time::getDeltaTime()));
-
-	switch (currentState) {	
+void TrainObject::transitionState() {
+	switch (currentState) {
 	case ISENTERING: {
 		transitionTimer += Time::getDeltaTime() * 1000 / enterDuration;
 
@@ -43,7 +35,7 @@ void TrainObject::loopUpdate() {
 			currentState = TRAINSTATE::DONEENTERING;
 		}
 	}
-		break;
+				   break;
 
 	case DONEENTERING: {
 		// open doors
@@ -59,7 +51,7 @@ void TrainObject::loopUpdate() {
 			currentState = TRAINSTATE::DOORSOPEN;
 		}
 	}
-		break;
+					 break;
 	case DOORSOPEN:
 		// wait
 		if (Time::getCurrentTime() > (startTime + std::chrono::milliseconds(static_cast<int>(doorWaitDuration)))) {
@@ -83,8 +75,8 @@ void TrainObject::loopUpdate() {
 			currentState = TRAINSTATE::LEAVING;
 		}
 	}
-			
-		break;
+
+					 break;
 	case LEAVING: {
 		transitionTimer += Time::getDeltaTime() * 1000 / exitDuration;
 
@@ -97,12 +89,23 @@ void TrainObject::loopUpdate() {
 			currentState = TRAINSTATE::IDLEWAITING;
 		}
 	}
-		break;
+				break;
 
 	default:
 
 		break;
 	}
+}
+
+void TrainObject::loopUpdate() {
+	if (Input::leftMouseDown() && currentState == TRAINSTATE::IDLEWAITING) {
+		currentState = TRAINSTATE::ISENTERING;
+		startTime = Time::getCurrentTime();
+		transitionTimer = 0.0f;
+	}
+
+	currentTime += std::chrono::milliseconds(static_cast<int>(Time::getDeltaTime()));
+	transitionState();
 
 	updatePosition();
 }
