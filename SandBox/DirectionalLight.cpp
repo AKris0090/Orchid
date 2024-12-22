@@ -302,6 +302,10 @@ void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrix
 	sMPipeline_ = new VulkanPipelineBuilder(pDevHelper_->device_, pipelineInfo, pDevHelper_);
 
 	sMPipeline_->info.pRasterizationState->depthClampEnable = VK_TRUE;
+	sMPipeline_->info.pRasterizationState->depthBiasEnable = VK_FALSE;
+	//sMPipeline_->info.pRasterizationState->depthBiasConstantFactor = 0.0015f;
+	//sMPipeline_->info.pRasterizationState->depthBiasSlopeFactor = 1.0f;
+	//sMPipeline_->info.pRasterizationState->depthBiasClamp = 1.0f;
 	sMPipeline_->info.pRasterizationState->cullMode = VK_CULL_MODE_FRONT_BIT;
 
 	sMPipeline_->info.pMultisampleState->rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -381,17 +385,6 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
 		float splitDist = shadowCascadeLevels[i];
 
-		//glm::vec3 frustumCorners[8] = {
-		//	glm::vec3(-1.0f,  1.0f, 0.0f),
-		//	glm::vec3(1.0f,  1.0f, 0.0f),
-		//	glm::vec3(1.0f, -1.0f, 0.0f),
-		//	glm::vec3(-1.0f, -1.0f, 0.0f),
-		//	glm::vec3(-1.0f,  1.0f,  1.0f),
-		//	glm::vec3(1.0f,  1.0f,  1.0f),
-		//	glm::vec3(1.0f, -1.0f,  1.0f),
-		//	glm::vec3(-1.0f, -1.0f,  1.0f),
-		//};
-
 		glm::vec3 frustumCorners[8] = {
 		glm::vec3(-1.0f,  1.0f, 0.0f),
 		glm::vec3(1.0f,  1.0f, 0.0f),
@@ -404,7 +397,7 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
 		};
 
 		// Project frustum corners into world space
-		glm::mat4 invCam = glm::inverse(camera->projectionMatrix * camera->viewMatrix);
+		glm::mat4 invCam =  glm::inverse(camera->viewMatrix) * glm::inverse(camera->projectionMatrix);
 		for (uint32_t j = 0; j < 8; j++) {
 			glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f); //
 			frustumCorners[j] = invCorner / invCorner.w;
@@ -430,12 +423,36 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
 		}
 		radius = std::ceil(radius * 16.0f) / 16.0f;
 
-		glm::vec3 maxExtents = glm::vec3(radius);
-		glm::vec3 minExtents = -maxExtents;
+		float texelsPerUnit = (float)this->width_ / (radius * 2.0f);
+		glm::mat4 scalarMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
 
+		// stabilization following: https://alextardif.com/shadowmapping.html
+
+		glm::vec3 zero = glm::vec3(0.0f);
+		glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 		glm::vec3 lightDir = glm::normalize(-transform.position);
-		glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
+
+		glm::mat4 lookAt = glm::lookAt(lightDir, zero, up);
+		lookAt = scalarMatrix * lookAt;
+
+		glm::mat4 invLookAt = glm::inverse(lookAt);
+
+		glm::vec4 trueFrustumCenter = lookAt * glm::vec4(frustumCenter, 1.0f);
+		trueFrustumCenter.x = (float)glm::floor(trueFrustumCenter.x);
+		trueFrustumCenter.y = (float)glm::floor(trueFrustumCenter.y);
+		trueFrustumCenter = invLookAt * trueFrustumCenter;
+
+		glm::vec3 eye = glm::vec3(trueFrustumCenter) - (lightDir * radius * 2.0f);
+		
+		glm::mat4 lightViewMatrix = glm::lookAt(eye, glm::vec3(trueFrustumCenter), up);
+		glm::mat4 lightOrthoMatrix = glm::orthoZO(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
+
+		//glm::vec3 maxExtents = glm::vec3(radius);
+		//glm::vec3 minExtents = -maxExtents;
+
+		//glm::vec3 lightDir = glm::normalize(-transform.position);
+		//glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+		//glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
 		// Store split distance and matrix in cascade
 		cascades[currentFrame][i].splitDepth = (camera->getNearPlane() + splitDist * clipRange) * -1.0f;

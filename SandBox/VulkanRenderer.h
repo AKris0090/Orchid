@@ -186,6 +186,10 @@ public:
 	std::vector<void*> mappedSkinBuffers;
 	std::vector<VkDeviceMemory> skinBindMatricesBufferMemorys;
 
+	struct AABB {
+		glm::vec4 min;
+		glm::vec4 max;
+	};
 	std::vector<glm::vec4> boundingBoxes;
 
 	std::vector<VkBuffer> frustrumPlaneBuffers;

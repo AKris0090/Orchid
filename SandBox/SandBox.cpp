@@ -9,6 +9,7 @@
 std::vector<std::string> staticModelPaths = {
     "./dmgHel/DamagedHelmet.gltf",
     "./trainStation/station.gltf",
+    //"./trainStation/untitled.glb",
     "./train/Train-4.glb",
     "./train/leftDoors.glb",
     "./train/rightDoors.glb",

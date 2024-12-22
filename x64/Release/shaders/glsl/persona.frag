@@ -29,15 +29,20 @@ layout(set = 1, binding = 6) uniform samplerCube irradianceCube;
 layout(set = 1, binding = 7) uniform samplerCube prefilteredEnvMap;
 layout(set = 1, binding = 8) uniform sampler2DArray samplerDepthMap;
 
+layout(std430, set = 2, binding = 0) readonly buffer ModelMatrices {
+	mat4 modelMatrices[];
+};
+
 layout(location = 0) in vec4 fragPosition;
-layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in mat3 TBNMatrix;
+layout(location = 1) in vec4 fragNormal;
+layout(location = 2) in vec4 fragTangent;
+layout(location = 3) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
 
 vec4 albedoAlpha = texture(colorSampler, fragTexCoord);
-vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
+vec3 tangentNormal = normalize((texture(normalSampler, fragTexCoord).xyz * 2.0) - 1.0);
 vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
 vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
@@ -48,7 +53,8 @@ vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 
 vec3 calculateNormal()
 {
-	return normalize(TBNMatrix * tangentNormal);
+	vec3 fragBitangent = normalize(cross(fragNormal.xyz, fragTangent.xyz)) * fragTangent.w;
+	return mat3(fragTangent.xyz, fragBitangent, fragNormal.xyz) * tangentNormal;
 }
 
 float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
@@ -69,7 +75,7 @@ const int kernelRange = (2 * range + 1) * (2 * range + 1);
 float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias)
 {
 	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
-	float scale = 0.75;
+	float scale = 1.5f;
 	float dx = scale * 1.0 / float(texDim.x);
 	float dy = scale * 1.0 / float(texDim.y);
 
@@ -79,7 +85,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 	{
 		for (int y = -range; y <= range; y++)
 		{
-			shadowFactor += ProjectUV(fragPosLightSpace, vec2(dx*x, dy*y), cascadeIndex, newBias);
+			shadowFactor += ProjectUV(fragPosLightSpace, vec2(dx*(x), dy*(y)), cascadeIndex, newBias);
 		}
 	
 	}
@@ -100,11 +106,9 @@ void main()
 	vec3 res = step(ubo.cascadeSplits.xyz, vec3(fragPosition.w));
 	int cascadeIndex = SHADOW_MAP_CASCADE_COUNT - int(res.x + res.y + res.z);
 
-	float newBias = ubo.cascadeBiases[cascadeIndex];
-
 	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz, 1.0);
 
-	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, newBias);
+	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, 0.0f);
 
 	float inner = pow(clamp((((1.0 - max(dot(N, V), 0.0f))) / 0.65f), 0.0f, 1.0f), 30.0f);
 

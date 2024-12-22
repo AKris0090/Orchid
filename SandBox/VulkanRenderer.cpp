@@ -542,7 +542,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
         std::_Xruntime_error("Validation layers were requested, but none were available");
     }
 
-    this->biases = { 0.0002f, 0.0005f, 0.0005f, 0.000005f };
+    this->biases = { 1.0f, 1.0, 1.0f, 260.0f };
 
     // Get application information for the create info struct
     VkApplicationInfo aInfo{};
@@ -1189,7 +1189,7 @@ void VulkanRenderer::createDescriptorSetLayout() {
     bindings.resize(1);
 
     bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT);
+    bindings[0].stageBits = static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
     modelMatrixSetLayout_ = new VulkanDescriptorLayoutBuilder(pDevHelper_, bindings.size(), bindings.data());
 
@@ -1337,12 +1337,14 @@ void VulkanRenderer::createBoundingBoxes() {
 
 void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
     for (auto& mesh : node->meshPrimitives) {
-        Material* mat = &(obj->mats_[mesh->materialIndex]);
-        if (mat->alphaMode == "OPAQUE") {
-            obj->opaqueDraws[mat].push_back(mesh);
-        }
-        else {
-            obj->transparentDraws[mat].push_back(mesh);
+        if (obj->mats_.size() > 0) {
+            Material* mat = &(obj->mats_[mesh->materialIndex]);
+            if (mat->alphaMode == "OPAQUE") {
+                obj->opaqueDraws[mat].push_back(mesh);
+            }
+            else {
+                obj->transparentDraws[mat].push_back(mesh);
+            }
         }
     }
     for (auto& child : node->children) {

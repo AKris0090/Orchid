@@ -68,6 +68,33 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::Text("rfps: %.0f", framesPerSecond);
     ImGui::Text("  ft: %.2f ms", Time::getDeltaTime() * 1000.0f);
     ImGui::End();
+
+    ImGui::Begin("Var Editor");
+
+    //ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
+    ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
+    ImGui::DragFloat("bias0", &pVkR_->biases[0]);
+    ImGui::DragFloat("bias1", &pVkR_->biases[1]);
+    ImGui::DragFloat("bias2", &pVkR_->biases[2]);
+    ImGui::DragFloat("bias3", &pVkR_->biases[3]);
+    ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
+    ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
+    ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
+    ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight_->transform.position.y);
+    ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight_->transform.position.z);
+    ImGui::DragFloat("zNear", &pVkR_->camera_.nearPlane);
+    ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
+    ImGui::DragFloat("gamma", &pVkR_->gamma_);
+    ImGui::DragFloat("exposure", &pVkR_->exposure_);
+    ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
+    ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
+    ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
+    ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
+    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight_->cascadeSplitLambda, 0.01f);
+    ImGui::DragFloat("bias", &pVkR_->depthBias_);
+    ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD_);
+    ImGui::Checkbox("rotate", &pVkR_->rotate_);
+    ImGui::End();
 }
 
 using namespace std::literals;
