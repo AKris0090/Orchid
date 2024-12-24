@@ -32,7 +32,9 @@ public:
 	glm::vec3 trueForward;
 	glm::vec3 up;
 
-	std::array<glm::vec4, 6> frustumPlanes;
+	struct PlanesAndCorners {
+		std::array<glm::vec4, 14> planesCorners;
+	} frustumPlaneCorners;
 
 	float distanceToPlayer;
 	bool isAttatched;

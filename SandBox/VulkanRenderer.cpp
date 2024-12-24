@@ -31,7 +31,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
 
     ubo.gammaExposure.w = nDotVSpec;
 
-    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustumPlanes.data(), (6 * sizeof(glm::vec4)));
+    memcpy(mappedFrustrumPlaneBuffers[currentFrame_], camera_.frustumPlaneCorners.planesCorners.data(), 14 * sizeof(glm::vec4));
     memcpy(mappedBuffers_[currentFrame_], &ubo, sizeof(UniformBufferObject));
 }
 
@@ -178,7 +178,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     int numDraws = static_cast<int>(drawCommands.size()) - 2 - (drawCommands.size() - animatedIndex);
 
     ComputeCullPushConstant cmp{};
-    cmp.viewMatrix = camera_.viewMatrix;
     cmp.numDraws = numDraws;
 
     vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputeCullPushConstant), &cmp);
@@ -1296,27 +1295,6 @@ float distance(glm::vec3 a, glm::vec3 b) {
 
 void VulkanRenderer::createBoundingBoxes() {
     for (int i = 2; i < animatedIndex; i++) {
-        //VkDrawIndexedIndirectCommand draw = drawCommands[i];
-        //float totalX = 0.0f;
-        //float totalY = 0.0f;
-        //float totalZ = 0.0f;
-        //uint32_t numPoints = draw.firstIndex + draw.indexCount;
-        //for (int j = draw.firstIndex; j < numPoints; j++) {
-        //    Vertex v = vertices_[indices_[j] + draw.vertexOffset];
-        //    totalX += v.pos.x;
-        //    totalY += v.pos.y;
-        //    totalZ += v.pos.z;
-        //}
-
-        //glm::vec4 averageCenter = glm::vec4(totalX / draw.indexCount, totalY / draw.indexCount, totalZ / draw.indexCount, 0.0f);
-
-        //for (int j = draw.firstIndex; j < numPoints; j++) {
-        //    float currentDistance = distance(glm::vec3(averageCenter), vertices_[indices_[j] + draw.vertexOffset].pos);
-        //    if (currentDistance > averageCenter.w) {
-        //        averageCenter.w = currentDistance;
-        //    }
-        //}
-
         VkDrawIndexedIndirectCommand draw = drawCommands[i];
         uint32_t numPoints = draw.firstIndex + draw.indexCount;
 
@@ -1326,12 +1304,12 @@ void VulkanRenderer::createBoundingBoxes() {
             minpos = glm::min(minpos, glm::vec3(vertices_[indices_[j] + draw.vertexOffset].pos));
             maxpos = glm::max(maxpos, glm::vec3(vertices_[indices_[j] + draw.vertexOffset].pos));
         }
+            
+        AABB currentBounds{};
+        currentBounds.min = glm::vec4(minpos, 1.0f);
+        currentBounds.max = glm::vec4(maxpos, 1.0f);
 
-        glm::vec3 origin = (maxpos + minpos) / 2.f;
-        glm::vec3 extents = (maxpos - minpos) / 2.f;
-        float sphereRadius = glm::length(extents);
-
-        boundingBoxes.push_back(glm::vec4(origin, sphereRadius));
+        boundingBoxes.push_back(currentBounds);
     }
 }
 
@@ -1793,7 +1771,7 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 14 * sizeof(glm::vec4);
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
@@ -2323,8 +2301,8 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     size_t bufferSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
     size_t altBufferSize = sizeof(VkDrawIndexedIndirectCommand)* (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
-    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
-    size_t bbSize = boundingBoxes.size() * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 14 * sizeof(glm::vec4);
+    size_t bbSize = boundingBoxes.size() * sizeof(AABB);
     mainCameraFinalDrawCallBuffer_.resize(framesInFlight);
     mainCameraFinalDrawCallBufferMemory_.resize(framesInFlight);
     finalDrawCallBuffers_.resize(framesInFlight);
@@ -2429,7 +2407,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
         VkDescriptorBufferInfo BBDescriptorBufferInfo{};
         BBDescriptorBufferInfo.buffer = bbBuffers[i];
         BBDescriptorBufferInfo.offset = 0;
-        BBDescriptorBufferInfo.range = sizeof(glm::vec4) * boundingBoxes.size();
+        BBDescriptorBufferInfo.range = sizeof(AABB) * boundingBoxes.size();
 
         VkWriteDescriptorSet BBWriteSet{};
         BBWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

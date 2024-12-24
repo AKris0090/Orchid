@@ -9,9 +9,14 @@ struct IndexedIndirectCommand
 	uint firstInstance;
 };
 
+struct AABB {
+	vec4 min;
+	vec4 max;
+};
+
 layout(set = 0, binding = 0) uniform UBO 
 {
-	vec4 frustumPlanes[6];
+	vec4 frustumPlanes[14];
 } ubo;	
 
 layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
@@ -19,7 +24,7 @@ layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
 };
 
 layout(std430, set = 0, binding = 2) readonly buffer BoundingBoxes {
-	vec4 boxes[];
+	AABB boxes[];
 };
 
 layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
@@ -28,21 +33,35 @@ layout(std430, set = 0, binding = 3) readonly buffer ModelMatrices {
 
 layout(push_constant) uniform pushConstant
 {
-    mat4 viewMatrix;
     int numDraws;
 } pcs;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
-bool frustumCheck(vec3 center, float radius)
+bool frustumCheck(vec4 min, vec4 max)
 {
-	for (int i = 0; i < 6; i++) 
-	{
-		if (dot(vec4(center, 1.0f), ubo.frustumPlanes[i]) + radius < 0.0)  // check center+radius against each plane
-		{
-			return false;
-		}
-	}
+	for (int i = 0; i < 6; i++) {
+		int num = 0;
+		num += ((dot(ubo.frustumPlanes[i], vec4(min.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(max.x, min.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(min.x, max.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(max.x, max.y, min.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(min.x, min.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(max.x, min.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(min.x, max.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
+		num += ((dot(ubo.frustumPlanes[i], vec4(max.x, max.y, max.z, 1.0f)) < 0.0) ? 1 : 0);
+		if (num == 8) return false;
+    	}
+
+	// Check frustum outside/inside box
+	//int num;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].x > max.x) ? 1 : 0); if (num == 8) return false;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].x < min.x) ? 1 : 0); if (num == 8) return false;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].y > max.y) ? 1 : 0); if (num == 8) return false;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].y < min.y) ? 1 : 0); if (num == 8) return false;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].z > max.z) ? 1 : 0); if (num == 8) return false;
+	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].z < min.z) ? 1 : 0); if (num == 8) return false;
+
 	return true;
 }
 
@@ -56,10 +75,10 @@ void main()
 
 	mat4 modelMatrix = modelMatrices[idx];
 
-	vec3 center = (modelMatrix * vec4(boxes[idx].xyz, 1.0)).xyz; // transform bounding sphere into world space
-	float radius = boxes[idx].w * length(vec3(modelMatrix[0][0], modelMatrix[1][0], modelMatrix[2][0])); // scale bounding sphere radius into world space
+	vec4 currentMin = modelMatrix * boxes[idx].min;
+	vec4 currentMax = modelMatrix * boxes[idx].max;
 
-   	if (frustumCheck(center, radius)) 
+   	if (frustumCheck(currentMin, currentMax)) 
 	{
 		indirectDrawsOut[idx].instanceCount = 1; // if visible, set the draw instance count to 1
 	}

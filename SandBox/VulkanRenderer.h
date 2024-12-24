@@ -63,7 +63,6 @@ struct IndirectBatch {
 };
 
 struct ComputeCullPushConstant {
-	glm::mat4 viewMatrix;
 	int numDraws;
 };
 
@@ -190,7 +189,7 @@ public:
 		glm::vec4 min;
 		glm::vec4 max;
 	};
-	std::vector<glm::vec4> boundingBoxes;
+	std::vector<AABB> boundingBoxes;
 
 	std::vector<VkBuffer> frustrumPlaneBuffers;
 	std::vector<void*> mappedFrustrumPlaneBuffers;

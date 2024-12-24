@@ -1,64 +1,74 @@
 #include "Camera.h"
 
-// frustum math from: https://github.com/zeux/niagara/blob/4507d4b5f818dbf8ddf0baf40dcdff4e9849ec39/src/niagara.cpp#L413
-
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
+// from: https://github.com/SaschaWillems/VulkanTemplate/blob/8550b74efde887bd0cf0df33372bcd43046ec96e/base/utilities/Frustum.hpp#L25
 void FPSCam::updateFrustrumPlanes() {
     glm::mat4 matrix = this->projectionMatrix * this->viewMatrix;
-    frustumPlanes[0].x = matrix[0].w + matrix[0].x;
-    frustumPlanes[0].y = matrix[1].w + matrix[1].x;
-    frustumPlanes[0].z = matrix[2].w + matrix[2].x;
-    frustumPlanes[0].w = matrix[3].w + matrix[3].x;
+    frustumPlaneCorners.planesCorners[0].x = matrix[0].w + matrix[0].x;
+    frustumPlaneCorners.planesCorners[0].y = matrix[1].w + matrix[1].x;
+    frustumPlaneCorners.planesCorners[0].z = matrix[2].w + matrix[2].x;
+    frustumPlaneCorners.planesCorners[0].w = matrix[3].w + matrix[3].x;
 
-    frustumPlanes[1].x = matrix[0].w - matrix[0].x;
-    frustumPlanes[1].y = matrix[1].w - matrix[1].x;
-    frustumPlanes[1].z = matrix[2].w - matrix[2].x;
-    frustumPlanes[1].w = matrix[3].w - matrix[3].x;
+    frustumPlaneCorners.planesCorners[1].x = matrix[0].w - matrix[0].x;
+    frustumPlaneCorners.planesCorners[1].y = matrix[1].w - matrix[1].x;
+    frustumPlaneCorners.planesCorners[1].z = matrix[2].w - matrix[2].x;
+    frustumPlaneCorners.planesCorners[1].w = matrix[3].w - matrix[3].x;
 
-    frustumPlanes[2].x = matrix[0].w - matrix[0].y;
-    frustumPlanes[2].y = matrix[1].w - matrix[1].y;
-    frustumPlanes[2].z = matrix[2].w - matrix[2].y;
-    frustumPlanes[2].w = matrix[3].w - matrix[3].y;
+    frustumPlaneCorners.planesCorners[2].x = matrix[0].w - matrix[0].y;
+    frustumPlaneCorners.planesCorners[2].y = matrix[1].w - matrix[1].y;
+    frustumPlaneCorners.planesCorners[2].z = matrix[2].w - matrix[2].y;
+    frustumPlaneCorners.planesCorners[2].w = matrix[3].w - matrix[3].y;
 
-    frustumPlanes[3].x = matrix[0].w + matrix[0].y;
-    frustumPlanes[3].y = matrix[1].w + matrix[1].y;
-    frustumPlanes[3].z = matrix[2].w + matrix[2].y;
-    frustumPlanes[3].w = matrix[3].w + matrix[3].y;
+    frustumPlaneCorners.planesCorners[3].x = matrix[0].w + matrix[0].y;
+    frustumPlaneCorners.planesCorners[3].y = matrix[1].w + matrix[1].y;
+    frustumPlaneCorners.planesCorners[3].z = matrix[2].w + matrix[2].y;
+    frustumPlaneCorners.planesCorners[3].w = matrix[3].w + matrix[3].y;
 
-    frustumPlanes[4].x = matrix[0].w + matrix[0].z;
-    frustumPlanes[4].y = matrix[1].w + matrix[1].z;
-    frustumPlanes[4].z = matrix[2].w + matrix[2].z;
-    frustumPlanes[4].w = matrix[3].w + matrix[3].z;
+    frustumPlaneCorners.planesCorners[4].x = matrix[0].w + matrix[0].z;
+    frustumPlaneCorners.planesCorners[4].y = matrix[1].w + matrix[1].z;
+    frustumPlaneCorners.planesCorners[4].z = matrix[2].w + matrix[2].z;
+    frustumPlaneCorners.planesCorners[4].w = matrix[3].w + matrix[3].z;
 
-    frustumPlanes[5].x = matrix[0].w - matrix[0].z;
-    frustumPlanes[5].y = matrix[1].w - matrix[1].z;
-    frustumPlanes[5].z = matrix[2].w - matrix[2].z;
-    frustumPlanes[5].w = matrix[3].w - matrix[3].z;
+    frustumPlaneCorners.planesCorners[5].x = matrix[0].w - matrix[0].z;
+    frustumPlaneCorners.planesCorners[5].y = matrix[1].w - matrix[1].z;
+    frustumPlaneCorners.planesCorners[5].z = matrix[2].w - matrix[2].z;
+    frustumPlaneCorners.planesCorners[5].w = matrix[3].w - matrix[3].z;
 
-    for (auto i = 0; i < frustumPlanes.size(); i++)
+    for (auto i = 0; i < 6; i++)
     {
-        float length = sqrtf(frustumPlanes[i].x * frustumPlanes[i].x + frustumPlanes[i].y * frustumPlanes[i].y + frustumPlanes[i].z * frustumPlanes[i].z);
-        frustumPlanes[i] /= length;
+        float length = sqrtf(frustumPlaneCorners.planesCorners[i].x * frustumPlaneCorners.planesCorners[i].x + frustumPlaneCorners.planesCorners[i].y * frustumPlaneCorners.planesCorners[i].y + frustumPlaneCorners.planesCorners[i].z * frustumPlaneCorners.planesCorners[i].z);
+        frustumPlaneCorners.planesCorners[i] /= length;
     }
 
-    //glm::mat4 projectionTe = glm::transpose(projectionWeird(this->FOV, this->aspectRatio, this->nearPlane));
+    const glm::vec3 v[] = {
+                glm::vec3(-1, -1, -1),  glm::vec3(1, -1, -1),
+                glm::vec3(1,  1, -1),  glm::vec3(-1,  1, -1),
+                glm::vec3(-1, -1,  1),  glm::vec3(1, -1,  1),
+                glm::vec3(1,  1,  1),  glm::vec3(-1,  1,  1)
+    };
+    const glm::mat4 inv = glm::inverse(matrix);
+    for (auto i = 6; i < 14; i++) {
+        glm::vec4 q = inv * glm::vec4(v[i - 6], 1.0f);
+        frustumPlaneCorners.planesCorners[i] = q / q.w;
+    }
+    //glm::vec3 frustumCorners[8] = {
+    //    glm::vec3(-1.0f,  1.0f, 0.0f),
+    //    glm::vec3(1.0f,  1.0f, 0.0f),
+    //    glm::vec3(1.0f, -1.0f, 0.0f),
+    //    glm::vec3(-1.0f, -1.0f, 0.0f),
+    //    glm::vec3(-1.0f,  1.0f,  1.0f),
+    //    glm::vec3(1.0f,  1.0f,  1.0f),
+    //    glm::vec3(1.0f, -1.0f,  1.0f),
+    //    glm::vec3(-1.0f, -1.0f,  1.0f),
+    //};
 
-    //glm::mat4 projectionT = glm::transpose(this->projectionMatrix);
-
-    //glm::mat4 projectionT = this->projectionMatrix;
-    //projectionT[1][1] *= -1.0f;
-    //projectionT *= this->viewMatrix;
-
-    //glm::vec4 frustumX = normalizePlane(projectionT[3] + projectionT[0]);
-    //glm::vec4 frustumY = normalizePlane(projectionT[3] + projectionT[1]);
-
-    //frustrumPlanes[0] = frustumX.x;
-    //frustrumPlanes[1] = frustumX.z;
-    //frustrumPlanes[2] = frustumY.y;
-    //frustrumPlanes[3] = frustumY.z;
-    //frustrumPlanes[4] = this->nearPlane;
-    //frustrumPlanes[5] = this->farPlane;
+    //// Project frustum corners into world space
+    //glm::mat4 invCam = glm::inverse(this->viewMatrix) * glm::inverse(this->projectionMatrix);
+    //for (uint32_t j = 0; j < 8; j++) {
+    //    glm::vec4 invCorner = invCam * glm::vec4(frustumCorners[j], 1.0f); //
+    //    frustumPlaneCorners.planesCorners[j + 6] = invCorner / invCorner.w;
+    //}
 }
 
 void FPSCam::baseUpdate() {
