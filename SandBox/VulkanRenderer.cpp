@@ -1771,7 +1771,7 @@ CREATE THE VERTEX, INDEX, AND UNIFORM BUFFERS AND OTHER HELPER METHODS
 
 void VulkanRenderer::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    size_t frustrumPlaneSize = 14 * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
 
     uniformBuffers_.resize(SWChainImages_.size());
     uniformBuffersMemory_.resize(SWChainImages_.size());
@@ -2301,7 +2301,7 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     size_t bufferSize = drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand);
     size_t altBufferSize = sizeof(VkDrawIndexedIndirectCommand)* (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
-    size_t frustrumPlaneSize = 14 * sizeof(glm::vec4);
+    size_t frustrumPlaneSize = 6 * sizeof(glm::vec4);
     size_t bbSize = boundingBoxes.size() * sizeof(AABB);
     mainCameraFinalDrawCallBuffer_.resize(framesInFlight);
     mainCameraFinalDrawCallBufferMemory_.resize(framesInFlight);

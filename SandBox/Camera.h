@@ -33,7 +33,7 @@ public:
 	glm::vec3 up;
 
 	struct PlanesAndCorners {
-		std::array<glm::vec4, 14> planesCorners;
+		std::array<glm::vec4, 6> planesCorners;
 	} frustumPlaneCorners;
 
 	float distanceToPlayer;

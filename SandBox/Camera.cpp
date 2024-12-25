@@ -41,7 +41,7 @@ void FPSCam::updateFrustrumPlanes() {
         frustumPlaneCorners.planesCorners[i] /= length;
     }
 
-    const glm::vec3 v[] = {
+    /*const glm::vec3 v[] = {
                 glm::vec3(-1, -1, -1),  glm::vec3(1, -1, -1),
                 glm::vec3(1,  1, -1),  glm::vec3(-1,  1, -1),
                 glm::vec3(-1, -1,  1),  glm::vec3(1, -1,  1),
@@ -51,7 +51,7 @@ void FPSCam::updateFrustrumPlanes() {
     for (auto i = 6; i < 14; i++) {
         glm::vec4 q = inv * glm::vec4(v[i - 6], 1.0f);
         frustumPlaneCorners.planesCorners[i] = q / q.w;
-    }
+    }*/
     //glm::vec3 frustumCorners[8] = {
     //    glm::vec3(-1.0f,  1.0f, 0.0f),
     //    glm::vec3(1.0f,  1.0f, 0.0f),

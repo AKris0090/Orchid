@@ -16,7 +16,7 @@ struct AABB {
 
 layout(set = 0, binding = 0) uniform UBO 
 {
-	vec4 frustumPlanes[14];
+	vec4 frustumPlanes[6];
 } ubo;	
 
 layout(std430, set = 0, binding = 1) buffer OutputIndirectDraws {
@@ -53,10 +53,10 @@ bool frustumCheck(vec4 min, vec4 max)
 		if (num == 8) return false;
     	}
 
-	// Check frustum outside/inside box
+	// Check frustum outside/inside box - TODO - frustum corners are not quite correct (https://iquilezles.org/articles/frustumcorrect/)
 	//int num;
 	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].x > max.x) ? 1 : 0); if (num == 8) return false;
-	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].x < min.x) ? 1 : 0); if (num == 8) return false;
+ 	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].x < min.x) ? 1 : 0); if (num == 8) return false;
 	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].y > max.y) ? 1 : 0); if (num == 8) return false;
 	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].y < min.y) ? 1 : 0); if (num == 8) return false;
 	//num = 0; for (int i = 6; i < 14; i++) num += ((ubo.frustumPlanes[i].z > max.z) ? 1 : 0); if (num == 8) return false;
