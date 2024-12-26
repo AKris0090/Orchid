@@ -81,6 +81,15 @@ public:
 		glm::mat4 cascadeMVPUniform[SHADOW_MAP_CASCADE_COUNT];
 	};
 
+	struct frustrumCullUBO {
+		std::array<glm::vec4, 6> cascadeFrustumPlanes;
+	};
+	std::array<frustrumCullUBO, SHADOW_MAP_CASCADE_COUNT> cascadeFrustumCullUBOs;
+
+	std::vector<VkBuffer> cascadeFrustumBuffer;
+	std::vector<void*> mappedcascadeFrustumBuffer;
+	std::vector<VkDeviceMemory> cascadeFrustumMemory;
+
 	std::vector<VkBuffer> uniformBuffer;
 	std::vector<void*> mappedBuffer;
 	std::vector<VkDeviceMemory> uniformMemory;

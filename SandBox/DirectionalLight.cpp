@@ -303,9 +303,6 @@ void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrix
 
 	sMPipeline_->info.pRasterizationState->depthClampEnable = VK_TRUE;
 	sMPipeline_->info.pRasterizationState->depthBiasEnable = VK_FALSE;
-	//sMPipeline_->info.pRasterizationState->depthBiasConstantFactor = 0.0015f;
-	//sMPipeline_->info.pRasterizationState->depthBiasSlopeFactor = 1.0f;
-	//sMPipeline_->info.pRasterizationState->depthBiasClamp = 1.0f;
 	sMPipeline_->info.pRasterizationState->cullMode = VK_CULL_MODE_FRONT_BIT;
 
 	sMPipeline_->info.pMultisampleState->rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -321,8 +318,8 @@ void DirectionalLight::createPipeline(VulkanDescriptorLayoutBuilder* modelMatrix
 	delete sMPipeline_->info.pDepthStencilState;
 	sMPipeline_->info.pDepthStencilState = depthStencilCInfo;
 
-	sMPipeline_->info.pColorBlendState->attachmentCount = 0;
-	sMPipeline_->info.pColorBlendState->pAttachments = nullptr;
+	delete sMPipeline_->info.pColorBlendState;
+	sMPipeline_->info.pColorBlendState = nullptr;
 
 	sMPipeline_->generate(pipelineInfo, sMRenderpass_);
 }

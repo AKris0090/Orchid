@@ -301,6 +301,9 @@ void GraphicsManager::startVulkan() {
     pVkR_->createDepthPipeline();
     std::cout << "created depth pipeline" << std::endl;
 
+    pVkR_->createAlphaDepthPipeline();
+    std::cout << "created depth alpha pipeline" << std::endl;
+
     pVkR_->createToonPipeline();
     std::cout << "created cartoon graphics pipeline" << std::endl;
 

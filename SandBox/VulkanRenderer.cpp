@@ -54,12 +54,52 @@ void VulkanRenderer::drawNewFrame(SDL_Window * window, int maxFramesInFlight) {
     vkResetFences(this->device_, 1, &inFlightFences_[currentFrame_]);
     vkResetCommandBuffer(commandBuffers_[currentFrame_], 0);
 
+    VkCommandBufferBeginInfo CBBeginInfo{};
+    CBBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    CBBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(commandBuffers_[currentFrame_], &CBBeginInfo) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to start recording with the command buffer!");
+    }
+
+    updateModelMatrices();
+
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex_);
 }
 
 void VulkanRenderer::fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
     for (IndirectBatch& draw : drawBatches)
     {
+        if (materialPosition > 0) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
+        }
+
+        VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
+        uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
+
+        vkCmdDrawIndexedIndirect(commandBuffer, drawBuffer, indirect_offset, draw.count, draw_stride);
+    }
+}
+
+void VulkanRenderer::opaqueBatchDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
+    for (int i = 0; i < transparentBatchIndex; i++) {
+        IndirectBatch& draw = drawBatches[i];
+
+        if (materialPosition > 0) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
+        }
+
+        VkDeviceSize indirect_offset = draw.first * sizeof(VkDrawIndexedIndirectCommand);
+        uint32_t draw_stride = sizeof(VkDrawIndexedIndirectCommand);
+
+        vkCmdDrawIndexedIndirect(commandBuffer, drawBuffer, indirect_offset, draw.count, draw_stride);
+    }
+}
+
+void VulkanRenderer::transparentBatchDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition) {
+    for (int i = transparentBatchIndex; i < animatedBatchIndex; i++) {
+        IndirectBatch& draw = drawBatches[i];
+
         if (materialPosition > 0) {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
         }
@@ -162,14 +202,6 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-    VkCommandBufferBeginInfo CBBeginInfo{};
-    CBBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    CBBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (vkBeginCommandBuffer(commandBuffer, &CBBeginInfo) != VK_SUCCESS) {
-        std::_Xruntime_error("Failed to start recording with the command buffer!");
-    }
-
      // COMPUTE CULL PASS ////////////////////////////////////////////////////////////////////////
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipeline_);
 
@@ -297,12 +329,22 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     vkCmdBeginRenderPass(commandBuffer, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+    // opaque draw
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->pipeline);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, prepassPipeline_->layout, 2, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
 
-    fullDraw(commandBuffer, &(prepassPipeline_->layout), finalDrawCallBuffers_[this->currentFrame_], 1);
+    opaqueBatchDraw(commandBuffer, &(prepassPipeline_->layout), finalDrawCallBuffers_[this->currentFrame_], -1);
+    animatedDraw(commandBuffer, &(prepassPipeline_->layout), -1);
+
+    // alpha draw
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, alphaPrepassPipeline_->pipeline);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, alphaPrepassPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, alphaPrepassPipeline_->layout, 2, 1, &modelMatrixDescriptorSets_[this->currentFrame_], 0, nullptr);
+
+    transparentBatchDraw(commandBuffer, &(alphaPrepassPipeline_->layout), finalDrawCallBuffers_[this->currentFrame_], 1);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -541,7 +583,7 @@ VkInstance VulkanRenderer::createVulkanInstance(SDL_Window* window, const char* 
         std::_Xruntime_error("Validation layers were requested, but none were available");
     }
 
-    this->biases = { 1.0f, 1.0, 1.0f, 260.0f };
+    this->biases = { 1.0f, 1.0, 1.0f, 300.0f };
 
     // Get application information for the create info struct
     VkApplicationInfo aInfo{};
@@ -957,7 +999,7 @@ void VulkanRenderer::createRenderPass() {
     depthAttachmentDescription.format = findDepthFormat();
     depthAttachmentDescription.samples = pDevHelper_->msaaSamples_;
     depthAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -1399,6 +1441,10 @@ void VulkanRenderer::addToDrawCalls() {
             }
             drawBatches.push_back(indirect);
         }
+    }
+    transparentIndex = static_cast<int>(drawCommands.size());
+    transparentBatchIndex = static_cast<int>(drawBatches.size());
+    for (auto& gameObject : *gameObjects) {
         for (auto& mat : gameObject->renderTarget->transparentDraws) {
             IndirectBatch indirect{};
             indirect.material = mat.first;
@@ -1415,6 +1461,7 @@ void VulkanRenderer::addToDrawCalls() {
             drawBatches.push_back(indirect);
         }
     }
+
     animatedIndex = static_cast<int>(drawCommands.size());
     animatedBatchIndex = static_cast<int>(drawBatches.size());
     for (auto& animGameObject : *animatedObjects) {
@@ -1472,16 +1519,23 @@ void VulkanRenderer::createDrawCallBuffer() {
 void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
     modelMatrixBuffers.resize(maxFramesInFlight);
     modelMatrixBufferMemorys.resize(maxFramesInFlight);
-    mappedModelMatrixBuffers.resize(maxFramesInFlight);
     modelMatrixDescriptorSets_.resize(maxFramesInFlight);
+    modelMatrixStagingBuffers.resize(maxFramesInFlight);
+    mappedModelMatrixStagingBuffers.resize(maxFramesInFlight);
+    modelMatrixStagingBufferMemorys.resize(maxFramesInFlight);
+
+    VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
 
     for (int i = 0; i < maxFramesInFlight; i++) {
-        VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
+        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixStagingBuffers[i], modelMatrixStagingBufferMemorys[i]);
 
-        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixBuffers[i], modelMatrixBufferMemorys[i]);
+        void* data;
+        vkMapMemory(device_, modelMatrixStagingBufferMemorys[i], 0, bufferSize, 0, &mappedModelMatrixStagingBuffers[i]);
+        memcpy(mappedModelMatrixStagingBuffers[i], modelMatrices.data(), (size_t)bufferSize);
 
-        vkMapMemory(pDevHelper_->device_, modelMatrixBufferMemorys[i], 0, bufferSize, 0, &(mappedModelMatrixBuffers[i]));
-        memcpy(mappedModelMatrixBuffers[i], modelMatrices.data(), bufferSize);
+        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, modelMatrixBuffers[i], modelMatrixBufferMemorys[i]);
+
+        pDevHelper_->copyBuffer(modelMatrixStagingBuffers[i], this->modelMatrixBuffers[i], bufferSize);
 
         VkDescriptorSetAllocateInfo mmAllocateInfo{};
         mmAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1517,9 +1571,8 @@ void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
 
 void VulkanRenderer::createDepthPipeline() {
     VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPass.spv");
-    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPassAlpha.spv");
 
-    std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
+    std::array<VulkanPipelineBuilder::VulkanShaderModule, 1> shaderStages = { vertexShaderModule };
 
     std::array<VkDescriptorSetLayout, 3> sets = { uniformDescriptorSetLayout_->layout, textureDescriptorSetLayout_->layout, modelMatrixSetLayout_->layout };
 
@@ -1543,10 +1596,44 @@ void VulkanRenderer::createDepthPipeline() {
     prepassPipeline_->info.pDepthStencilState->depthWriteEnable = VK_TRUE;
     prepassPipeline_->info.pDepthStencilState->depthCompareOp = VK_COMPARE_OP_LESS;
 
-    prepassPipeline_->info.pColorBlendState->attachmentCount = 0;
-    prepassPipeline_->info.pColorBlendState->pAttachments = nullptr;
+    delete alphaPrepassPipeline_->info.pColorBlendState;
+    alphaPrepassPipeline_->info.pColorBlendState = nullptr;
 
     prepassPipeline_->generate(pipelineInfo, depthPrepass_);
+}
+
+void VulkanRenderer::createAlphaDepthPipeline() {
+    VulkanPipelineBuilder::VulkanShaderModule vertexShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPass.spv");
+    VulkanPipelineBuilder::VulkanShaderModule fragmentShaderModule = VulkanPipelineBuilder::VulkanShaderModule(device_, "./shaders/spv/depthPassAlpha.spv");
+
+    std::array<VulkanPipelineBuilder::VulkanShaderModule, 2> shaderStages = { vertexShaderModule, fragmentShaderModule };
+
+    std::array<VkDescriptorSetLayout, 3> sets = { uniformDescriptorSetLayout_->layout, textureDescriptorSetLayout_->layout, modelMatrixSetLayout_->layout };
+
+    auto bindings = Vertex::getBindingDescription();
+    auto attributes = Vertex::getDepthAttributeDescription();
+
+    VulkanPipelineBuilder::PipelineBuilderInfo pipelineInfo{};
+    pipelineInfo.pDescriptorSetLayouts = sets.data();
+    pipelineInfo.numSets = sets.size();
+    pipelineInfo.pShaderStages = shaderStages.data();
+    pipelineInfo.numStages = shaderStages.size();
+    pipelineInfo.pPushConstantRanges = nullptr;
+    pipelineInfo.numRanges = 0;
+    pipelineInfo.vertexBindingDescriptions = &bindings;
+    pipelineInfo.numVertexBindingDescriptions = 1;
+    pipelineInfo.vertexAttributeDescriptions = attributes.data();
+    pipelineInfo.numVertexAttributeDescriptions = static_cast<int>(attributes.size());
+
+    alphaPrepassPipeline_ = new VulkanPipelineBuilder(device_, pipelineInfo, pDevHelper_);
+
+    alphaPrepassPipeline_->info.pDepthStencilState->depthWriteEnable = VK_TRUE;
+    alphaPrepassPipeline_->info.pDepthStencilState->depthCompareOp = VK_COMPARE_OP_LESS;
+
+    delete alphaPrepassPipeline_->info.pColorBlendState;
+    alphaPrepassPipeline_->info.pColorBlendState = nullptr;
+
+    alphaPrepassPipeline_->generate(pipelineInfo, depthPrepass_);
 }
 
 void VulkanRenderer::createOutlinePipeline() {
@@ -2152,6 +2239,8 @@ void VulkanRenderer::updateModelMatrices() {
                 modelMatrixID++;
             }
         }
+    }
+    for (auto& gameObject : *gameObjects) {
         for (auto& mat : gameObject->renderTarget->transparentDraws) {
             for (auto& dC : mat.second) {
                 modelMatrices[modelMatrixID] = gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
@@ -2174,7 +2263,32 @@ void VulkanRenderer::updateModelMatrices() {
         }
     }
 
-    memcpy(mappedModelMatrixBuffers[currentFrame_], modelMatrices.data(), modelMatrices.size() * sizeof(glm::mat4));
+    VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
+    memcpy(mappedModelMatrixStagingBuffers[currentFrame_], modelMatrices.data(), (size_t)bufferSize);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = bufferSize;
+    vkCmdCopyBuffer(commandBuffers_[currentFrame_], modelMatrixStagingBuffers[currentFrame_], this->modelMatrixBuffers[currentFrame_], 1, &copyRegion);
+
+    VkBufferMemoryBarrier bufferBarrier = {};
+    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufferBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.buffer = this->modelMatrixBuffers[currentFrame_];
+    bufferBarrier.offset = 0;
+    bufferBarrier.size = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(
+        commandBuffers_[currentFrame_],
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        1, &bufferBarrier,
+        0, nullptr
+    );
 }
 
 void VulkanRenderer::setupCompute(int framesInFlight) {

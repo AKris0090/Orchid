@@ -167,9 +167,7 @@ void TextureHelper::createTextureImages() {
 
         pDevHelper_->transitionImageLayout(cmdBuff, subresource, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, textureImage_);
         copyBufferToImage(cmdBuff, stagingBuffer, textureImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pDevHelper_, 1, curImage.width, curImage.height);
-
         generateMipmaps(cmdBuff, textureImage_, pDevHelper_, 1, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
-
         pDevHelper_->endSingleTimeCommands(cmdBuff);
 
         vkDestroyBuffer(pDevHelper_->device_, stagingBuffer, nullptr);

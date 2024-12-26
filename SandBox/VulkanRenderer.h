@@ -76,6 +76,8 @@ private:
 	bool rendered = false;
 	int animatedIndex;
 	int animatedBatchIndex;
+	int transparentIndex;
+	int transparentBatchIndex;
 	VkSurfaceKHR surface_;
 
 	VkSwapchainKHR swapChain_;
@@ -166,8 +168,11 @@ public:
 	VkDeviceMemory drawCallBufferMemory;
 
 	std::vector<VkBuffer> modelMatrixBuffers;
-	std::vector<void*> mappedModelMatrixBuffers;
 	std::vector<VkDeviceMemory> modelMatrixBufferMemorys;
+
+	std::vector<VkBuffer> modelMatrixStagingBuffers;
+	std::vector<void*> mappedModelMatrixStagingBuffers;
+	std::vector<VkDeviceMemory> modelMatrixStagingBufferMemorys;
 
 	std::vector<Vertex> screenQuadVertices;
 	std::vector<uint32_t> screenQuadIndices;
@@ -220,10 +225,12 @@ public:
 	VkInstance instance_;
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	VulkanPipelineBuilder* opaquePipeline_;
-	VulkanPipelineBuilder* prepassPipeline_;
 	VulkanPipelineBuilder* toonPipeline_;
 	VulkanPipelineBuilder* outlinePipeline_;
 	VulkanPipelineBuilder* toneMappingPipeline_;
+
+	VulkanPipelineBuilder* prepassPipeline_;
+	VulkanPipelineBuilder* alphaPrepassPipeline_;
 
 	VkPipelineLayout transparentPipeLineLayout_;
 
@@ -285,6 +292,7 @@ public:
 	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
 	void createDepthPipeline();
+	void createAlphaDepthPipeline();
 	void createOutlinePipeline();
 	void createSkyBoxPipeline();
 	void createToonPipeline();
@@ -320,6 +328,8 @@ public:
 	void updateGeneratedImageDescriptorSets();
 	void renderBloom(VkCommandBuffer& commandBuffer);
 	void fullDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
+	void opaqueBatchDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
+	void transparentBatchDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
 	void animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, int materialPosition);
 	void nonAnimatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
 	void shadowDraw(VkCommandBuffer& commandBuffer, VkPipelineLayout* layout, const VkBuffer& drawBuffer, int materialPosition);
