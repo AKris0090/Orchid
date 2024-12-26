@@ -50,17 +50,25 @@ vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
 #define ALPHA albedoAlpha.a
 #define AMBIENT 0.3
 
-float DistributionGGX(vec3 N, vec3 H, float roughness)
+// Fresnel function ---------------------------------------------------- 
+
+vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
 {
-    float a2     = roughness*roughness*roughness*roughness;
-    float NdotH  = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
-	
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-	
-    return a2 / denom;
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
+
+vec3 prefilteredReflection(vec3 R, float roughness)
+{
+	float lod = roughness * ubo.lightPos.w;
+	float lodf = floor(lod);
+	float lodc = ceil(lod);
+	return mix(textureLod(prefilteredEnvMap, R, lodf).rgb, textureLod(prefilteredEnvMap, R, lodc).rgb, lod - lodf);
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+} 
 
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
@@ -83,23 +91,16 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
-// Fresnel function ----------------------------------------------------
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
+float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}  
-
-vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
-{
-	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-vec3 prefilteredReflection(vec3 R, float roughness)
-{
-	float lod = roughness * ubo.lightPos.w;
-	float lodf = floor(lod);
-	float lodc = ceil(lod);
-	return mix(textureLod(prefilteredEnvMap, R, lodf).rgb, textureLod(prefilteredEnvMap, R, lodc).rgb, lod - lodf);
+    float a2     = roughness*roughness*roughness*roughness;
+    float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+	
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+	
+    return a2 / denom;
 }
 
 vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness)
@@ -131,11 +132,9 @@ vec3 calculateNormal()
 
 float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
-		if (dist < shadowCoord.z - newBias) {
-			return AMBIENT;
-		}
+	float dist = texture(samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
+	if (dist < shadowCoord.z - newBias) {
+		return AMBIENT;
 	}
 
 	return 1.0f;
@@ -227,5 +226,5 @@ void main()
 
 	color = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
 
-	outColor = vec4((fragShadowCoord.xyz / fragShadowCoord.w), ALPHA);
+	outColor = vec4(color, ALPHA);
 }

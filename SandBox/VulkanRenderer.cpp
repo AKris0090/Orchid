@@ -2074,7 +2074,7 @@ void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
     PrefilteredEnvMapInfo.sampler = prefEMap->prefEMapImageSampler_;
 
     VkDescriptorImageInfo shadowMpaInfo{};
-    shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    shadowMpaInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     shadowMpaInfo.imageView = pDirectionalLight_->sMImageView_;
     shadowMpaInfo.sampler = pDirectionalLight_->sMImageSampler_;
 
