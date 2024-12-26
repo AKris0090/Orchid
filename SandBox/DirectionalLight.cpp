@@ -182,6 +182,19 @@ void DirectionalLight::createSMDescriptors(FPSCam* camera, int framesInFlight) {
 		VkResult res1 = vkMapMemory(pDevHelper_->device_, uniformMemory[i], 0, VK_WHOLE_SIZE, 0, &mappedBuffer[i]);
 	}
 
+	bufferSize = sizeof(frustrumCullUBO);
+
+	cascadeFrustumBuffer.resize(framesInFlight);
+	cascadeFrustumMemory.resize(framesInFlight);
+	mappedcascadeFrustumBuffer.resize(framesInFlight);
+
+	for (int i = 0; i < framesInFlight; i++) {
+		for (int j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+			pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, cascadeFrustumBuffer[i][j], cascadeFrustumMemory[i][j]);
+			VkResult res1 = vkMapMemory(pDevHelper_->device_, cascadeFrustumMemory[i][j], 0, VK_WHOLE_SIZE, 0, &mappedcascadeFrustumBuffer[i][j]);
+		}
+	}
+
 	updateUniBuffers(camera, 0);
 
 	VulkanDescriptorLayoutBuilder::BindingStruct binding{};
@@ -460,7 +473,48 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
 
 	UBO ubo{};
 	for (uint32_t i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+		frustrumCullUBO cascadeFrustumCullUBOs;
 		ubo.cascadeMVPUniform[i] = cascades[currentFrame][i].viewProjectionMatrix;
+
+		glm::mat4 matrix = cascades[currentFrame][i].viewProjectionMatrix;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[0].x = matrix[0].w + matrix[0].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[0].y = matrix[1].w + matrix[1].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[0].z = matrix[2].w + matrix[2].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[0].w = matrix[3].w + matrix[3].x;
+							 
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[1].x = matrix[0].w - matrix[0].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[1].y = matrix[1].w - matrix[1].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[1].z = matrix[2].w - matrix[2].x;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[1].w = matrix[3].w - matrix[3].x;
+							 
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[2].x = matrix[0].w - matrix[0].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[2].y = matrix[1].w - matrix[1].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[2].z = matrix[2].w - matrix[2].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[2].w = matrix[3].w - matrix[3].y;
+							 
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[3].x = matrix[0].w + matrix[0].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[3].y = matrix[1].w + matrix[1].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[3].z = matrix[2].w + matrix[2].y;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[3].w = matrix[3].w + matrix[3].y;
+							 
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[4].x = matrix[0].w + matrix[0].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[4].y = matrix[1].w + matrix[1].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[4].z = matrix[2].w + matrix[2].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[4].w = matrix[3].w + matrix[3].z;
+							 
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[5].x = matrix[0].w - matrix[0].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[5].y = matrix[1].w - matrix[1].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[5].z = matrix[2].w - matrix[2].z;
+		cascadeFrustumCullUBOs.cascadeFrustumPlanes[5].w = matrix[3].w - matrix[3].z;
+
+		for (auto j = 0; j < 6; j++)
+		{
+			float length = sqrtf(cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].x * cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].x
+				+ cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].y * cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].y
+				+ cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].z * cascadeFrustumCullUBOs.cascadeFrustumPlanes[j].z);
+			cascadeFrustumCullUBOs.cascadeFrustumPlanes[j] /= length;
+		}
+		memcpy(mappedcascadeFrustumBuffer[currentFrame][i], &cascadeFrustumCullUBOs, sizeof(cascadeFrustumCullUBOs));
 	}
 
 	memcpy(mappedBuffer[currentFrame], &ubo, sizeof(ubo));
@@ -474,6 +528,8 @@ void DirectionalLight::genShadowMap(FPSCam* camera, VkDescriptorSetLayout* model
 	cascades.resize(framesInFlight);
 	shadowCascadeLevels.resize(SHADOW_MAP_CASCADE_COUNT);
 	mappedBuffer.resize(framesInFlight);
+	
+	mappedcascadeFrustumBuffer.resize(framesInFlight);
 
 	cascadeSplitLambda = 0.91f;
 

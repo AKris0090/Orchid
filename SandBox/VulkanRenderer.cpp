@@ -121,7 +121,7 @@ void VulkanRenderer::animatedDraw(VkCommandBuffer& commandBuffer, VkPipelineLayo
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *layout, materialPosition, 1, &(draw.material->descriptorSet), 0, nullptr);
         }
 
-        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, indirect_offset, draw.count, draw_stride);
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer_, indirect_offset, draw.count, draw_stride);
     }
 }
 
@@ -171,7 +171,7 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
     
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
     
-        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer_, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 
         vkCmdEndRenderPass(commandBuffer);
         ++mipLevel;
@@ -194,7 +194,7 @@ void VulkanRenderer::renderBloom(VkCommandBuffer& commandBuffer) {
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bloomHelper->bloomPipelineLayout, 0, 1, &(bloomHelper->bloomSets[mipLevel]), 0, nullptr);
 
-        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer_, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 
         vkCmdEndRenderPass(commandBuffer);
         --mipLevel;
@@ -217,6 +217,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     const auto groupSizeX = (uint32_t)std::ceil(numDraws / (float)workgroupSize);
     vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
 
+    // FOR SHADOW MAP
+    for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computeCullPipelineLayout_, 0, 1, &shadowMapComputeCullDescriptorSets_[this->currentFrame_][i], 0, nullptr);
+
+        vkCmdPushConstants(commandBuffer, computeCullPipelineLayout_, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputeCullPushConstant), &cmp);
+        vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
+    }
+
     VkMemoryBarrier2 cullMemoryBarrier{};
     cullMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     cullMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -237,16 +245,39 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = finalDrawCallBuffers_[this->currentFrame_];
+    bufferBarrier.buffer = mainCameraFinalDrawCallBuffer_[this->currentFrame_];
     bufferBarrier.size = VK_WHOLE_SIZE;
 
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+
+    for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+        VkBufferMemoryBarrier bufferBarrier = {};
+        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufferBarrier.buffer = cascadeCullingStagingBuffers_[this->currentFrame_][i];
+        bufferBarrier.size = VK_WHOLE_SIZE;
+
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+    }
+
+    // COPY BUFFERS
 
     VkBufferCopy copyRegion{};
     copyRegion.size = sizeof(VkDrawIndexedIndirectCommand) * ((drawCommands.size() - (drawCommands.size() - animatedIndex)) - 2);
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = sizeof(VkDrawIndexedIndirectCommand) * 2;
     vkCmdCopyBuffer(commandBuffer, mainCameraFinalDrawCallBuffer_[this->currentFrame_], finalDrawCallBuffers_[this->currentFrame_], 1, &copyRegion);
+
+    for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+        VkBufferCopy copyRegion{};
+        copyRegion.size = sizeof(VkDrawIndexedIndirectCommand) * ((drawCommands.size() - (drawCommands.size() - animatedIndex)) - 2);
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = sizeof(VkDrawIndexedIndirectCommand) * 2;
+        vkCmdCopyBuffer(commandBuffer, cascadeCullingStagingBuffers_[this->currentFrame_][i], finalCascadeDrawCallBuffers_[this->currentFrame_][i], 1, &copyRegion);
+    }
 
     VkMemoryBarrier2 copyMemoryBarrier{};
     copyMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -358,7 +389,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
         vkCmdPushConstants(commandBuffer, pDirectionalLight_->sMPipeline_->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(int), &j);
 
-        shadowDraw(commandBuffer, nullptr, drawCallBuffer, -1);
+        shadowDraw(commandBuffer, nullptr, finalCascadeDrawCallBuffers_[this->currentFrame_][j], -1);
 
         vkCmdEndRenderPass(cmdBuf.commandBuffer);
     }
@@ -433,7 +464,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, toneMappingPipeline_->layout, 1, 1, &toneMappingDescriptorSet_, 0, nullptr);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer_, 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 }
 
 void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL_Window* window, int maxFramesInFlight) {
@@ -1512,8 +1543,8 @@ void VulkanRenderer::createDrawCallBuffer() {
     memcpy(data, drawCommands.data(), (size_t)bufferSize);
     vkUnmapMemory(device_, stagingBufferMemory);
 
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer, drawCallBufferMemory);
-    pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer, bufferSize);
+    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer_, drawCallBufferMemory_);
+    pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer_, bufferSize);
 }
 
 void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
@@ -1596,8 +1627,8 @@ void VulkanRenderer::createDepthPipeline() {
     prepassPipeline_->info.pDepthStencilState->depthWriteEnable = VK_TRUE;
     prepassPipeline_->info.pDepthStencilState->depthCompareOp = VK_COMPARE_OP_LESS;
 
-    delete alphaPrepassPipeline_->info.pColorBlendState;
-    alphaPrepassPipeline_->info.pColorBlendState = nullptr;
+    delete prepassPipeline_->info.pColorBlendState;
+    prepassPipeline_->info.pColorBlendState = nullptr;
 
     prepassPipeline_->generate(pipelineInfo, depthPrepass_);
 }
@@ -2191,7 +2222,7 @@ void VulkanRenderer::recordSkyBoxCommandBuffer(VkCommandBuffer commandBuffer, ui
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->pipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 0, 1, &descriptorSets_[this->currentFrame_], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyBox_->skyBoxPipeline_->layout, 1, 1, &(pSkyBox_->skyBoxDescriptorSet_), 0, nullptr);
-    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer, sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(commandBuffer, drawCallBuffer_, sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2424,12 +2455,25 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     bbBuffers.resize(framesInFlight);
     bbBufferMemorys.resize(framesInFlight);
 
+    cascadeCullingStagingBuffers_.resize(framesInFlight);
+    cascadeCullingStagingBufferMemorys_.resize(framesInFlight);
+    finalCascadeDrawCallBuffers_.resize(framesInFlight);
+    finalCascadeDrawCallBufferMemorys_.resize(framesInFlight);
+
     for (int i = 0; i < framesInFlight; i++) {
         pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mainCameraFinalDrawCallBuffer_[i], mainCameraFinalDrawCallBufferMemory_[i]);
-        pDevHelper_->copyBuffer(drawCallBuffer, mainCameraFinalDrawCallBuffer_[i], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
+        pDevHelper_->copyBuffer(drawCallBuffer_, mainCameraFinalDrawCallBuffer_[i], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
 
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, finalDrawCallBuffers_[i], finalDrawCallBufferMemorys_[i]);
-        pDevHelper_->copyBuffer(drawCallBuffer, finalDrawCallBuffers_[i], bufferSize);
+        pDevHelper_->copyBuffer(drawCallBuffer_, finalDrawCallBuffers_[i], bufferSize);
+
+        for (int j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+            pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, cascadeCullingStagingBuffers_[i][j], cascadeCullingStagingBufferMemorys_[i][j]);
+            pDevHelper_->copyBuffer(drawCallBuffer_, cascadeCullingStagingBuffers_[i][j], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
+
+            pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, finalCascadeDrawCallBuffers_[i][j], finalCascadeDrawCallBufferMemorys_[i][j]);
+            pDevHelper_->copyBuffer(drawCallBuffer_, finalCascadeDrawCallBuffers_[i][j], bufferSize);
+        }
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -2477,6 +2521,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
     }
 
     computeCullingDescriptorSets_.resize(framesInFlight);
+    shadowMapComputeCullDescriptorSets_.resize(framesInFlight);
 
     for (int i = 0; i < framesInFlight; i++) {
 
@@ -2549,6 +2594,78 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
         std::array<VkWriteDescriptorSet, 4> descriptors = { frustrumPlaneWriteSet, outputDrawsWriteSet, BBWriteSet, mmDescriptorWriteSet };
 
         vkUpdateDescriptorSets(device_, 4, descriptors.data(), 0, NULL);
+
+        // PER CASCADE CULLING DESCRIPTOR SET //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocateInfo.descriptorPool = descriptorPool_;
+        allocateInfo.descriptorSetCount = 1;
+        allocateInfo.pSetLayouts = &(computeCullDescriptorSetLayout_->layout);
+   
+
+        for (int j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
+            res2 = vkAllocateDescriptorSets(device_, &allocateInfo, &shadowMapComputeCullDescriptorSets_[i][j]);
+
+            VkDescriptorBufferInfo frustrumPlaneUniformBufferInfo{};
+            frustrumPlaneUniformBufferInfo.buffer = pDirectionalLight_->cascadeFrustumBuffer[i][j];
+            frustrumPlaneUniformBufferInfo.offset = 0;
+            frustrumPlaneUniformBufferInfo.range = frustrumPlaneSize;
+
+            VkWriteDescriptorSet frustrumPlaneWriteSet{};
+            frustrumPlaneWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            frustrumPlaneWriteSet.dstSet = shadowMapComputeCullDescriptorSets_[i][j];
+            frustrumPlaneWriteSet.dstBinding = 0;
+            frustrumPlaneWriteSet.dstArrayElement = 0;
+            frustrumPlaneWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            frustrumPlaneWriteSet.descriptorCount = 1;
+            frustrumPlaneWriteSet.pBufferInfo = &frustrumPlaneUniformBufferInfo;
+
+            VkDescriptorBufferInfo outputDrawsDescriptorBufferInfo{};
+            outputDrawsDescriptorBufferInfo.buffer = cascadeCullingStagingBuffers_[i][j];
+            outputDrawsDescriptorBufferInfo.offset = 0;
+            outputDrawsDescriptorBufferInfo.range = sizeof(VkDrawIndexedIndirectCommand) * (drawCommands.size() - 2 - (drawCommands.size() - animatedIndex));
+
+            VkWriteDescriptorSet outputDrawsWriteSet{};
+            outputDrawsWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            outputDrawsWriteSet.dstSet = shadowMapComputeCullDescriptorSets_[i][j];
+            outputDrawsWriteSet.dstBinding = 1;
+            outputDrawsWriteSet.dstArrayElement = 0;
+            outputDrawsWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            outputDrawsWriteSet.descriptorCount = 1;
+            outputDrawsWriteSet.pBufferInfo = &outputDrawsDescriptorBufferInfo;
+
+            VkDescriptorBufferInfo BBDescriptorBufferInfo{};
+            BBDescriptorBufferInfo.buffer = bbBuffers[i];
+            BBDescriptorBufferInfo.offset = 0;
+            BBDescriptorBufferInfo.range = sizeof(AABB) * boundingBoxes.size();
+
+            VkWriteDescriptorSet BBWriteSet{};
+            BBWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            BBWriteSet.dstSet = shadowMapComputeCullDescriptorSets_[i][j];
+            BBWriteSet.dstBinding = 2;
+            BBWriteSet.dstArrayElement = 0;
+            BBWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            BBWriteSet.descriptorCount = 1;
+            BBWriteSet.pBufferInfo = &BBDescriptorBufferInfo;
+
+            VkDescriptorBufferInfo mmDescriptorBufferInfo{};
+            mmDescriptorBufferInfo.buffer = modelMatrixBuffers[i];
+            mmDescriptorBufferInfo.offset = 0;
+            mmDescriptorBufferInfo.range = sizeof(glm::mat4) * (modelMatrices.size() - 2 - (modelMatrices.size() - animatedIndex));
+
+            VkWriteDescriptorSet mmDescriptorWriteSet{};
+            mmDescriptorWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            mmDescriptorWriteSet.dstSet = shadowMapComputeCullDescriptorSets_[i][j];
+            mmDescriptorWriteSet.dstBinding = 3;
+            mmDescriptorWriteSet.dstArrayElement = 0;
+            mmDescriptorWriteSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            mmDescriptorWriteSet.descriptorCount = 1;
+            mmDescriptorWriteSet.pBufferInfo = &mmDescriptorBufferInfo;
+
+            std::array<VkWriteDescriptorSet, 4> descriptors = { frustrumPlaneWriteSet, outputDrawsWriteSet, BBWriteSet, mmDescriptorWriteSet };
+
+            vkUpdateDescriptorSets(device_, 4, descriptors.data(), 0, NULL);
+        }
     }
 
     // COMPUTE PIPELINE CREATION

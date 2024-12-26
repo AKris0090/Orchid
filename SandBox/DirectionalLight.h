@@ -84,11 +84,10 @@ public:
 	struct frustrumCullUBO {
 		std::array<glm::vec4, 6> cascadeFrustumPlanes;
 	};
-	std::array<frustrumCullUBO, SHADOW_MAP_CASCADE_COUNT> cascadeFrustumCullUBOs;
 
-	std::vector<VkBuffer> cascadeFrustumBuffer;
-	std::vector<void*> mappedcascadeFrustumBuffer;
-	std::vector<VkDeviceMemory> cascadeFrustumMemory;
+	std::vector<std::array<VkBuffer, SHADOW_MAP_CASCADE_COUNT>> cascadeFrustumBuffer;
+	std::vector<std::array<void*, SHADOW_MAP_CASCADE_COUNT>> mappedcascadeFrustumBuffer;
+	std::vector<std::array<VkDeviceMemory, SHADOW_MAP_CASCADE_COUNT>> cascadeFrustumMemory;
 
 	std::vector<VkBuffer> uniformBuffer;
 	std::vector<void*> mappedBuffer;

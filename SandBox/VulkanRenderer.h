@@ -119,6 +119,8 @@ private:
 	std::vector<VkSemaphore> renderedSema_;
 	std::vector<VkFence> inFlightFences_;
 
+	std::vector<std::array<VkDescriptorSet, SHADOW_MAP_CASCADE_COUNT>> shadowMapComputeCullDescriptorSets_;
+
 	// Find the queue families given a physical device, called in isSuitable to find if the queue families support VK_QUEUE_GRAPHICS_BIT
 	void loadDebugUtilsFunctions(VkDevice device);
 	void updateIndividualDescriptorSet(Material& m);
@@ -164,8 +166,8 @@ public:
 	VkBuffer screenQuadIndexBuffer;
 	VkDeviceMemory screenQuadIndexBufferMemory;
 
-	VkBuffer drawCallBuffer;
-	VkDeviceMemory drawCallBufferMemory;
+	VkBuffer drawCallBuffer_;
+	VkDeviceMemory drawCallBufferMemory_;
 
 	std::vector<VkBuffer> modelMatrixBuffers;
 	std::vector<VkDeviceMemory> modelMatrixBufferMemorys;
@@ -239,11 +241,16 @@ public:
 
 	VkPipeline computeCullPipeline_;
 	VkPipelineLayout computeCullPipelineLayout_;
-	VulkanDescriptorLayoutBuilder* computeCullDescriptorSetLayout_;
 	VkDescriptorSet primaryCameraComputeCullDescriptorSet;
 
 	std::vector<VkBuffer> mainCameraFinalDrawCallBuffer_;
 	std::vector<VkDeviceMemory> mainCameraFinalDrawCallBufferMemory_;
+
+	std::vector<std::array<VkBuffer, SHADOW_MAP_CASCADE_COUNT>> cascadeCullingStagingBuffers_;
+	std::vector<std::array<VkDeviceMemory, SHADOW_MAP_CASCADE_COUNT>> cascadeCullingStagingBufferMemorys_;
+
+	std::vector<std::array<VkBuffer, SHADOW_MAP_CASCADE_COUNT>> finalCascadeDrawCallBuffers_;
+	std::vector<std::array<VkDeviceMemory, SHADOW_MAP_CASCADE_COUNT>> finalCascadeDrawCallBufferMemorys_;
 
 	std::vector<VkBuffer> finalDrawCallBuffers_;
 	std::vector<VkDeviceMemory> finalDrawCallBufferMemorys_;
@@ -265,6 +272,8 @@ public:
 	VulkanDescriptorLayoutBuilder* modelMatrixSetLayout_;
 	VulkanDescriptorLayoutBuilder* tonemappingDescriptorSetLayout_;
 	VulkanDescriptorLayoutBuilder* computeDescriptorSetLayout_;
+	VulkanDescriptorLayoutBuilder* computeCullDescriptorSetLayout_;
+
 
 	VkSampler toneMappingSampler_;
 	VkSampler toneMappingBloomSampler_;
