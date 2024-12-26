@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
     graphicsManager.pVkR_->exposure_ = 12.5f;
     graphicsManager.pVkR_->specularCont = 0.05f;
     graphicsManager.pVkR_->nDotVSpec = 0.8f;
-    graphicsManager.pVkR_->bloomRadius = 0.00001f;
+    graphicsManager.pVkR_->bloomRadius = 0.01f;
     graphicsManager.pVkR_->camera_.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     graphicsManager.pVkR_->camera_.setPitchYaw(0.0f, 0.0f);
 
@@ -190,7 +190,6 @@ int main(int argc, char* argv[]) {
         // update physics -------------------
         // includes game object position updates TODO: REMOVE FROM HERE
         physicsManager.loopUpdate(graphicsManager.animatedObjects[0], graphicsManager.gameObjects, graphicsManager.animatedObjects, &player, &(graphicsManager.pVkR_->camera_), Time::getDeltaTime());
-        //graphicsManager.pVkR_->updateModelMatrices();
         
         // update graphics -------------------
         graphicsManager.loopUpdate();

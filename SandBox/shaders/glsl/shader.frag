@@ -22,7 +22,7 @@ const mat4 biasMat = mat4(
 
 layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
-layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
+
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
 layout(set = 1, binding = 5) uniform sampler2D brdfTexture;
@@ -50,17 +50,25 @@ vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
 #define ALPHA albedoAlpha.a
 #define AMBIENT 0.3
 
-float DistributionGGX(vec3 N, vec3 H, float roughness)
+// Fresnel function ---------------------------------------------------- 
+
+vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
 {
-    float a2     = roughness*roughness*roughness*roughness;
-    float NdotH  = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
-	
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-	
-    return a2 / denom;
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
+
+vec3 prefilteredReflection(vec3 R, float roughness)
+{
+	float lod = roughness * ubo.lightPos.w;
+	float lodf = floor(lod);
+	float lodc = ceil(lod);
+	return mix(textureLod(prefilteredEnvMap, R, lodf).rgb, textureLod(prefilteredEnvMap, R, lodc).rgb, lod - lodf);
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+} 
 
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
@@ -83,23 +91,16 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
-// Fresnel function ----------------------------------------------------
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
+float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}  
-
-vec3 F_SchlickR(float cosTheta, vec3 F0, float roughness)
-{
-	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-vec3 prefilteredReflection(vec3 R, float roughness)
-{
-	float lod = roughness * ubo.lightPos.w;
-	float lodf = floor(lod);
-	float lodc = ceil(lod);
-	return mix(textureLod(prefilteredEnvMap, R, lodf).rgb, textureLod(prefilteredEnvMap, R, lodc).rgb, lod - lodf);
+    float a2     = roughness*roughness*roughness*roughness;
+    float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+	
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+	
+    return a2 / denom;
 }
 
 vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float roughness)
@@ -131,11 +132,9 @@ vec3 calculateNormal()
 
 float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
-	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
-		float dist = texture(samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
-		if (shadowCoord.w > 0 && dist < shadowCoord.z - newBias) {
-			return AMBIENT;
-		}
+	float dist = texture(samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
+	if (dist < shadowCoord.z - newBias) {
+		return AMBIENT;
 	}
 
 	return 1.0f;
@@ -167,11 +166,10 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 void main()
 {
-	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 	vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
 	vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 
-	ALBEDO = pow(ALBEDO + 0.005, vec3(1.0f / 0.8f));
+	ALBEDO = pow(ALBEDO + 0.05, vec3(1.0f / 0.8f));
 
 	vec3 N = calculateNormal();
 
@@ -182,20 +180,14 @@ void main()
 	float NdotV = clamp(dot(N, V), 0.0f, 1.0f);
 	float NdotL = dot(N, L);
 
-	float LdotN = dot(L, fragNormal.xyz);
-
-	float metallic = 0.0f;
-	float roughness = 1.0f;
-
 	vec3 F0 = mix(vec3(0.04), ALBEDO, 0.0f);
 
+	vec3 F = F_SchlickR(NdotV, F0, 1.0f);
+
 	vec2 brdf = texture(brdfTexture, vec2(NdotV, 1.0f)).rg;
+	vec3 specularReflection = prefilteredReflection(R, 0.75f).rgb * (F * brdf.x + brdf.y);
 
-	vec3 F = F_SchlickR(NdotV, F0, roughness);
-
-	vec3 specularReflection = prefilteredReflection(R, roughness).rgb * (F * brdf.x + brdf.y);
-
-	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specularReflection) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
+	vec3 color = (((1.0 - F)) * (texture(irradianceCube, N).rgb * ALBEDO) + specularReflection) * aoVec;
 
 	uint cascadeIndex = 0;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
@@ -204,22 +196,22 @@ void main()
 		}
 	}
 
+	// shadow calc
 	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
-	float texelSize = 1.0 / float(texDim.x);
+	float texelSize = 1.0f / float(texDim.x);
+	float LdotN = dot(L, fragNormal.xyz);
 	float normalOffsetScale = clamp((1.0 - LdotN), 0.0f, 1.0f);
 	normalOffsetScale *= ubo.cascadeBiases[cascadeIndex] * texelSize;
 	vec3 shadowOffset = fragNormal.xyz * normalOffsetScale;
-	
 
-	vec4 realShadowPosition = vec4(fragPosition.xyz + shadowOffset, 1.0f);
-
-	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * realShadowPosition;//vec4(fragPosition.xyz, 1.0);
+	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz + shadowOffset, 1.0f);
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, 0.0f);
+
 	
-	vec3 specularVal = specularContribution(L, V, N, F0, metallic, roughness);
+	vec3 specularVal = specularContribution(L, V, N, F0, 0.0f, 1.0f);
 	
-	color = ((color * max(specularVal, 4.0f))) * (shadow) + (emissionVec);//4 is specular	
+	color = ((color * max(specularVal, 4.0f))) * (shadow) + (emissionVec);
 
 	vec4 brightColor = vec4(color, 1.0f);
 

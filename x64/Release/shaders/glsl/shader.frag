@@ -2,8 +2,6 @@
 
 #define SHADOW_MAP_CASCADE_COUNT 4
 
-#include "aces.glsl"
-
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
@@ -24,7 +22,7 @@ const mat4 biasMat = mat4(
 
 layout(set = 1, binding = 0) uniform sampler2D colorSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
-layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessSampler;
+
 layout(set = 1, binding = 3) uniform sampler2D aoSampler;
 layout(set = 1, binding = 4) uniform sampler2D emissionSampler;
 layout(set = 1, binding = 5) uniform sampler2D brdfTexture;
@@ -40,7 +38,6 @@ layout(location = 0) in vec4 fragPosition;
 layout(location = 1) in vec4 fragNormal;
 layout(location = 2) in vec4 fragTangent;
 layout(location = 3) in vec2 fragTexCoord;
-
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 bloomColor;
@@ -129,18 +126,14 @@ vec3 specularContribution(vec3 L, vec3 V, vec3 N, vec3 F0, float metallic, float
 
 vec3 calculateNormal()
 {
-	//mat4 modelMatrix = modelMatrices[modelID];
-	//mat3 TBNMatrix = mat3(normalize((vec4((modelMatrix * fragTangent).xyz, fragTangent.w)).xyz), normalize(cross(fragNormal.xyz, fragTangent.xyz) * fragTangent.w), normalize((mat3(modelMatrix) * fragNormal.xyz)));
-	//return normalize(TBNMatrix * tangentNormal);
-	vec3 fragBitangent = normalize(cross(fragNormal.xyz, fragTangent.xyz)) * fragTangent.w;
-	return mat3(fragTangent.xyz, fragBitangent, fragNormal.xyz) * tangentNormal;
+	return mat3(fragTangent.xyz, (normalize(cross(fragNormal.xyz, fragTangent.xyz)) * fragTangent.w), fragNormal.xyz) * tangentNormal;
 }
 
 float ProjectUV(vec4 shadowCoord, vec2 off, uint cascadeIndex, float newBias)
 {
 	if ( shadowCoord.z > -1.0 && shadowCoord.z < 1.0 ) {
 		float dist = texture(samplerDepthMap, vec3(shadowCoord.st + off, cascadeIndex)).r;
-		if (shadowCoord.w > 0 && dist < shadowCoord.z - newBias) {
+		if (dist < shadowCoord.z - newBias) {
 			return AMBIENT;
 		}
 	}
@@ -174,12 +167,10 @@ float ShadowCalculation(vec4 fragPosLightSpace, uint cascadeIndex, float newBias
 
 void main()
 {
-	vec4 metallicRoughness = texture(metallicRoughnessSampler, fragTexCoord);
 	vec3 aoVec = texture(aoSampler, fragTexCoord).rrr;
 	vec3 emissionVec = texture(emissionSampler, fragTexCoord).rgb;
 
-	ALBEDO = ALBEDO += 0.05f;
-	ALBEDO = pow(ALBEDO, vec3(1.0f / 0.8f));
+	ALBEDO = pow(ALBEDO + 0.05, vec3(1.0f / 0.8f));
 
 	vec3 N = calculateNormal();
 
@@ -187,24 +178,17 @@ void main()
 	vec3 L = normalize(ubo.lightPos.xyz - fragPosition.xyz);
 	vec3 R = -normalize(reflect(V, N));
 
-	float NdotV = max(dot(N, V), 0.0);
+	float NdotV = clamp(dot(N, V), 0.0f, 1.0f);
+	float NdotL = dot(N, L);
 
-	//float NdotL = dot(fragNormal.xyz, -ubo.lightPos.xyz);
-	float LdotN = dot(L, fragNormal.xyz);
-	//float normalOffsetScale = clamp((1.0f - NdotL), 0.0, 1.0);
+	vec3 F0 = mix(vec3(0.04), ALBEDO, 0.0f);
 
-	float metallic = 0.0f;
-	float roughness = 1.0f;
+	vec3 F = F_SchlickR(NdotV, F0, 1.0f);
 
-	vec3 F0 = mix(vec3(0.04), ALBEDO, metallic);
+	vec2 brdf = texture(brdfTexture, vec2(NdotV, 1.0f)).rg;
+	vec3 specularReflection = prefilteredReflection(R, 0.75f).rgb * (F * brdf.x + brdf.y);
 
-	vec2 brdf = texture(brdfTexture, vec2(NdotV, roughness)).rg;
-
-	vec3 F = F_SchlickR(NdotV, F0, roughness);
-
-	vec3 specular = prefilteredReflection(R, roughness).rgb * (F * brdf.x + brdf.y);
-
-	vec3 color = (((1.0 - F) * (1.0 - metallic)) * (texture(irradianceCube, N).rgb * ALBEDO) + specular) * aoVec; // irradiance * ALBEDO = diffuse, kD = 1.0 - F, kD *= 1.0 - metallic;
+	vec3 color = (((1.0 - F)) * (texture(irradianceCube, N).rgb * ALBEDO) + specularReflection) * aoVec;
 
 	uint cascadeIndex = 0;
 	for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
@@ -213,27 +197,22 @@ void main()
 		}
 	}
 
-	//float newBias = 0.005 * tan(acos(dot(N,-L)));
-	//normalOffsetScale = tan(acos(normalOffsetScale));
-	//float newBias = mix(0.0015f, 0.0f, NdotL);
-	//float newBias = max(ubo.cascadeBiases[0] * (1.0f - NdotL), ubo.cascadeBiases[0]);
-
+	// shadow calc
 	ivec2 texDim = textureSize(samplerDepthMap, 0).xy;
-	float texelSize = 1.0 / float(texDim.x);
+	float texelSize = 1.0f / float(texDim.x);
+	float LdotN = dot(L, fragNormal.xyz);
 	float normalOffsetScale = clamp((1.0 - LdotN), 0.0f, 1.0f);
 	normalOffsetScale *= ubo.cascadeBiases[cascadeIndex] * texelSize;
 	vec3 shadowOffset = fragNormal.xyz * normalOffsetScale;
-	
 
-	vec4 realShadowPosition = vec4(fragPosition.xyz + shadowOffset, 1.0f);
-
-	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * realShadowPosition;//vec4(fragPosition.xyz, 1.0);
+	vec4 fragShadowCoord = (biasMat * ubo.cascadeViewProj[cascadeIndex]) * vec4(fragPosition.xyz + shadowOffset, 1.0f);
 
 	float shadow = ShadowCalculation((fragShadowCoord / fragShadowCoord.w), cascadeIndex, 0.0f);
+
 	
-	vec3 specularVal = specularContribution(L, V, N, F0, metallic, roughness);
+	vec3 specularVal = specularContribution(L, V, N, F0, 0.0f, 1.0f);
 	
-	color = ((color * max(specularVal, 4.0f))) * (shadow) + (emissionVec);//4 is specular	
+	color = ((color * max(specularVal, 4.0f))) * (shadow) + (emissionVec);
 
 	vec4 brightColor = vec4(color, 1.0f);
 
@@ -248,5 +227,5 @@ void main()
 
 	color = vec3(1.0) - exp(-color * ubo.gammaExposure.y);
 
-	outColor = vec4(color, ALPHA);
+	outColor = vec4((fragShadowCoord.xyz / fragShadowCoord.w), ALPHA);
 }
