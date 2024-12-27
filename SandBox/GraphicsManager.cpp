@@ -325,7 +325,7 @@ void GraphicsManager::startVulkan() {
 
     pVkR_->bloomHelper = new BloomHelper(pVkR_->pDevHelper_);
         
-    pVkR_->bloomHelper->setupBloom(&(pVkR_->bloomResolveImage_), &(pVkR_->bloomResolveImageView_), VK_FORMAT_R16G16B16A16_SFLOAT, pVkR_->SWChainExtent_);
+    pVkR_->bloomHelper->setupBloom(&(pVkR_->bloomResolveImage_), &(pVkR_->bloomResolveImageView_), VK_FORMAT_R8G8B8A8_SRGB, pVkR_->SWChainExtent_);
     std::cout << "setup bloom" << std::endl;
 
     return;

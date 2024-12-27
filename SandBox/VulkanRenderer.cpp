@@ -1017,7 +1017,7 @@ void VulkanRenderer::createRenderPass() {
     colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription bloomAttachmentDescription{};
-    bloomAttachmentDescription.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    bloomAttachmentDescription.format = VK_FORMAT_R8G8B8A8_SRGB;
     bloomAttachmentDescription.samples = pDevHelper_->msaaSamples_;
     bloomAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     bloomAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1047,7 +1047,7 @@ void VulkanRenderer::createRenderPass() {
     colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkAttachmentDescription bloomResolveAttachment{};
-    bloomResolveAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    bloomResolveAttachment.format = VK_FORMAT_R8G8B8A8_SRGB;
     bloomResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     bloomResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     bloomResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -2166,14 +2166,14 @@ void VulkanRenderer::createColorResources() {
     pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage_, colorImageMemory_);
     pDevHelper_->createImageView(colorImage_, colorImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomImage_, bloomImageMemory_);
-    pDevHelper_->createImageView(bloomImage_, bloomImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), pDevHelper_->msaaSamples_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomImage_, bloomImageMemory_);
+    pDevHelper_->createImageView(bloomImage_, bloomImageView_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
     pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, 1, 1, static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolveImage_, resolveImageMemory_);
     pDevHelper_->createImageView(resolveImage_, resolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, BLOOM_LEVELS, 1, static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
-    pDevHelper_->createImageView(bloomResolveImage_, bloomResolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    pDevHelper_->createImage(SWChainExtent_.width, SWChainExtent_.height, BLOOM_LEVELS, 1, static_cast<VkImageCreateFlagBits>(0), VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bloomResolveImage_, bloomResolveImageMemory_);
+    pDevHelper_->createImageView(bloomResolveImage_, bloomResolveImageView_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void VulkanRenderer::createDepthResources() {
@@ -2745,7 +2745,7 @@ void VulkanRenderer::recreateSwapChain(SDL_Window* window) {
     delete bloomHelper;
 
     bloomHelper = new BloomHelper(pDevHelper_);
-    bloomHelper->setupBloom(&bloomResolveImage_, &bloomResolveImageView_, VK_FORMAT_R16G16B16A16_SFLOAT, SWChainExtent_);
+    bloomHelper->setupBloom(&bloomResolveImage_, &bloomResolveImageView_, VK_FORMAT_R8G8B8A8_SRGB, SWChainExtent_);
 }
 
 

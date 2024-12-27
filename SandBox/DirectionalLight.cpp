@@ -457,13 +457,6 @@ void DirectionalLight::updateUniBuffers(FPSCam* camera, int currentFrame) {
 		glm::mat4 lightViewMatrix = glm::lookAt(eye, glm::vec3(trueFrustumCenter), up);
 		glm::mat4 lightOrthoMatrix = glm::orthoZO(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
 
-		//glm::vec3 maxExtents = glm::vec3(radius);
-		//glm::vec3 minExtents = -maxExtents;
-
-		//glm::vec3 lightDir = glm::normalize(-transform.position);
-		//glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-		//glm::mat4 lightOrthoMatrix = glm::orthoZO(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
-
 		// Store split distance and matrix in cascade
 		cascades[currentFrame][i].splitDepth = (camera->getNearPlane() + splitDist * clipRange) * -1.0f;
 		cascades[currentFrame][i].viewProjectionMatrix = lightOrthoMatrix * lightViewMatrix;
