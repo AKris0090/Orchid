@@ -2318,9 +2318,9 @@ void VulkanRenderer::updateModelMatrices() {
     VkMemoryBarrier2 computeMemoryBarrier{};
     computeMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     computeMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
-    computeMemoryBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
+    computeMemoryBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
     computeMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
-    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
+    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
 
     VkDependencyInfo cullDependencyInfo{};
     cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
