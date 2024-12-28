@@ -173,6 +173,17 @@ void GLTFObj::loadNode(const tinygltf::Node& nodeIn, SceneNode* parent, uint32_t
 
             scNode->meshPrimitives.push_back(p);
 
+            bool meshInVerticesAlr = true;
+            for (auto v : p->stagingIndices_) {
+                meshInVerticesAlr = meshInVerticesAlr && (std::find(indices_.begin(), indices_.end(), v) != indices_.end());
+                if (!meshInVerticesAlr) {
+                    break;
+                }
+            }
+            if (meshInVerticesAlr) {
+                std::cout << "already has mesh in vertices!" << std::endl;
+            }
+
             vertices_.insert(vertices_.end(), p->stagingVertices_.begin(), p->stagingVertices_.end());
             indices_.insert(indices_.end(), p->stagingIndices_.begin(), p->stagingIndices_.end());
 

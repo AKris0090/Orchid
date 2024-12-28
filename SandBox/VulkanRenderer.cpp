@@ -225,43 +225,57 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
     }
 
-    VkMemoryBarrier2 cullMemoryBarrier{};
-    cullMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    cullMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    cullMemoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    cullMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    cullMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+    //VkMemoryBarrier2 cullMemoryBarrier{};
+    //cullMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    //cullMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    //cullMemoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+    //cullMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    //cullMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+
+    //VkDependencyInfo cullDependencyInfo{};
+    //cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    //cullDependencyInfo.memoryBarrierCount = 1;
+    //cullDependencyInfo.pMemoryBarriers = &cullMemoryBarrier;
+
+    //vkCmdPipelineBarrier2(commandBuffer, &cullDependencyInfo);
+
+    //VkBufferMemoryBarrier bufferBarrier = {};
+    //bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    //bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    //bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    //bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    //bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    //bufferBarrier.buffer = mainCameraFinalDrawCallBuffer_[this->currentFrame_];
+    //bufferBarrier.size = VK_WHOLE_SIZE;
+
+    //vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+
+    //for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
+    //    VkBufferMemoryBarrier bufferBarrier = {};
+    //    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    //    bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    //    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    //    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    //    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    //    bufferBarrier.buffer = cascadeCullingStagingBuffers_[this->currentFrame_][i];
+    //    bufferBarrier.size = VK_WHOLE_SIZE;
+
+    //    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
+    //}
+
+    VkMemoryBarrier2 computeMemoryBarrier{};
+    computeMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    computeMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR;
+    computeMemoryBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
+    computeMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
+    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR;
 
     VkDependencyInfo cullDependencyInfo{};
     cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     cullDependencyInfo.memoryBarrierCount = 1;
-    cullDependencyInfo.pMemoryBarriers = &cullMemoryBarrier;
+    cullDependencyInfo.pMemoryBarriers = &computeMemoryBarrier;
 
     vkCmdPipelineBarrier2(commandBuffer, &cullDependencyInfo);
-
-    VkBufferMemoryBarrier bufferBarrier = {};
-    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = mainCameraFinalDrawCallBuffer_[this->currentFrame_];
-    bufferBarrier.size = VK_WHOLE_SIZE;
-
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
-
-    for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-        VkBufferMemoryBarrier bufferBarrier = {};
-        bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-        bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bufferBarrier.buffer = cascadeCullingStagingBuffers_[this->currentFrame_][i];
-        bufferBarrier.size = VK_WHOLE_SIZE;
-
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
-    }
 
     // COPY BUFFERS
 
@@ -281,10 +295,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 
     VkMemoryBarrier2 copyMemoryBarrier{};
     copyMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    copyMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    copyMemoryBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-    copyMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
-    copyMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
+    copyMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
+    copyMemoryBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
+    copyMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT_KHR;
+    copyMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR;
 
     VkDependencyInfo copyDependencyInfo{};
     copyDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -316,7 +330,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
     memoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
 
     VkDependencyInfo dependencyInfo{};
@@ -2301,25 +2315,19 @@ void VulkanRenderer::updateModelMatrices() {
     copyRegion.size = bufferSize;
     vkCmdCopyBuffer(commandBuffers_[currentFrame_], modelMatrixStagingBuffers[currentFrame_], this->modelMatrixBuffers[currentFrame_], 1, &copyRegion);
 
-    VkBufferMemoryBarrier bufferBarrier = {};
-    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    bufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    bufferBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = this->modelMatrixBuffers[currentFrame_];
-    bufferBarrier.offset = 0;
-    bufferBarrier.size = VK_WHOLE_SIZE;
+    VkMemoryBarrier2 computeMemoryBarrier{};
+    computeMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    computeMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
+    computeMemoryBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
+    computeMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
+    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
 
-    vkCmdPipelineBarrier(
-        commandBuffers_[currentFrame_],
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        0,
-        0, nullptr,
-        1, &bufferBarrier,
-        0, nullptr
-    );
+    VkDependencyInfo cullDependencyInfo{};
+    cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    cullDependencyInfo.memoryBarrierCount = 1;
+    cullDependencyInfo.pMemoryBarriers = &computeMemoryBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffers_[currentFrame_], &cullDependencyInfo);
 }
 
 void VulkanRenderer::setupCompute(int framesInFlight) {
