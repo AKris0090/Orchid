@@ -225,44 +225,6 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
     }
 
-    //VkMemoryBarrier2 cullMemoryBarrier{};
-    //cullMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    //cullMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    //cullMemoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    //cullMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    //cullMemoryBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT;
-
-    //VkDependencyInfo cullDependencyInfo{};
-    //cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    //cullDependencyInfo.memoryBarrierCount = 1;
-    //cullDependencyInfo.pMemoryBarriers = &cullMemoryBarrier;
-
-    //vkCmdPipelineBarrier2(commandBuffer, &cullDependencyInfo);
-
-    //VkBufferMemoryBarrier bufferBarrier = {};
-    //bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    //bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-    //bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    //bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    //bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    //bufferBarrier.buffer = mainCameraFinalDrawCallBuffer_[this->currentFrame_];
-    //bufferBarrier.size = VK_WHOLE_SIZE;
-
-    //vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
-
-    //for (int i = 0; i < SHADOW_MAP_CASCADE_COUNT; i++) {
-    //    VkBufferMemoryBarrier bufferBarrier = {};
-    //    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    //    bufferBarrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-    //    bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    //    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    //    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    //    bufferBarrier.buffer = cascadeCullingStagingBuffers_[this->currentFrame_][i];
-    //    bufferBarrier.size = VK_WHOLE_SIZE;
-
-    //    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &bufferBarrier, 0, nullptr);
-    //}
-
     VkMemoryBarrier2 computeMemoryBarrier{};
     computeMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     computeMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR;
@@ -1574,13 +1536,10 @@ void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
     for (int i = 0; i < maxFramesInFlight; i++) {
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixStagingBuffers[i], modelMatrixStagingBufferMemorys[i]);
 
-        void* data;
         vkMapMemory(device_, modelMatrixStagingBufferMemorys[i], 0, bufferSize, 0, &mappedModelMatrixStagingBuffers[i]);
-        memcpy(mappedModelMatrixStagingBuffers[i], modelMatrices.data(), (size_t)bufferSize);
+        //memcpy(mappedModelMatrixStagingBuffers[i], modelMatrices.data(), (size_t)bufferSize);
 
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, modelMatrixBuffers[i], modelMatrixBufferMemorys[i]);
-
-        pDevHelper_->copyBuffer(modelMatrixStagingBuffers[i], this->modelMatrixBuffers[i], bufferSize);
 
         VkDescriptorSetAllocateInfo mmAllocateInfo{};
         mmAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2319,8 +2278,8 @@ void VulkanRenderer::updateModelMatrices() {
     computeMemoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     computeMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
     computeMemoryBarrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-    computeMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
-    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
+    computeMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR | VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR;
+    computeMemoryBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT_KHR | VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
 
     VkDependencyInfo cullDependencyInfo{};
     cullDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;

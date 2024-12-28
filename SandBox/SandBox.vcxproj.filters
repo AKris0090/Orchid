@@ -67,6 +67,9 @@
     <Filter Include="Header Files\Engine\Graphics\Modules">
       <UniqueIdentifier>{a7aa887f-4d75-4fe7-a0f4-11d8f1a1d1c9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\shaders">
+      <UniqueIdentifier>{e8c55f27-e27e-4369-acf0-9d5fb4b4580c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SandBox.cpp">
@@ -260,5 +263,73 @@
     <ClInclude Include="GameObject.h">
       <Filter>Header Files\Engine\Graphics\Helpers</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\glsl\upSample.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\aces.glsl">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\brdfLUT.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\brdfLUT.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\depthPrePass.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\depthPrePassFrag.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\downSample.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\filterCube.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\frustrumCull.comp">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\irradianceCube.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\outline.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\outline.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\persona.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\prefEnvMap.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\screenQuad.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\shader.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\shader.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\shadowMap.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\skinning.comp">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\skybox.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\skybox.vert">
+      <Filter>Header Files\shaders</Filter>
+    </None>
+    <None Include="shaders\glsl\tonemapping.frag">
+      <Filter>Header Files\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

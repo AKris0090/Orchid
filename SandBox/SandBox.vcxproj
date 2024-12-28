@@ -207,6 +207,30 @@
     <ClInclude Include="VulkanRenderer.h" />
     <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\glsl\aces.glsl" />
+    <None Include="shaders\glsl\brdfLUT.frag" />
+    <None Include="shaders\glsl\brdfLUT.vert" />
+    <None Include="shaders\glsl\depthPrePass.vert" />
+    <None Include="shaders\glsl\depthPrePassFrag.frag" />
+    <None Include="shaders\glsl\downSample.frag" />
+    <None Include="shaders\glsl\filterCube.vert" />
+    <None Include="shaders\glsl\frustrumCull.comp" />
+    <None Include="shaders\glsl\irradianceCube.frag" />
+    <None Include="shaders\glsl\outline.frag" />
+    <None Include="shaders\glsl\outline.vert" />
+    <None Include="shaders\glsl\persona.frag" />
+    <None Include="shaders\glsl\prefEnvMap.frag" />
+    <None Include="shaders\glsl\screenQuad.vert" />
+    <None Include="shaders\glsl\shader.frag" />
+    <None Include="shaders\glsl\shader.vert" />
+    <None Include="shaders\glsl\shadowMap.vert" />
+    <None Include="shaders\glsl\skinning.comp" />
+    <None Include="shaders\glsl\skybox.frag" />
+    <None Include="shaders\glsl\skybox.vert" />
+    <None Include="shaders\glsl\tonemapping.frag" />
+    <None Include="shaders\glsl\upSample.frag" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
