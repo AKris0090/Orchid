@@ -13,30 +13,42 @@ public:
 		std::vector<glm::mat4>* finalJointMatrices = nullptr;
 	};
 
-	Animation walkAnim;
-	Animation idleAnim;
-	Animation runAnim;
+	struct secondaryTransform {
+		glm::vec3 position;
+		glm::quat rotation;
+		glm::vec3 scale;
+	};
+
 	uint32_t globalSkinningMatrixOffset;
 	uint32_t globalFirstVertex;
 	uint32_t globalFirstIndex;
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
-	glm::mat4 localModelTransform;
+	int numInverseBindMatrices;
+
+	std::vector<secondaryTransform>* src;
+	std::vector<secondaryTransform>* dst;
+	Animation baseAnim;
 
 	std::unordered_map<Material*, std::vector<MeshHelper*>> opaqueDraws;
 	std::unordered_map<Material*, std::vector<MeshHelper*>> transparentDraws;
+
 	std::vector<Skin> skins_;
 
 	std::vector<int32_t> textureIndices_;
 	std::vector<TextureHelper*> images_;
 	std::vector<Material> mats_;
-	std::vector<Vertex> vertices_;
+	std::vector<Vertex> basePoseVertices_;
 	std::vector<uint32_t> indices_;
 	std::vector<AnimSceneNode*> pParentNodes;
 
+	VkBuffer vertexBuffer_;
+	VkDeviceMemory vertexBufferMemory_;
+
 	void createDescriptors();
 
-	AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
+	AnimatedGLTFObj() { this->numInverseBindMatrices = 0; };
+	void setup(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	~AnimatedGLTFObj();
 
 private:

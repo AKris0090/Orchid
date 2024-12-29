@@ -210,3 +210,15 @@ void FPSCam::setAspectRatio(float aspect) {
 void FPSCam::setFOV(float fov) {
     this->FOV = fov;
 }
+
+FPSCam::FPSCam(float nearCam, float farCam, float width, float height, float fov) {
+    setNearPlane(nearCam);
+    setFarPlane(farCam);
+    setFOV(glm::radians(fov));
+    setAspectRatio(width / height);
+    distanceToPlayer = 1.75f; 
+    isAttatched = true; 
+    moveSpeed_ = 0.0085; 
+    velocity_ = glm::vec3(0.0f);
+    transform.position = glm::vec3(0.0f);
+}

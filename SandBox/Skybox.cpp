@@ -157,7 +157,8 @@ void Skybox::createDescriptorSet() {
 }
 
 void Skybox::loadSkyBox(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
-	this->pSkyBoxModel_ = new GLTFObj(modPath_, pDevHelper_, globalVertexOffset, globalIndexOffset);
+    this->pSkyBoxModel_ = new GLTFObj();
+    pSkyBoxModel_->setup(modPath_, pDevHelper_, globalVertexOffset, globalIndexOffset);
     pSkyBoxModel_->isSkyBox_ = true;
     
     createSkyBoxImage();

@@ -27,14 +27,17 @@ public:
 	physx::PxScene* pScene = NULL;
 
 	PhysicsManager() {};
+	~PhysicsManager() {
+		shutDown();
+	}
 
 	std::vector<physx::PxShape*> createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale);
 	void addCubeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, float halfExtent);
 	void addPlane();
-	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale);
+	void addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3 scale);
 	void recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices);
 
 	void setup();
-	void loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, std::vector<AnimatedGameObject*> animatedGameObjects, PlayerObject* player, FPSCam* cam, float deltaTime);
+	void loopUpdate(std::vector<GameObject*>& gameObjects, std::vector<AnimatedGameObject*>& animatedGameObjects, float deltaTime);
 	void shutDown();
 };

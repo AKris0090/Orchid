@@ -6,22 +6,36 @@ class GameObject {
 private:
 
 public:
-	Transform transform;
-	GLTFObj* renderTarget;
-	bool isDynamic;
-	bool isOutline;
+	GameObject() {};
+	~GameObject() {
+		for (auto& g : renderTargets) {
+			if (g) {
+				delete g;
+			}
+		}
+		for (auto& t : renderTargetTransforms) {
+			delete t;
+		}
+
+		pShape_->release();
+		physicsActor->release();
+	};
+	std::vector<Transform*> renderTargetTransforms;
+	std::vector<GLTFObj*> renderTargets;
+	bool isDynamic = false;
 
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	GameObject() {
-		isDynamic = false;
+	void addRenderTarget(GLTFObj* newObj) { 
+		renderTargets.push_back(newObj); 
+		renderTargetTransforms.push_back(new Transform());
 	};
-
-	void setGLTFObj(GLTFObj* obj) { this->renderTarget = obj; };
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
-
 	void loopUpdate() {
-		setTransform(transform.to_matrix());
-	}
-};;
+		scriptUpdate();
+		for (int i = 0; i < renderTargets.size(); i++) {
+			renderTargetTransforms[i]->matrix = renderTargetTransforms[i]->to_matrix();
+		}
+	};
+	virtual void scriptUpdate() {};
+};

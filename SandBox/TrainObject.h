@@ -1,10 +1,7 @@
 #pragma once
 
-#include "MeshHelper.h"
-#include "Camera.h"
 #include "Input.h"
 #include "GameObject.h"
-#include "AnimatedGameObject.h"
 #include "Time.h"
 
 enum TRAINSTATE {
@@ -16,15 +13,12 @@ enum TRAINSTATE {
 	LEAVING
 };
 
-class TrainObject {
+class TrainObject: public GameObject {
 public:
-	GameObject* trainBodyObject;
-	GameObject* trainLeftDoorObject;
-	GameObject* trainRightDoorObject;
-
 	TRAINSTATE currentState;
-
+	int doorOpenDirection;
 	glm::vec3 startPos;
+	glm::vec3 endPos;
 	Transform transform;
 	Transform leftDoorTransform;
 	Transform rightDoorTransform;
@@ -38,8 +32,9 @@ public:
 	float doorOpenDuration;
 	float doorWaitDuration;
 
-	TrainObject(glm::vec3 startPos, float enterTime, float exitTime, float openTime, float waitTime);
+	TrainObject() {};
+	void setup(Transform startTransform, glm::vec3 endPos, float enterTime, float exitTime, float openTime, float waitTime, int openDirection);
 	void updatePosition();
 	void transitionState();
-	void loopUpdate();
+	void scriptUpdate() override;
 };

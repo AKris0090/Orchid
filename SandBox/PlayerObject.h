@@ -15,7 +15,7 @@ enum PLAYERSTATE {
 	RUNNING
 };
 
-class PlayerObject {
+class PlayerObject : public AnimatedGameObject {
 private:
 	physx::PxControllerManager* manager;
 	physx::PxCapsuleControllerDesc desc;
@@ -33,7 +33,12 @@ public:
 	float playerWalkSpeed = 0.0065f;
 	float playerRunSpeed = 0.0130f;
 	float currentSpeed = 0.0065f;
-	AnimatedGameObject* playerGameObject;
+
+	Animation walkAnim;
+	Animation idleAnim;
+	Animation runAnim;
+
+	FPSCam* camera;
 
 	inline glm::vec3 PxVec3toGlmVec3(physx::PxExtendedVec3 vec) {
 		return { vec.x, vec.y, vec.z };
@@ -41,9 +46,10 @@ public:
 
 	MeshHelper* playerMesh;
 
-	PlayerObject(physx::PxMaterial* material, physx::PxScene* pScene);
+	PlayerObject() {};
+	void setup(physx::PxMaterial* material, physx::PxScene* pScene, FPSCam* cam);
 
 	void transitionState(PLAYERSTATE newState);
 	void setupPhysicsController();
-	void loopUpdate(FPSCam* camera);
+	void scriptUpdate() override;
 };

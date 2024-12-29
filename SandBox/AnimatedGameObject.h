@@ -11,42 +11,50 @@ public:
 		glm::vec3 scale;
 	};
 
-	Animation* activeAnimation;
-	Animation* previousAnimation;
-	bool needsSmooth;
-	std::chrono::time_point<std::chrono::system_clock> smoothStart;
-	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
-	std::chrono::milliseconds smoothDuration;
-	float smoothAmount;
-	float timeAdditional;
-	int numInverseBindMatrices;
-	std::vector<secondaryTransform>* src;
-	std::vector<secondaryTransform>* dst;
 	Transform transform;
-	AnimatedGLTFObj* renderTarget;
-	bool isDynamic;
+	std::vector<AnimatedGLTFObj*> renderTargets;
+	void addRenderTarget(AnimatedGLTFObj* newObj) { 
+		renderTargets.push_back(newObj);
+	};
+	bool isDynamic = false;
 	bool isOutline;
 	bool isPlayerObj;
 	DeviceHelper* pDevHelper;
 
-	std::vector<Vertex> basePoseVertices_;
-
-	VkBuffer vertexBuffer_;
-	VkDeviceMemory vertexBufferMemory_;
-
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
-	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; numInverseBindMatrices = 0; };
+	bool needsSmooth;
+	std::chrono::milliseconds smoothDuration;
+	std::chrono::time_point<std::chrono::system_clock> smoothStart;
+	std::chrono::time_point<std::chrono::system_clock> smoothUntil;
+	float timeAdditional;
+
+	Animation* activeAnimation;
+	Animation* previousAnimation;
+	float smoothAmount;
+
+	AnimatedGameObject() {};
+	~AnimatedGameObject() {
+		for (auto& g : renderTargets) {
+			if (g) {
+				delete g;
+			}
+		}
+
+		pShape_->release();
+		physicsActor->release();
+	};
+	AnimatedGameObject(DeviceHelper* pD) { isDynamic = false; isPlayerObj = false; this->pDevHelper = pD; };
 
 	void smoothFromCurrentPosition(std::vector<glm::mat4>& bindMatrices, float deltaTime);
 	void updateAnimation(std::vector<glm::mat4>& bindMatrices, float deltaTime);
-	void setAnimatedGLTFObj(AnimatedGLTFObj* obj) { this->renderTarget = obj; };
 
-	void setTransform(glm::mat4 newTransform) { this->renderTarget->localModelTransform = newTransform; };
 	void loopUpdate() {
-		setTransform(transform.to_matrix());
+		scriptUpdate();
+		transform.matrix = transform.to_matrix();
 	}
+	virtual void scriptUpdate() {};
 
 private:
 	enum STRINGENUM {
@@ -63,5 +71,5 @@ private:
 
 	glm::mat4 getNodeMatrix(AnimSceneNode* node);
 	void updateJoints(AnimSceneNode* node, std::vector<glm::mat4>& bindMatrices);
-	static void getAnimatedNodeTransform(std::vector<AnimatedGameObject::secondaryTransform>* transforms, Animation* anim);
+	static void getAnimatedNodeTransform(std::vector<AnimatedGLTFObj::secondaryTransform>* transforms, Animation* anim);
 };;

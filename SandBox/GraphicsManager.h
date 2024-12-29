@@ -14,36 +14,30 @@ private:
 	float windowHeight;
 	uint32_t frameCount = 0;
 
-	int numModels_;
-	int numAnimatedModels_;
-	int numTextures_;
-	std::vector<std::string> pStaticModelPaths_;
-	std::vector<std::string> pAnimatedModelPaths_;
-    std::vector<std::string> skyboxTexturePaths_;
-	std::string skyboxModelPath_;
-
 	void imGUIUpdate();
 	static void check_vk_result(VkResult err);
 
 	void setupImGUI();
-	void startVulkan();
+	void startVulkan(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths);
 	void startSDL();
 
 public:
-	VulkanRenderer* pVkR_;
+	VulkanRenderer vkR_;
 	SDL_Window* pWindow_;
 	SDL_Renderer* pRenderer_;
 
-	PlayerObject* player;
+	std::vector<GameObject*> staticGameObjects;
+	std::vector<AnimatedGameObject*> animatedGameObjects;
 
-	std::vector<GameObject*> gameObjects = {};
-	std::vector<AnimatedGameObject*> animatedObjects = {};
+	void updateModelMatrices();
 
-	bool mousemode_ = true;
+	GraphicsManager() {}
+	~GraphicsManager() {
+		//shutDown();
+	}
+	GraphicsManager(float windowWidth, float windowHeight);
 
-	GraphicsManager(std::vector<std::string> staticModelPaths, std::vector<std::string> animatedModelPaths, std::string skyboxModelPath, std::vector<std::string> skyboxTexturePaths, float windowWidth, float windowHeight);
-
-	void setup();
+	void setup(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths);
 	void loopUpdate();
 	void shutDown();
 };

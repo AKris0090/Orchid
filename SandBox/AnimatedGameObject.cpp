@@ -18,10 +18,10 @@ void AnimatedGameObject::updateJoints(AnimSceneNode* node, std::vector<glm::mat4
     {
         // Update the joint matrices
         glm::mat4              inverseTransform = glm::inverse(getNodeMatrix(node));
-        AnimatedGLTFObj::Skin  skin = renderTarget->skins_[node->skinIndex];
+        AnimatedGLTFObj::Skin  skin = renderTargets[0]->skins_[node->skinIndex];
         size_t                 numJoints = (uint32_t)skin.joints.size();
         std::vector<glm::mat4> jointMatrices(numJoints);
-        for (size_t i = renderTarget->globalSkinningMatrixOffset; i < renderTarget->globalSkinningMatrixOffset + numJoints; i++)
+        for (size_t i = renderTargets[0]->globalSkinningMatrixOffset; i < renderTargets[0]->globalSkinningMatrixOffset + numJoints; i++)
         {
             bindMatrices[i] = inverseTransform * (getNodeMatrix(skin.joints[i]) * skin.inverseBindMatrices[i]);
         }
@@ -33,7 +33,7 @@ void AnimatedGameObject::updateJoints(AnimSceneNode* node, std::vector<glm::mat4
     }
 }
 
-void AnimatedGameObject::getAnimatedNodeTransform(std::vector<AnimatedGameObject::secondaryTransform>* transforms, Animation* anim) {
+void AnimatedGameObject::getAnimatedNodeTransform(std::vector<AnimatedGLTFObj::secondaryTransform>* transforms, Animation* anim) {
     int count = 0;
 
     for (auto& channel : anim->channels)
@@ -95,24 +95,24 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
         previousAnimation->currentTime -= previousAnimation->end;
     }
 
-    getAnimatedNodeTransform(src, previousAnimation);
-    getAnimatedNodeTransform(dst, activeAnimation);
+    getAnimatedNodeTransform(renderTargets[0]->src, previousAnimation);
+    getAnimatedNodeTransform(renderTargets[0]->dst, activeAnimation);
 
     int i = 0;
 
     for (auto& channel : activeAnimation->channels) {
         switch (hash_str(channel.path)) {
         case STRINGENUM::TRANSLATION:
-            channel.node->translation = Time::weightLerp(src->at(i).position, dst->at(i).position, smoothAmount);
+            channel.node->translation = Time::weightLerp(renderTargets[0]->src->at(i).position, renderTargets[0]->dst->at(i).position, smoothAmount);
             break;
         case STRINGENUM::ROTATION:
-            channel.node->rotation.x = Time::weightLerp(src->at(i).rotation.x, dst->at(i).rotation.x, smoothAmount);
-            channel.node->rotation.y = Time::weightLerp(src->at(i).rotation.y, dst->at(i).rotation.y, smoothAmount);
-            channel.node->rotation.z = Time::weightLerp(src->at(i).rotation.z, dst->at(i).rotation.z, smoothAmount);
-            channel.node->rotation.w = Time::weightLerp(src->at(i).rotation.w, dst->at(i).rotation.w, smoothAmount);
+            channel.node->rotation.x = Time::weightLerp(renderTargets[0]->src->at(i).rotation.x, renderTargets[0]->dst->at(i).rotation.x, smoothAmount);
+            channel.node->rotation.y = Time::weightLerp(renderTargets[0]->src->at(i).rotation.y, renderTargets[0]->dst->at(i).rotation.y, smoothAmount);
+            channel.node->rotation.z = Time::weightLerp(renderTargets[0]->src->at(i).rotation.z, renderTargets[0]->dst->at(i).rotation.z, smoothAmount);
+            channel.node->rotation.w = Time::weightLerp(renderTargets[0]->src->at(i).rotation.w, renderTargets[0]->dst->at(i).rotation.w, smoothAmount);
             break;
         case STRINGENUM::SCALE:
-            channel.node->scale = Time::weightLerp(src->at(i).scale, dst->at(i).scale, smoothAmount);
+            channel.node->scale = Time::weightLerp(renderTargets[0]->src->at(i).scale, renderTargets[0]->dst->at(i).scale, smoothAmount);
             break;
         default:
             break;
@@ -132,7 +132,7 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
     if (smoothAmount <= 1.0f) {
         smoothAmount = (std::chrono::duration<float>(Time::getCurrentTime() - smoothStart) / smoothDuration);
         smoothFromCurrentPosition(bindMatrices, deltaTime);
-        for (auto& node : renderTarget->pParentNodes)
+        for (auto& node : renderTargets[0]->pParentNodes)
         {
             updateJoints(node, bindMatrices);
         }
@@ -145,26 +145,26 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
         animation->currentTime -= animation->end;
     }
 
-    getAnimatedNodeTransform(dst, animation);
+    getAnimatedNodeTransform(renderTargets[0]->dst, animation);
     int i = 0;
     for (auto& channel : animation->channels)
     {
         switch (hash_str(channel.path)) {
         case STRINGENUM::TRANSLATION:
-            channel.node->translation = dst->at(i).position;
+            channel.node->translation = renderTargets[0]->dst->at(i).position;
             break;
         case STRINGENUM::ROTATION:
-            channel.node->rotation = dst->at(i).rotation;
+            channel.node->rotation = renderTargets[0]->dst->at(i).rotation;
             break;
         case STRINGENUM::SCALE:
-            channel.node->scale = dst->at(i).scale;
+            channel.node->scale = renderTargets[0]->dst->at(i).scale;
             break;
         default:
             break;
         }
         i++;
     }
-    for (auto& node : renderTarget->pParentNodes)
+    for (auto& node : renderTargets[0]->pParentNodes)
     {
         updateJoints(node, bindMatrices);
     }

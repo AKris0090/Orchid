@@ -43,13 +43,13 @@ void AnimatedGLTFObj::updateJoints(AnimSceneNode* node)
 // LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
 void AnimatedGLTFObj::loadImages() {
     for (size_t i = 0; i < pInputModel_->images.size(); i++) {
-        TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
+        TextureHelper* tex = new TextureHelper(int(i), pDevHelper_);
         images_.push_back(tex);
     }
-    TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
-    TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
-    TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
-    TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
+    TextureHelper* dummyAO = new TextureHelper(-1, pDevHelper_);
+    TextureHelper* dummyMetallic = new TextureHelper(-2, pDevHelper_);
+    TextureHelper* dummyNormal = new TextureHelper(-3, pDevHelper_);
+    TextureHelper* dummyEmission = new TextureHelper(-4, pDevHelper_);
     images_.push_back(dummyNormal);
     images_.push_back(dummyMetallic);
     images_.push_back(dummyAO);
@@ -281,7 +281,7 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
 
             scNode->meshPrimitives.push_back(p);
 
-            vertices_.insert(vertices_.end(), p->stagingVertices_.begin(), p->stagingVertices_.end());
+            basePoseVertices_.insert(basePoseVertices_.end(), p->stagingVertices_.begin(), p->stagingVertices_.end());
             indices_.insert(indices_.end(), p->stagingIndices_.begin(), p->stagingIndices_.end());
 
             p->stagingIndices_.clear();
@@ -360,41 +360,40 @@ void AnimatedGLTFObj::loadSkins() {
 }
 
 void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
-    tinygltf::Model in;
+    pInputModel_ = new tinygltf::Model();
     tinygltf::TinyGLTF gltfContext;
     std::string error, warning;
-
-    pInputModel_ = &in;
 
     bool loadedFile = false;
     std::filesystem::path fPath = gltfPath_;
     if (fPath.extension() == ".glb") {
-        loadedFile = gltfContext.LoadBinaryFromFile(&(in), &error, &warning, gltfPath_);
+        loadedFile = gltfContext.LoadBinaryFromFile(pInputModel_, &error, &warning, gltfPath_);
     }
     else if (fPath.extension() == ".gltf") {
-        loadedFile = gltfContext.LoadASCIIFromFile(&(in), &error, &warning, gltfPath_);
+        loadedFile = gltfContext.LoadASCIIFromFile(pInputModel_, &error, &warning, gltfPath_);
     }
 
     if (loadedFile) {
-        if (in.images.size() != 0) {
+        if (pInputModel_->images.size() != 0) {
             loadImages();
             textureIndices_.resize(pInputModel_->images.size() + 3);
             loadTextures();
             loadMaterials();
 
             for (auto& image : images_) {
-                image->load();
+                image->load(*pInputModel_);
             }
         }
 
-        const tinygltf::Scene& scene = in.scenes[0];
+        const tinygltf::Scene& scene = pInputModel_->scenes[0];
         for (size_t i = 0; i < scene.nodes.size(); i++) {
-            const tinygltf::Node node = in.nodes[scene.nodes[i]];
-            loadNode(in, node, scene.nodes[i], nullptr, pParentNodes, globalVertexOffset, globalIndexOffset);
+            const tinygltf::Node node = pInputModel_->nodes[scene.nodes[i]];
+            loadNode(*pInputModel_, node, scene.nodes[i], nullptr, pParentNodes, globalVertexOffset, globalIndexOffset);
         }
 
         loadSkins();
-        walkAnim.loadAnimation(gltfPath_, pParentNodes);
+        // hacked in, change later
+        baseAnim.loadAnimation(gltfPath_, pParentNodes);
 
         for (auto& skin : skins_) {
             skin.finalJointMatrices = new std::vector<glm::mat4>();
@@ -409,6 +408,10 @@ void AnimatedGLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndex
     else {
         std::cout << "couldnt open gltf file" << std::endl;
     }
+    totalVertices_ = this->basePoseVertices_.size();
+    totalIndices_ = this->indices_.size();
+
+    delete pInputModel_;
 }
 
 void AnimatedGLTFObj::loadMaterials() {
@@ -558,13 +561,12 @@ void AnimatedGLTFObj::createDescriptors() {
     }
 }
 
-AnimatedGLTFObj::AnimatedGLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+void AnimatedGLTFObj::setup(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
     this->globalFirstVertex = globalVertexOffset;
     this->globalFirstIndex = globalIndexOffset;
     this->globalSkinningMatrixOffset = 0;
-    this->localModelTransform = glm::mat4(1.0f);
     this->pInputModel_ = nullptr;
     this->totalIndices_ = 0;
     this->totalVertices_ = 0;
@@ -598,6 +600,5 @@ AnimatedGLTFObj::~AnimatedGLTFObj() {
         delete skin.finalJointMatrices;
     }
 
-    delete pInputModel_;
     pDevHelper_ = nullptr;
 }

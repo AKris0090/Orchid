@@ -129,7 +129,7 @@ public:
 		vkUnmapMemory(pDevHelper->device_, stagingBufferMemory);
 
 		pDevHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
-		pDevHelper->copyBuffer(stagingBuffer, vertexBuffer_, bufferSize);
+		pDevHelper->copyBuffer(stagingBuffer, vertexBuffer_, bufferSize, 0, 0);
 
 		vkDestroyBuffer(pDevHelper->device_, stagingBuffer, nullptr);
 		vkFreeMemory(pDevHelper->device_, stagingBufferMemory, nullptr);

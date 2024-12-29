@@ -18,16 +18,16 @@ void GraphicsManager::setupImGUI() {
     ImGui_ImplSDL2_InitForVulkan(pWindow_);
 
     ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = pVkR_->instance_;
-    init_info.PhysicalDevice = pVkR_->GPU_;
-    init_info.Device = pVkR_->device_;
-    init_info.Queue = pVkR_->graphicsQueue_;
-    init_info.DescriptorPool = pVkR_->descriptorPool_;
+    init_info.Instance = vkR_.instance_;
+    init_info.PhysicalDevice = vkR_.GPU_;
+    init_info.Device = vkR_.device_;
+    init_info.Queue = vkR_.graphicsQueue_;
+    init_info.DescriptorPool = vkR_.descriptorPool_;
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;
     init_info.CheckVkResultFn = check_vk_result;
-    ImGui_ImplVulkan_Init(&init_info, pVkR_->toneMapPass_);
+    ImGui_ImplVulkan_Init(&init_info, vkR_.toneMapPass_);
 }
 
 void GraphicsManager::startSDL() {
@@ -39,16 +39,16 @@ void GraphicsManager::startSDL() {
     SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 
-void GraphicsManager::setup() {
+void GraphicsManager::setup(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths) {
     startSDL();
-    startVulkan();
+    startVulkan(staticModelPaths, animatedModelPaths, skyboxModelPath, skyboxTexturePaths);
     setupImGUI();
 }
 
 void GraphicsManager::shutDown() {
-    vkDeviceWaitIdle(pVkR_->device_);
+    vkDeviceWaitIdle(vkR_.device_);
 
-    //pVkR_->shutdown();
+    //vkR_.shutdown();
     
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -72,105 +72,143 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::Begin("Var Editor");
 
     //ImGui::DragFloat("playerAnimSpeed", &player->playerGameObject->smoothTime);
-    ImGui::DragFloat("bloom radius", &pVkR_->bloomRadius);
-    ImGui::DragFloat("bias0", &pVkR_->biases[0]);
-    ImGui::DragFloat("bias1", &pVkR_->biases[1]);
-    ImGui::DragFloat("bias2", &pVkR_->biases[2]);
-    ImGui::DragFloat("bias3", &pVkR_->biases[3]);
-    ImGui::DragFloat("specularNdotL", &pVkR_->specularCont);
-    ImGui::DragFloat("specularNdotV", &pVkR_->nDotVSpec);
-    ImGui::DragFloat("lightX", &pVkR_->pDirectionalLight_->transform.position.x);
-    ImGui::DragFloat("lightY", &pVkR_->pDirectionalLight_->transform.position.y);
-    ImGui::DragFloat("lightZ", &pVkR_->pDirectionalLight_->transform.position.z);
-    ImGui::DragFloat("zNear", &pVkR_->camera_.nearPlane);
-    ImGui::DragFloat("zFar", &pVkR_->camera_.farPlane);
-    ImGui::DragFloat("gamma", &pVkR_->gamma_);
-    ImGui::DragFloat("exposure", &pVkR_->exposure_);
-    ImGui::SliderFloat("X", &pVkR_->camera_.transform.position.x, -50.0f, 50.0f);
-    ImGui::SliderFloat("Y", &pVkR_->camera_.transform.position.y, -50.0f, 50.0f);
-    ImGui::SliderFloat("Z", &pVkR_->camera_.transform.position.z, -50.0f, 50.0f);
-    ImGui::ColorEdit3("clear color", (float*)&pVkR_->clearValue_.color);
-    ImGui::DragFloat("cascadeLambda", &pVkR_->pDirectionalLight_->cascadeSplitLambda, 0.01f);
-    ImGui::DragFloat("bias", &pVkR_->depthBias_);
-    ImGui::DragFloat("reflectionLOD", &pVkR_->maxReflectionLOD_);
-    ImGui::Checkbox("rotate", &pVkR_->rotate_);
+    ImGui::DragFloat("bloom radius", &vkR_.bloomRadius);
+    ImGui::DragFloat("bias0", &vkR_.biases[0]);
+    ImGui::DragFloat("bias1", &vkR_.biases[1]);
+    ImGui::DragFloat("bias2", &vkR_.biases[2]);
+    ImGui::DragFloat("bias3", &vkR_.biases[3]);
+    ImGui::DragFloat("specularNdotL", &vkR_.specularCont);
+    ImGui::DragFloat("specularNdotV", &vkR_.nDotVSpec);
+    ImGui::DragFloat("lightX", &vkR_.pDirectionalLight_->transform.position.x);
+    ImGui::DragFloat("lightY", &vkR_.pDirectionalLight_->transform.position.y);
+    ImGui::DragFloat("lightZ", &vkR_.pDirectionalLight_->transform.position.z);
+    ImGui::DragFloat("zNear", &vkR_.camera_.nearPlane);
+    ImGui::DragFloat("zFar", &vkR_.camera_.farPlane);
+    ImGui::DragFloat("gamma", &vkR_.gamma_);
+    ImGui::DragFloat("exposure", &vkR_.exposure_);
+    ImGui::SliderFloat("X", &vkR_.camera_.transform.position.x, -50.0f, 50.0f);
+    ImGui::SliderFloat("Y", &vkR_.camera_.transform.position.y, -50.0f, 50.0f);
+    ImGui::SliderFloat("Z", &vkR_.camera_.transform.position.z, -50.0f, 50.0f);
+    ImGui::ColorEdit3("clear color", (float*)&vkR_.clearValue_.color);
+    ImGui::DragFloat("cascadeLambda", &vkR_.pDirectionalLight_->cascadeSplitLambda, 0.01f);
+    ImGui::DragFloat("bias", &vkR_.depthBias_);
+    ImGui::DragFloat("reflectionLOD", &vkR_.maxReflectionLOD_);
+    ImGui::Checkbox("rotate", &vkR_.rotate_);
     ImGui::End();
 }
 
-using namespace std::literals;
+void GraphicsManager::updateModelMatrices() {
+    int modelMatrixID = 0;
+    for (auto& gameObject : staticGameObjects) {
+        for (int i = 0; i < gameObject->renderTargets.size(); i++) {
+            for (auto& mat : gameObject->renderTargets[i]->opaqueDraws) {
+                for (auto& dC : mat.second) {
+                    vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
+                    modelMatrixID++;
+                }
+            }
+        }
+    }
+    for (auto& gameObject : staticGameObjects) {
+        for (int i = 0; i < gameObject->renderTargets.size(); i++) {
+            for (auto& mat : gameObject->renderTargets[i]->transparentDraws) {
+                for (auto& dC : mat.second) {
+                    vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
+                    modelMatrixID++;
+                }
+            }
+        }
+    }
+    for (auto& animGameObject : animatedGameObjects) {
+        for (const auto& renderTarget : animGameObject->renderTargets) {
+            for (auto& mat : renderTarget->opaqueDraws) {
+                for (auto& dC : mat.second) {
+                    vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
+                    modelMatrixID++;
+                }
+            }
+            for (auto& mat : renderTarget->transparentDraws) {
+                for (auto& dC : mat.second) {
+                    vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
+                    modelMatrixID++;
+                }
+            }
+        }
+    }
+}
 
-void GraphicsManager::startVulkan() {
-    pVkR_->pDevHelper_ = new DeviceHelper();
+void GraphicsManager::startVulkan(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths) {
+    vkR_.pDevHelper_ = new DeviceHelper();
     std::cout << "created: device helper" << std::endl;
 
-    pVkR_->camera_.update();
+    vkR_.camera_.update();
 
-    pVkR_->instance_ = pVkR_->createVulkanInstance(pWindow_, "Vulkan Game Engine");
+    vkR_.instance_ = vkR_.createVulkanInstance(pWindow_, "Vulkan Game Engine");
     std::cout << "created: vulkan instance" << std::endl;
 
-    pVkR_->setupDebugMessenger(pVkR_->instance_, pVkR_->debugMessenger_);
+    vkR_.setupDebugMessenger(vkR_.instance_, vkR_.debugMessenger_);
 
-    pVkR_->createSurface(pWindow_);
+    vkR_.createSurface(pWindow_);
     std::cout << "created surface" << std::endl;
 
-    pVkR_->pickPhysicalDevice();
-    pVkR_->pDevHelper_->gpu_ = pVkR_->GPU_;
+    vkR_.pickPhysicalDevice();
+    vkR_.pDevHelper_->gpu_ = vkR_.GPU_;
     std::cout << "chose physical device" << std::endl;
 
-    pVkR_->createLogicalDevice();
-    pVkR_->pDevHelper_->device_ = pVkR_->device_;
-    pVkR_->pDevHelper_->graphicsQueue_ = pVkR_->graphicsQueue_;
+    vkR_.createLogicalDevice();
+    vkR_.pDevHelper_->device_ = vkR_.device_;
+    vkR_.pDevHelper_->graphicsQueue_ = vkR_.graphicsQueue_;
     std::cout << "created logical device" << std::endl;
 
-    pVkR_->createSWChain(pWindow_);
+    vkR_.createSWChain(pWindow_);
     std::cout << "chreated swap chain" << std::endl;
 
-    std::cout << "FRAMES IN FLIGHT: " << pVkR_->frames << std::endl;
+    std::cout << "FRAMES IN FLIGHT: " << vkR_.numFramesInFlight << std::endl;
 
-    pVkR_->createImageViews();
+    vkR_.createImageViews();
     std::cout << "created swap chain image views" << std::endl;
 
-    pVkR_->createRenderPass();
+    vkR_.createRenderPass();
     std::cout << "created render pass" << std::endl;
 
-    pVkR_->createCommandPool();
-    pVkR_->pDevHelper_->commandPool_ = pVkR_->commandPool_;
+    vkR_.createCommandPool();
+    vkR_.pDevHelper_->commandPool_ = vkR_.commandPool_;
     std::cout << "created command pool" << std::endl;
 
-    pVkR_->createColorResources();
+    vkR_.createColorResources();
     std::cout << "created color resources" << std::endl;
 
-    pVkR_->createDepthResources();
+    vkR_.createDepthResources();
     std::cout << "created depth resources" << std::endl;
 
-    pVkR_->createFrameBuffer();
+    vkR_.createFrameBuffer();
     std::cout << "created frame buffers" << std::endl;
 
-    pVkR_->createDescriptorPool();
-    pVkR_->pDevHelper_->descPool_ = pVkR_->descriptorPool_;
+    vkR_.createDescriptorPool();
+    vkR_.pDevHelper_->descPool_ = vkR_.descriptorPool_;
     std::cout << "created descriptor pool" << std::endl;
 
-    pVkR_->pDirectionalLight_->setup(pVkR_->pDevHelper_, &(pVkR_->graphicsQueue_), &(pVkR_->commandPool_), pVkR_->SWChainExtent_.width, pVkR_->SWChainExtent_.height);
+    vkR_.pDirectionalLight_->setup(vkR_.pDevHelper_, &(vkR_.graphicsQueue_), &(vkR_.commandPool_), vkR_.SWChainExtent_.width, vkR_.SWChainExtent_.height);
 
-    pVkR_->camera_.setProjectionMatrix();
-    pVkR_->pDirectionalLight_->genShadowMap(&(pVkR_->camera_), &(pVkR_->modelMatrixSetLayout_->layout), pVkR_->frames);
+    vkR_.camera_.setProjectionMatrix();
+    vkR_.pDirectionalLight_->genShadowMap(&(vkR_.camera_), &(vkR_.modelMatrixSetLayout_->layout), vkR_.numFramesInFlight);
 
     std::cout << std::endl << "generated Shadow Map" << std::endl;
 
-    pVkR_->createUniformBuffers();
+    vkR_.createUniformBuffers();
     std::cout << "created uniform buffers" << std::endl;
 
-    pVkR_->createDescriptorSetLayout();
+    vkR_.createDescriptorSetLayout();
     std::cout << "created desc set layout" << std::endl;
 
-    pVkR_->pDirectionalLight_->createPipeline(pVkR_->modelMatrixSetLayout_);
+    vkR_.pDirectionalLight_->createPipeline(vkR_.modelMatrixSetLayout_);
 
     std::cout << "loading skybox\n" << std::endl;
 
     uint32_t globalVertexOffset = 6;
     uint32_t globalIndexOffset = 6;
 
-    pVkR_->vertices_ = { Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
+    vkR_.vertices_ = { Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
                        Vertex(glm::vec2(-1.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
                        Vertex(glm::vec2(1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
                        Vertex(glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f)),
@@ -178,154 +216,138 @@ void GraphicsManager::startVulkan() {
                        Vertex(glm::vec2(1.0f, -1.0f), glm::vec2(1.0f, 0.0f))
     };
 
-    pVkR_->indices_ = { 0, 1, 2, 3, 4, 5 };
+    vkR_.indices_ = { 0, 1, 2, 3, 4, 5 };
 
-    pVkR_->pSkyBox_ = new Skybox(skyboxModelPath_, skyboxTexturePaths_, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
-    pVkR_->createSkyBoxPipeline();
+    vkR_.pSkyBox_ = new Skybox(skyboxModelPath, skyboxTexturePaths, vkR_.pDevHelper_, globalVertexOffset, globalIndexOffset);
+    vkR_.createSkyBoxPipeline();
 
-    for (int i = 0; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
-        pVkR_->vertices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->vertices_[i]);
+    for (int i = 0; i < vkR_.pSkyBox_->pSkyBoxModel_->totalVertices_; i++) {
+        vkR_.vertices_.push_back(vkR_.pSkyBox_->pSkyBoxModel_->vertices_[i]);
         globalVertexOffset++;
     }
 
-    for (int i = 0; i < pVkR_->pSkyBox_->pSkyBoxModel_->totalIndices_; i++) {
-        pVkR_->indices_.push_back(pVkR_->pSkyBox_->pSkyBoxModel_->indices_[i]);
+    for (int i = 0; i < vkR_.pSkyBox_->pSkyBoxModel_->totalIndices_; i++) {
+        vkR_.indices_.push_back(vkR_.pSkyBox_->pSkyBoxModel_->indices_[i]);
         globalIndexOffset++;
     }
 
     std::cout << "DONE loading skybox\n" << std::endl;
 
-    std::cout << std::endl << "loading: " << numModels_ << " models" << std::endl << std::endl;
+    vkR_.staticRenderTargets.resize(staticModelPaths.size());
+    vkR_.animatedRenderTargets.resize(animatedModelPaths.size());
 
-    for (std::string s : pStaticModelPaths_) {
-        GameObject* newGO = new GameObject();
-        GLTFObj* mod = new GLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
-        newGO->setGLTFObj(mod);
-        gameObjects.push_back(newGO);
+    for (int i = 0; i < staticModelPaths.size(); i++) {
+        std::string s = staticModelPaths[i];
+        vkR_.staticRenderTargets[i].setup(s, vkR_.pDevHelper_, globalVertexOffset, globalIndexOffset);
 
-        pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
-        pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+        vkR_.vertices_.insert(vkR_.vertices_.end(), vkR_.staticRenderTargets[i].vertices_.begin(), vkR_.staticRenderTargets[i].vertices_.end());
+        vkR_.indices_.insert(vkR_.indices_.end(), vkR_.staticRenderTargets[i].indices_.begin(), vkR_.staticRenderTargets[i].indices_.end());
 
-        pVkR_->vertices_.insert(pVkR_->vertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
-        pVkR_->indices_.insert(pVkR_->indices_.end(), mod->indices_.begin(), mod->indices_.end());
+        vkR_.staticRenderTargets[i].indices_.clear();
+        vkR_.staticRenderTargets[i].indices_.shrink_to_fit();
+        vkR_.staticRenderTargets[i].vertices_.clear();
+        vkR_.staticRenderTargets[i].vertices_.shrink_to_fit();
 
-        mod->indices_.clear();
-        mod->indices_.shrink_to_fit();
-        mod->vertices_.clear();
-        mod->vertices_.shrink_to_fit();
+        globalVertexOffset = vkR_.vertices_.size();
+        globalIndexOffset = vkR_.indices_.size();
 
-        globalVertexOffset = pVkR_->vertices_.size();
-        globalIndexOffset = pVkR_->indices_.size();
-
-        newGO->isOutline = false;
-
-        std::cout << "\nloaded model: " << s << ": " << mod->totalVertices_ << " vertices, " << mod->totalIndices_ << " indices\n" << std::endl;
+        std::cout << "\nloaded model: " << s << ": " << vkR_.staticRenderTargets[i].totalVertices_ << " vertices, " << vkR_.staticRenderTargets[i].totalIndices_ << " indices\n" << std::endl;
     }
 
     uint32_t globalSkinMatrixOffset = 0;
 
-    for (std::string s : pAnimatedModelPaths_) {
-        AnimatedGameObject* newAnimGO = new AnimatedGameObject(pVkR_->pDevHelper_);
-        AnimatedGLTFObj* mod = new AnimatedGLTFObj(s, pVkR_->pDevHelper_, globalVertexOffset, globalIndexOffset);
-        newAnimGO->setAnimatedGLTFObj(mod);
-        animatedObjects.push_back(newAnimGO);
+    for (int i = 0; i < animatedModelPaths.size(); i++) {
+        std::string s = animatedModelPaths[i];
+        vkR_.animatedRenderTargets[i].setup(s, vkR_.pDevHelper_, globalVertexOffset, globalIndexOffset);
 
-        pVkR_->numMats_ += static_cast<uint32_t>(mod->mats_.size());
-        pVkR_->numImages_ += static_cast<uint32_t>(mod->images_.size());
+        vkR_.vertices_.insert(vkR_.vertices_.end(), vkR_.animatedRenderTargets[i].basePoseVertices_.begin(), vkR_.animatedRenderTargets[i].basePoseVertices_.end());
+        vkR_.indices_.insert(vkR_.indices_.end(), vkR_.animatedRenderTargets[i].indices_.begin(), vkR_.animatedRenderTargets[i].indices_.end());
 
-        newAnimGO->basePoseVertices_.insert(newAnimGO->basePoseVertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
+        vkR_.animatedRenderTargets[i].globalSkinningMatrixOffset = globalSkinMatrixOffset;
 
-        pVkR_->vertices_.insert(pVkR_->vertices_.end(), mod->vertices_.begin(), mod->vertices_.end());
-        pVkR_->indices_.insert(pVkR_->indices_.end(), mod->indices_.begin(), mod->indices_.end());
-
-        mod->globalSkinningMatrixOffset = globalSkinMatrixOffset;
-
-        for (auto& skin : mod->skins_) {
+        for (auto& skin : vkR_.animatedRenderTargets[i].skins_) {
             for (glm::mat4& matrix : *(skin.finalJointMatrices)) {
-                pVkR_->inverseBindMatrices.push_back(matrix);
+                vkR_.inverseBindMatrices.push_back(matrix);
                 globalSkinMatrixOffset++;
-                newAnimGO->numInverseBindMatrices++;
+                vkR_.animatedRenderTargets[i].numInverseBindMatrices++;
             }
         }
 
-        newAnimGO->isOutline = true;
-        newAnimGO->smoothDuration = 150ms;
-        newAnimGO->smoothAmount = FLT_MAX;
-        newAnimGO->src = new std::vector<AnimatedGameObject::secondaryTransform>(newAnimGO->renderTarget->walkAnim.numChannels);
-        newAnimGO->dst = new std::vector<AnimatedGameObject::secondaryTransform>(newAnimGO->renderTarget->walkAnim.numChannels);
+        globalVertexOffset = vkR_.vertices_.size();
+        globalIndexOffset = vkR_.indices_.size();
 
-        globalVertexOffset = pVkR_->vertices_.size();
-        globalIndexOffset = pVkR_->indices_.size();
+        MeshHelper::createVertexBuffer(vkR_.pDevHelper_, vkR_.animatedRenderTargets[i].basePoseVertices_, vkR_.animatedRenderTargets[i].vertexBuffer_, vkR_.animatedRenderTargets[i].vertexBufferMemory_);
 
-        MeshHelper::createVertexBuffer(pVkR_->pDevHelper_, newAnimGO->basePoseVertices_, newAnimGO->vertexBuffer_, newAnimGO->vertexBufferMemory_);
+        vkR_.animatedRenderTargets[i].indices_.clear();
+        vkR_.animatedRenderTargets[i].indices_.shrink_to_fit();
+        vkR_.animatedRenderTargets[i].basePoseVertices_.clear();
+        vkR_.animatedRenderTargets[i].basePoseVertices_.shrink_to_fit();
 
-        std::cout << "\nloaded model: " << s << ": " << mod->totalVertices_ << " vertices, " << mod->totalIndices_ << " indices\n" << std::endl;
+        std::cout << "\nloaded model: " << s << ": " << vkR_.animatedRenderTargets[i].totalVertices_ << " vertices, " << vkR_.animatedRenderTargets[i].totalIndices_ << " indices\n" << std::endl;
     }
 
-    // link renderable objects to member game objects
-    pVkR_->gameObjects = &gameObjects;
-    pVkR_->animatedObjects = &animatedObjects;
+    vkR_.createVertexBuffer();
+    vkR_.createIndexBuffer();
 
-    pVkR_->createVertexBuffer();
-    pVkR_->createIndexBuffer();
+    vkR_.pDevHelper_->texDescSetLayout_ = vkR_.textureDescriptorSetLayout_->layout;
 
-    pVkR_->pDevHelper_->texDescSetLayout_ = pVkR_->textureDescriptorSetLayout_->layout;
-
-    pVkR_->createDescriptorSets();
+    vkR_.createDescriptorSets();
     std::cout << "created desc sets" << std::endl << std::endl;
 
-    pVkR_->brdfLut = new BRDFLut(pVkR_->pDevHelper_);
+    vkR_.brdfLut = new BRDFLut(vkR_.pDevHelper_);
     std::cout << "generated BRDFLUT" << std::endl;
 
-    pVkR_->irCube = new IrradianceCube(pVkR_->pDevHelper_, pVkR_->pSkyBox_, pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
+    vkR_.irCube = new IrradianceCube(vkR_.pDevHelper_, vkR_.pSkyBox_, vkR_.vertexBuffer_, vkR_.indexBuffer_);
     std::cout << std::endl << "generated IrradianceCube" << std::endl;
 
-    pVkR_->prefEMap = new PrefilteredEnvMap(pVkR_->pDevHelper_, pVkR_->pSkyBox_, pVkR_->vertexBuffer_, pVkR_->indexBuffer_);
+    vkR_.prefEMap = new PrefilteredEnvMap(vkR_.pDevHelper_, vkR_.pSkyBox_, vkR_.vertexBuffer_, vkR_.indexBuffer_);
 
     std::cout << std::endl << "generated Prefiltered Environment Map" << std::endl;
 
-    for (GameObject* gO : gameObjects) {
-        gO->renderTarget->createDescriptors();
+    for (GLTFObj& gO : vkR_.staticRenderTargets) {
+        gO.createDescriptors();
     }
 
-    for (AnimatedGameObject* gO : animatedObjects) {
-        gO->renderTarget->createDescriptors();
+    for (AnimatedGLTFObj& gO : vkR_.animatedRenderTargets) {
+        gO.createDescriptors();
     }
 
-    pVkR_->updateGeneratedImageDescriptorSets();
+    vkR_.updateGeneratedImageDescriptorSets();
     std::cout << "\ncreated descriptor sets" << std::endl;
 
-    pVkR_->createGraphicsPipeline();
+    vkR_.createGraphicsPipeline();
     std::cout << "created material graphics pipeline" << std::endl;
 
-    pVkR_->createDepthPipeline();
+    vkR_.createDepthPipeline();
     std::cout << "created depth pipeline" << std::endl;
 
-    pVkR_->createAlphaDepthPipeline();
+    vkR_.createAlphaDepthPipeline();
     std::cout << "created depth alpha pipeline" << std::endl;
 
-    pVkR_->createToonPipeline();
+    vkR_.createToonPipeline();
     std::cout << "created cartoon graphics pipeline" << std::endl;
 
-    pVkR_->createOutlinePipeline();
+    vkR_.createOutlinePipeline();
     std::cout << "created outline pipeline" << std::endl;
 
-    pVkR_->createToneMappingPipeline();
+    vkR_.createToneMappingPipeline();
     std::cout << "created tonemapping pipeline" << std::endl;
 
-    pVkR_->createCommandBuffers(pVkR_->frames);
+    vkR_.createCommandBuffers(vkR_.numFramesInFlight);
     std::cout << "created commaned buffers" << std::endl;
 
-    pVkR_->createSemaphores(pVkR_->frames);
+    vkR_.createSemaphores(vkR_.numFramesInFlight);
     std::cout << "created semaphores \n" << std::endl;
 
-    pVkR_->separateDrawCalls();
+    vkR_.separateDrawCalls();
+    std::cout << "separated draw calls \n" << std::endl;
 
-    pVkR_->setupCompute(pVkR_->frames);
+    vkR_.setupCompute(vkR_.numFramesInFlight);
+    std::cout << "setup compute \n" << std::endl;
 
-    pVkR_->bloomHelper = new BloomHelper(pVkR_->pDevHelper_);
+    vkR_.bloomHelper = new BloomHelper(vkR_.pDevHelper_);
         
-    pVkR_->bloomHelper->setupBloom(&(pVkR_->bloomResolveImage_), &(pVkR_->bloomResolveImageView_), VK_FORMAT_R8G8B8A8_SRGB, pVkR_->SWChainExtent_);
+    vkR_.bloomHelper->setupBloom(&(vkR_.bloomResolveImage_), &(vkR_.bloomResolveImageView_), VK_FORMAT_R8G8B8A8_SRGB, vkR_.SWChainExtent_);
     std::cout << "setup bloom" << std::endl;
 
     return;
@@ -334,28 +356,20 @@ void GraphicsManager::startVulkan() {
 void GraphicsManager::loopUpdate() {
     imGUIUpdate();
 
-    pVkR_->drawNewFrame(pWindow_, pVkR_->frames);
+    updateModelMatrices();
+    vkR_.drawNewFrame(pWindow_, vkR_.numFramesInFlight);
 
-    // IMGUI Rendering
     ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), pVkR_->commandBuffers_[pVkR_->currentFrame_]);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vkR_.commandBuffers_[vkR_.currentFrame_]);
 
-    pVkR_->postDrawEndCommandBuffer(pVkR_->commandBuffers_[pVkR_->currentFrame_], pWindow_, pVkR_->frames);
+    vkR_.postDrawEndCommandBuffer(vkR_.commandBuffers_[vkR_.currentFrame_], pWindow_, vkR_.numFramesInFlight);
 
     frameCount++;
 }
 
-GraphicsManager::GraphicsManager(std::vector<std::string> staticModelPaths, std::vector<std::string> animatedModelPaths, std::string skyboxModelPath, std::vector<std::string> skyboxTexturePaths, float windowWidth, float windowHeight) {
-    this->pStaticModelPaths_ = staticModelPaths;
-    this->pAnimatedModelPaths_ = animatedModelPaths;
-    this->skyboxTexturePaths_ = skyboxTexturePaths;
-    this->skyboxModelPath_ = skyboxModelPath;
-    this->numModels_ = staticModelPaths.size();
-    this->numAnimatedModels_ = animatedModelPaths.size();
-    this->numTextures_ = 0;
+GraphicsManager::GraphicsManager(float windowWidth, float windowHeight) {
     this->pRenderer_ = nullptr;
     this->pWindow_ = nullptr;
-    this->pVkR_ = nullptr;
     this->windowWidth = windowWidth;
     this->windowHeight = windowHeight;
     this->frameCount = 0;

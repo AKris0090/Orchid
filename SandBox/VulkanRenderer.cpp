@@ -3,8 +3,6 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-VulkanRenderer::VulkanRenderer() {}
-
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     this->camera_.setProjectionMatrix();
 
@@ -273,17 +271,17 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
     int skinCount = 0;
-    for (AnimatedGameObject* g : *animatedObjects) {
+    for (const AnimatedGLTFObj& g : animatedRenderTargets) {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeDescriptorSets_[skinCount][this->currentFrame_], 0, nullptr);
 
         const auto cs = ComputePushConstant{
-            .jointMatrixStart = g->renderTarget->globalSkinningMatrixOffset,
-            .numVertices = g->renderTarget->totalVertices_
+            .jointMatrixStart = g.globalSkinningMatrixOffset,
+            .numVertices = g.totalVertices_
         };
         vkCmdPushConstants(commandBuffer, computePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstant), &cs);
 
         static const auto workgroupSize = 256;
-        const auto groupSizeX = (uint32_t)std::ceil(g->renderTarget->totalVertices_ / (float)workgroupSize);
+        const auto groupSizeX = (uint32_t)std::ceil(g.totalVertices_ / (float)workgroupSize);
         vkCmdDispatch(commandBuffer, groupSizeX, 1, 1);
         skinCount++;
     }
@@ -788,7 +786,7 @@ void VulkanRenderer::createSWChain(SDL_Window* window) {
         numImages = swInfo.capabilities.maxImageCount;
     }
 
-    frames = numImages;
+    numFramesInFlight = numImages;
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo{};
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -1265,7 +1263,7 @@ void VulkanRenderer::createVertexBuffer() {
     vkUnmapMemory(device_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
-    pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize);
+    pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize, 0, 0);
 
     createQuadVertexBuffer();
 }
@@ -1283,7 +1281,7 @@ void VulkanRenderer::createIndexBuffer() {
     vkUnmapMemory(device_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer_, indexBufferMemory_);
-    pDevHelper_->copyBuffer(stagingBuffer, indexBuffer_, bufferSize);
+    pDevHelper_->copyBuffer(stagingBuffer, indexBuffer_, bufferSize, 0, 0);
 
     createQuadIndexBuffer();
 }
@@ -1309,7 +1307,7 @@ void VulkanRenderer::createQuadVertexBuffer() {
     vkUnmapMemory(device_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadVertexBuffer, screenQuadVertexBufferMemory);
-    pDevHelper_->copyBuffer(stagingBuffer, this->screenQuadVertexBuffer, bufferSize);
+    pDevHelper_->copyBuffer(stagingBuffer, this->screenQuadVertexBuffer, bufferSize, 0, 0);
 }
 
 void VulkanRenderer::createQuadIndexBuffer() {
@@ -1329,7 +1327,7 @@ void VulkanRenderer::createQuadIndexBuffer() {
     vkUnmapMemory(device_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadIndexBuffer, screenQuadIndexBufferMemory);
-    pDevHelper_->copyBuffer(stagingBuffer, screenQuadIndexBuffer, bufferSize);
+    pDevHelper_->copyBuffer(stagingBuffer, screenQuadIndexBuffer, bufferSize, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1362,15 +1360,15 @@ void VulkanRenderer::createBoundingBoxes() {
     }
 }
 
-void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
+void VulkanRenderer::sortDraw(GLTFObj& obj, GLTFObj::SceneNode* node) {
     for (auto& mesh : node->meshPrimitives) {
-        if (obj->mats_.size() > 0) {
-            Material* mat = &(obj->mats_[mesh->materialIndex]);
+        if (obj.mats_.size() > 0) {
+            Material* mat = &(obj.mats_[mesh->materialIndex]);
             if (mat->alphaMode == "OPAQUE") {
-                obj->opaqueDraws[mat].push_back(mesh);
+                obj.opaqueDraws[mat].push_back(mesh);
             }
             else {
-                obj->transparentDraws[mat].push_back(mesh);
+                obj.transparentDraws[mat].push_back(mesh);
             }
         }
     }
@@ -1379,14 +1377,14 @@ void VulkanRenderer::sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node) {
     }
 }
 
-void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node) {
+void VulkanRenderer::sortDraw(AnimatedGLTFObj& animObj, AnimSceneNode* node) {
     for (auto& mesh : node->meshPrimitives) {
-        Material* mat = &(animObj->mats_[mesh->materialIndex]);
+        Material* mat = &(animObj.mats_[mesh->materialIndex]);
         if (mat->alphaMode == "OPAQUE") {
-            animObj->opaqueDraws[mat].push_back(mesh);
+            animObj.opaqueDraws[mat].push_back(mesh);
         }
         else {
-            animObj->transparentDraws[mat].push_back(mesh);
+            animObj.transparentDraws[mat].push_back(mesh);
         }
     }
     for (auto& child : node->children) {
@@ -1395,23 +1393,22 @@ void VulkanRenderer::sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node) {
 }
 
 void VulkanRenderer::separateDrawCalls() {
-    for (GameObject* g : *gameObjects) {
-        GLTFObj* obj = g->renderTarget;
-        for (auto& node : obj->pParentNodes) {
+    for (GLTFObj& obj: staticRenderTargets) {
+        for (auto& node : obj.pParentNodes) {
             sortDraw(obj, node);
         }
     }
-    for (AnimatedGameObject* g : *animatedObjects) {
-        AnimatedGLTFObj* obj = g->renderTarget;
-        for (auto& node : obj->pParentNodes) {
+    for (AnimatedGLTFObj& obj : animatedRenderTargets) {
+        for (auto& node : obj.pParentNodes) {
             sortDraw(obj, node);
         }
     }
 }
 
-void VulkanRenderer::addToDrawCalls() {
+void VulkanRenderer::addToDrawCalls(std::vector<int> staticRTIndices, std::vector<int> animatedRTIndices) {
     int count = 2;
     int baseInstanceID = 0;
+    int numModelMatrices = 0;
 
     // screen quad
     VkDrawIndexedIndirectCommand quadIndirect{};
@@ -1432,38 +1429,40 @@ void VulkanRenderer::addToDrawCalls() {
 
     drawCommands.push_back(skyBoxIndirect);
 
-    for (auto& gameObject : *gameObjects) {
-        for (auto& mat : gameObject->renderTarget->opaqueDraws) {
+    for (const int& index : staticRTIndices) {
+        for (auto& mat : staticRenderTargets[index].opaqueDraws) {
             IndirectBatch indirect{};
             indirect.material = mat.first;
             indirect.first = count;
             indirect.count = 0;
             for (auto& dC : mat.second) {
-                modelMatrices.emplace_back(gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
                 dC->indirectInfo.firstInstance = baseInstanceID;
                 drawCommands.push_back(dC->indirectInfo);
                 indirect.count++;
                 count++;
                 baseInstanceID++;
+                numModelMatrices++;
             }
             drawBatches.push_back(indirect);
         }
     }
+
     transparentIndex = static_cast<int>(drawCommands.size());
     transparentBatchIndex = static_cast<int>(drawBatches.size());
-    for (auto& gameObject : *gameObjects) {
-        for (auto& mat : gameObject->renderTarget->transparentDraws) {
+
+    for (const int& index : staticRTIndices) {
+        for (auto& mat : staticRenderTargets[index].transparentDraws) {
             IndirectBatch indirect{};
             indirect.material = mat.first;
             indirect.first = count;
             indirect.count = 0;
             for (auto& dC : mat.second) {
-                modelMatrices.emplace_back(gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
                 dC->indirectInfo.firstInstance = baseInstanceID;
                 drawCommands.push_back(dC->indirectInfo);
                 indirect.count++;
                 count++;
                 baseInstanceID++;
+                numModelMatrices++;
             }
             drawBatches.push_back(indirect);
         }
@@ -1471,39 +1470,42 @@ void VulkanRenderer::addToDrawCalls() {
 
     animatedIndex = static_cast<int>(drawCommands.size());
     animatedBatchIndex = static_cast<int>(drawBatches.size());
-    for (auto& animGameObject : *animatedObjects) {
-        for (auto& mat : animGameObject->renderTarget->opaqueDraws) {
+    for (const int& index : animatedRTIndices) {
+        for (auto& mat : animatedRenderTargets[index].opaqueDraws) {
             IndirectBatch indirect{};
             indirect.material = mat.first;
             indirect.first = count;
             indirect.count = 0;
             for (auto& dC : mat.second) {
-                modelMatrices.emplace_back(animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
                 dC->indirectInfo.firstInstance = baseInstanceID;
                 drawCommands.push_back(dC->indirectInfo);
                 indirect.count++;
                 count++;
                 baseInstanceID++;
+                numModelMatrices++;
             }
             drawBatches.push_back(indirect);
         }
-        for (auto& mat : animGameObject->renderTarget->transparentDraws) {
+        for (auto& mat : animatedRenderTargets[index].transparentDraws) {
             IndirectBatch indirect{};
             indirect.material = mat.first;
             indirect.first = count;
             indirect.count = 0;
             for (auto& dC : mat.second) {
-                modelMatrices.emplace_back(animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix);
                 dC->indirectInfo.firstInstance = baseInstanceID;
                 drawCommands.push_back(dC->indirectInfo);
                 indirect.count++;
                 count++;
                 baseInstanceID++;
+                numModelMatrices++;
             }
             drawBatches.push_back(indirect);
         }
     }
 
+    for (int i = 0; i < numModelMatrices; i++) {
+        modelMatrices.emplace_back(glm::mat4(1.0f));
+    }
     createBoundingBoxes();
 }
 
@@ -1520,20 +1522,20 @@ void VulkanRenderer::createDrawCallBuffer() {
     vkUnmapMemory(device_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer_, drawCallBufferMemory_);
-    pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer_, bufferSize);
+    pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer_, bufferSize, 0, 0);
 }
 
-void VulkanRenderer::createModelMatrixBuffer(int maxFramesInFlight) {
-    modelMatrixBuffers.resize(maxFramesInFlight);
-    modelMatrixBufferMemorys.resize(maxFramesInFlight);
-    modelMatrixDescriptorSets_.resize(maxFramesInFlight);
-    modelMatrixStagingBuffers.resize(maxFramesInFlight);
-    mappedModelMatrixStagingBuffers.resize(maxFramesInFlight);
-    modelMatrixStagingBufferMemorys.resize(maxFramesInFlight);
+void VulkanRenderer::createModelMatrixBuffer() {
+    modelMatrixBuffers.resize(numFramesInFlight);
+    modelMatrixBufferMemorys.resize(numFramesInFlight);
+    modelMatrixDescriptorSets_.resize(numFramesInFlight);
+    modelMatrixStagingBuffers.resize(numFramesInFlight);
+    mappedModelMatrixStagingBuffers.resize(numFramesInFlight);
+    modelMatrixStagingBufferMemorys.resize(numFramesInFlight);
 
     VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
 
-    for (int i = 0; i < maxFramesInFlight; i++) {
+    for (int i = 0; i < numFramesInFlight; i++) {
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixStagingBuffers[i], modelMatrixStagingBufferMemorys[i]);
 
         vkMapMemory(device_, modelMatrixStagingBufferMemorys[i], 0, bufferSize, 0, &mappedModelMatrixStagingBuffers[i]);
@@ -2093,13 +2095,13 @@ void VulkanRenderer::updateIndividualDescriptorSet(Material& m) {
 }
 
 void VulkanRenderer::updateGeneratedImageDescriptorSets() {
-    for (GameObject* gO : *gameObjects) {
-        for (Material& m : gO->renderTarget->mats_) {
+    for (GLTFObj& gO : staticRenderTargets) {
+        for (Material& m : gO.mats_) {
             updateIndividualDescriptorSet(m);
         }
     }
-    for (AnimatedGameObject* aGO : *animatedObjects) {
-        for (Material& m : aGO->renderTarget->mats_) {
+    for (AnimatedGLTFObj& aGO : animatedRenderTargets) {
+        for (Material& m : aGO.mats_) {
             updateIndividualDescriptorSet(m);
         }
     }
@@ -2235,38 +2237,6 @@ void VulkanRenderer::updateBindMatrices() {
 }
 
 void VulkanRenderer::updateModelMatrices() {
-    int modelMatrixID = 0;
-    for (auto& gameObject : *gameObjects) {
-        for (auto& mat : gameObject->renderTarget->opaqueDraws) {
-            for (auto& dC : mat.second) {
-                modelMatrices[modelMatrixID] = gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
-                modelMatrixID++;
-            }
-        }
-    }
-    for (auto& gameObject : *gameObjects) {
-        for (auto& mat : gameObject->renderTarget->transparentDraws) {
-            for (auto& dC : mat.second) {
-                modelMatrices[modelMatrixID] = gameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
-                modelMatrixID++;
-            }
-        }
-    }
-    for (auto& animGameObject : *animatedObjects) {
-        for (auto& mat : animGameObject->renderTarget->opaqueDraws) {
-            for (auto& dC : mat.second) {
-                modelMatrices[modelMatrixID] = animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
-                modelMatrixID++;
-            }
-        }
-        for (auto& mat : animGameObject->renderTarget->transparentDraws) {
-            for (auto& dC : mat.second) {
-                modelMatrices[modelMatrixID] = animGameObject->renderTarget->localModelTransform * dC->worldTransformMatrix;
-                modelMatrixID++;
-            }
-        }
-    }
-
     VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
     memcpy(mappedModelMatrixStagingBuffers[currentFrame_], modelMatrices.data(), (size_t)bufferSize);
 
@@ -2330,9 +2300,9 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
         std::_Xruntime_error("Failed to create brdfLUT pipeline layout!");
     }
 
-    computeDescriptorSets_.resize(animatedObjects->size());
+    computeDescriptorSets_.resize(animatedRenderTargets.size());
 
-    for (int j = 0; j < animatedObjects->size(); j++) {
+    for (int j = 0; j < animatedRenderTargets.size(); j++) {
         computeDescriptorSets_[j].resize(framesInFlight);
         for (int i = 0; i < framesInFlight; i++) {
             VkDescriptorSetAllocateInfo allocateInfo{};
@@ -2345,8 +2315,8 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 
             VkDescriptorBufferInfo skinMatrixDescriptorBufferInfo{};
             skinMatrixDescriptorBufferInfo.buffer = skinBindMatricsBuffers[i];
-            skinMatrixDescriptorBufferInfo.offset = (sizeof(glm::mat4) * (*animatedObjects)[j]->renderTarget->globalSkinningMatrixOffset);
-            skinMatrixDescriptorBufferInfo.range = (sizeof(glm::mat4) * (*animatedObjects)[j]->numInverseBindMatrices);
+            skinMatrixDescriptorBufferInfo.offset = (sizeof(glm::mat4) * animatedRenderTargets[j].globalSkinningMatrixOffset);
+            skinMatrixDescriptorBufferInfo.range = (sizeof(glm::mat4) * animatedRenderTargets[j].numInverseBindMatrices);
 
             VkWriteDescriptorSet skinMatrixWriteSet{};
             skinMatrixWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2358,9 +2328,9 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
             skinMatrixWriteSet.pBufferInfo = &skinMatrixDescriptorBufferInfo;
 
             VkDescriptorBufferInfo vertexDescriptorBufferInfo{};
-            vertexDescriptorBufferInfo.buffer = (*animatedObjects)[j]->vertexBuffer_;
+            vertexDescriptorBufferInfo.buffer = animatedRenderTargets[j].vertexBuffer_;
             vertexDescriptorBufferInfo.offset = 0;
-            vertexDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[j]->renderTarget->totalVertices_);
+            vertexDescriptorBufferInfo.range = (sizeof(Vertex) * animatedRenderTargets[j].totalVertices_);
 
             VkWriteDescriptorSet vertexInputWriteSet{};
             vertexInputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2373,8 +2343,8 @@ void VulkanRenderer::setupCompute(int framesInFlight) {
 
             VkDescriptorBufferInfo vertexOutputDescriptorBufferInfo{};
             vertexOutputDescriptorBufferInfo.buffer = vertexBuffer_;
-            vertexOutputDescriptorBufferInfo.offset = (sizeof(Vertex) * (*animatedObjects)[j]->renderTarget->globalFirstVertex);
-            vertexOutputDescriptorBufferInfo.range = (sizeof(Vertex) * (*animatedObjects)[j]->renderTarget->totalVertices_);
+            vertexOutputDescriptorBufferInfo.offset = (sizeof(Vertex) * animatedRenderTargets[j].globalFirstVertex);
+            vertexOutputDescriptorBufferInfo.range = (sizeof(Vertex) * animatedRenderTargets[j].totalVertices_);
 
             VkWriteDescriptorSet vertexOutputWriteSet{};
             vertexOutputWriteSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2429,17 +2399,17 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
 
     for (int i = 0; i < framesInFlight; i++) {
         pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mainCameraFinalDrawCallBuffer_[i], mainCameraFinalDrawCallBufferMemory_[i]);
-        pDevHelper_->copyBuffer(drawCallBuffer_, mainCameraFinalDrawCallBuffer_[i], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
+        pDevHelper_->copyBuffer(drawCallBuffer_, mainCameraFinalDrawCallBuffer_[i], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2), 0);
 
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, finalDrawCallBuffers_[i], finalDrawCallBufferMemorys_[i]);
-        pDevHelper_->copyBuffer(drawCallBuffer_, finalDrawCallBuffers_[i], bufferSize);
+        pDevHelper_->copyBuffer(drawCallBuffer_, finalDrawCallBuffers_[i], bufferSize, 0, 0);
 
         for (int j = 0; j < SHADOW_MAP_CASCADE_COUNT; j++) {
             pDevHelper_->createBuffer(altBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, cascadeCullingStagingBuffers_[i][j], cascadeCullingStagingBufferMemorys_[i][j]);
-            pDevHelper_->copyBuffer(drawCallBuffer_, cascadeCullingStagingBuffers_[i][j], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2));
+            pDevHelper_->copyBuffer(drawCallBuffer_, cascadeCullingStagingBuffers_[i][j], altBufferSize, (sizeof(VkDrawIndexedIndirectCommand) * 2), 0);
 
             pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, finalCascadeDrawCallBuffers_[i][j], finalCascadeDrawCallBufferMemorys_[i][j]);
-            pDevHelper_->copyBuffer(drawCallBuffer_, finalCascadeDrawCallBuffers_[i][j], bufferSize);
+            pDevHelper_->copyBuffer(drawCallBuffer_, finalCascadeDrawCallBuffers_[i][j], bufferSize, 0, 0);
         }
 
         VkBuffer stagingBuffer;
@@ -2452,7 +2422,7 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
         vkUnmapMemory(device_, stagingBufferMemory);
 
         pDevHelper_->createBuffer(bbSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bbBuffers[i], bbBufferMemorys[i]);
-        pDevHelper_->copyBuffer(stagingBuffer, bbBuffers[i], bbSize);
+        pDevHelper_->copyBuffer(stagingBuffer, bbBuffers[i], bbSize, 0, 0);
     }
 
     std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings(4);

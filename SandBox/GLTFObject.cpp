@@ -215,7 +215,7 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
             loadTextures();
             loadMaterials();
             for (auto& image : images_) {
-                image->load();
+                image->load(*pInputModel_);
             }
         }
 
@@ -229,6 +229,8 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
         std::cout << "couldnt open gltf file" << std::endl;
         std::cout << error.c_str() << std::endl;
     }
+    totalVertices_ = this->vertices_.size();
+    totalIndices_ = this->indices_.size();
 
     delete pInputModel_;
 }
@@ -236,13 +238,13 @@ void GLTFObj::loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset) 
 // LOAD FUNCTIONS TEMPLATED FROM GLTFLOADING EXAMPLE ON GITHUB BY SASCHA WILLEMS
 void GLTFObj::loadImages() {
     for (size_t i = 0; i < pInputModel_->images.size(); i++) {
-        TextureHelper* tex = new TextureHelper(*(pInputModel_), int(i), pDevHelper_);
+        TextureHelper* tex = new TextureHelper(int(i), pDevHelper_);
         images_.push_back(tex);
     }
-    TextureHelper* dummyAO = new TextureHelper(*(pInputModel_), -1, pDevHelper_);
-    TextureHelper* dummyMetallic = new TextureHelper(*(pInputModel_), -2, pDevHelper_);
-    TextureHelper* dummyNormal = new TextureHelper(*(pInputModel_), -3, pDevHelper_);
-    TextureHelper* dummyEmission = new TextureHelper(*(pInputModel_), -4, pDevHelper_);
+    TextureHelper* dummyAO = new TextureHelper(-1, pDevHelper_);
+    TextureHelper* dummyMetallic = new TextureHelper(-2, pDevHelper_);
+    TextureHelper* dummyNormal = new TextureHelper(-3, pDevHelper_);
+    TextureHelper* dummyEmission = new TextureHelper(-4, pDevHelper_);
     images_.push_back(dummyNormal);
     images_.push_back(dummyMetallic);
     images_.push_back(dummyAO);
@@ -408,11 +410,13 @@ void GLTFObj::createDescriptors() {
     }
 }
 
-GLTFObj::GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
+void GLTFObj::setup(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset) {
     gltfPath_ = gltfPath;
     pDevHelper_ = deviceHelper;
     this->globalFirstVertex = globalVertexOffset;
     this->globalFirstIndex = globalIndexOffset;
+    totalVertices_ = 0;
+    totalIndices_ = 0;
 
     loadGLTF(globalVertexOffset, globalIndexOffset);
 }
@@ -439,6 +443,5 @@ GLTFObj::~GLTFObj() {
         delete texture;
     }
 
-    delete pInputModel_;
     this->pDevHelper_ = nullptr;
 }

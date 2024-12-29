@@ -60,7 +60,7 @@ void PhysicsManager::addCubeToGameObject(GameObject* gameObject, physx::PxVec3 g
 	cubeShape->release();
 }
 
-void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3& scale) {
+void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 globalTransform, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3 scale) {
 	physx::PxShapeFlags shapeFlags(physx::PxShapeFlag::eVISUALIZATION | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eSIMULATION_SHAPE);
 
 	std::vector<physx::PxShape*> shapes = createPhysicsFromMesh(gameObject, vertices, indices, pMaterial, scale);
@@ -75,9 +75,9 @@ void PhysicsManager::addShapeToGameObject(GameObject* gameObject, physx::PxVec3 
 
 void PhysicsManager::recursiveAddToList(GameObject* g, std::vector<physx::PxVec3>& pxVertices, std::vector<uint32_t>& pxIndices, GLTFObj::SceneNode* node, std::vector<Vertex>& vertices) {
 	for (auto& mesh : node->meshPrimitives) {
-		for (int i = g->renderTarget->globalFirstVertex; i < g->renderTarget->globalFirstVertex + g->renderTarget->totalVertices_; i++) {
+		for (int i = g->renderTargets[0]->globalFirstVertex; i < g->renderTargets[0]->globalFirstVertex + g->renderTargets[0]->totalVertices_; i++) {
 			pxVertices.push_back(physx::PxVec3(vertices.at(i).pos.x, vertices.at(i).pos.y, vertices.at(i).pos.z));
-			pxIndices.push_back(i - g->renderTarget->globalFirstVertex);
+			pxIndices.push_back(i - g->renderTargets[0]->globalFirstVertex);
 		}
 	}
 
@@ -89,14 +89,14 @@ void PhysicsManager::recursiveAddToList(GameObject* g, std::vector<physx::PxVec3
 std::vector<physx::PxShape*> PhysicsManager::createPhysicsFromMesh(GameObject* g, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, physx::PxMaterial* material, glm::vec3& scale) {
 	std::vector<physx::PxShape*> shapes;
 
-	for (auto& drawCall : g->renderTarget->opaqueDraws) {
+	for (auto& drawCall : g->renderTargets[0]->opaqueDraws) {
 		for (auto& dC : drawCall.second) {
 			std::vector<physx::PxVec3> pxVertices;
 			std::vector<uint32_t> pxIndices;
 			int count = 0;
 			for (int i = dC->indirectInfo.firstIndex; i < dC->indirectInfo.firstIndex + dC->indirectInfo.indexCount; i++) {
-				glm::mat4 trueModel = g->renderTarget->localModelTransform * dC->worldTransformMatrix;
-				Vertex vert = vertices.at(indices.at(i) + g->renderTarget->globalFirstVertex);
+				glm::mat4 trueModel = g->renderTargetTransforms[0]->to_matrix() * dC->worldTransformMatrix;
+				Vertex vert = vertices.at(indices.at(i) + g->renderTargets[0]->globalFirstVertex);
 				glm::vec4 p = glm::vec4(vert.pos.x, vert.pos.y, vert.pos.z, 1.0f) * trueModel;
 				pxVertices.push_back(physx::PxVec3(p.x, p.y, p.z));
 				pxIndices.push_back(count);
@@ -152,7 +152,7 @@ std::vector<physx::PxShape*> PhysicsManager::createPhysicsFromMesh(GameObject* g
 }
 
 
-void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vector<GameObject*> gameObjects, std::vector<AnimatedGameObject*> animatedGameObjects, PlayerObject* player, FPSCam* cam, float deltaTime) {
+void PhysicsManager::loopUpdate(std::vector<GameObject*>& gameObjects, std::vector<AnimatedGameObject*>& animatedGameObjects, float deltaTime) {
 	if (deltaTime > 0) {
 		pScene->simulate(deltaTime);
 
@@ -161,23 +161,36 @@ void PhysicsManager::loopUpdate(AnimatedGameObject* playerAnimObject, std::vecto
 
 	for (GameObject* g : gameObjects) {
 		if (g->isDynamic && g->physicsActor != nullptr) {
-			glm::mat4 transform = DeviceHelper::toGLMMat4(g->physicsActor->getGlobalPose());
-			g->setTransform(transform * g->transform.to_matrix());
+			physx::PxTransform newTransform = g->physicsActor->getGlobalPose();
+			g->renderTargetTransforms[0]->position = DeviceHelper::PxVec3toGlmVec3(newTransform.p);
+			glm::quat newRotation = DeviceHelper::PxQuattoGlmQuat(newTransform.q);
+			g->renderTargetTransforms[0]->rotation = glm::eulerAngles(newRotation);
 		}
 	}
 	for (AnimatedGameObject* g : animatedGameObjects) {
-		if (g->isDynamic && g->physicsActor != nullptr && !g->isPlayerObj) {
-			glm::mat4 transform = DeviceHelper::toGLMMat4(g->physicsActor->getGlobalPose());
-			g->setTransform(transform * g->transform.to_matrix());
+		if (g->isDynamic && g->physicsActor != nullptr) {
+			physx::PxTransform newTransform = g->physicsActor->getGlobalPose();
+			g->transform.position = DeviceHelper::PxVec3toGlmVec3(newTransform.p);
+			glm::quat newRotation = DeviceHelper::PxQuattoGlmQuat(newTransform.q);
+			g->transform.rotation = glm::eulerAngles(newRotation);
 		}
 	}
 }
 
 void PhysicsManager::shutDown() {
-	pDispatcher->release();
-	pPVirtDebug->release();
-	pMaterial->release();
-	pScene->release();
-	pPhysics_->release();
-	pFoundation_->release();
+	if (pPVirtDebug) {
+		pPVirtDebug->release();
+	}
+	if (pMaterial) {
+		pMaterial->release();
+	}
+	if (pScene) {
+		pScene->release();
+	}
+	if (pPhysics_) {
+		pPhysics_->release();
+	}
+	if (pFoundation_) {
+		pFoundation_->release();
+	}
 }

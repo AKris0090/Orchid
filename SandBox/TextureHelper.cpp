@@ -33,15 +33,15 @@ void TextureHelper::copyBufferToImage(VkCommandBuffer& cmdBuff, VkBuffer& buffer
     vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-void TextureHelper::createTextureImages() {
+void TextureHelper::createTextureImages(tinygltf::Model& inputModel) {
     unsigned char* buff = nullptr;
     VkDeviceSize buffSize = 0;
     bool deleteBuff = false;
     int texWidth, texHeight, texChannels;
-    if (pInputModel_->images.size() == 0) {
+    if (inputModel.images.size() == 0) {
         return;
     }
-    tinygltf::Image& curImage = pInputModel_->images[0];
+    tinygltf::Image& curImage = inputModel.images[0];
     VkDeviceSize imageSize;
     bool dummy = false;
     stbi_uc* pixels = nullptr;
@@ -91,7 +91,7 @@ void TextureHelper::createTextureImages() {
         dummy = true;
         break;
     default:
-        curImage = pInputModel_->images[index_];
+        curImage = inputModel.images[index_];
 
         if (curImage.component == 3) {
             buffSize = static_cast<VkDeviceSize>(curImage.width) * curImage.height * 4;
@@ -300,15 +300,14 @@ void TextureHelper::createTextureImageSampler() {
     }
 }
 
-void TextureHelper::load() {
-    createTextureImages();
+void TextureHelper::load(tinygltf::Model& mod) {
+    createTextureImages(mod);
     createTextureImageView();
     createTextureImageSampler();
 }
 
-TextureHelper::TextureHelper(tinygltf::Model& mod, int32_t textureIndex, DeviceHelper* pD) {
+TextureHelper::TextureHelper(int32_t textureIndex, DeviceHelper* pD) {
     this->pDevHelper_ = pD;
-    this->pInputModel_ = &mod;
     this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
     this->texPath_ = "";
     this->index_ = textureIndex;
@@ -321,7 +320,6 @@ TextureHelper::TextureHelper(tinygltf::Model& mod, int32_t textureIndex, DeviceH
 
 TextureHelper::TextureHelper(std::string texPath, DeviceHelper* pD) {
     this->pDevHelper_ = pD;
-    this->pInputModel_ = nullptr;
     this->mipLevels_ = VK_SAMPLE_COUNT_1_BIT;
     this->texPath_ = texPath;
     this->index_ = INT_MIN;
@@ -336,6 +334,5 @@ TextureHelper::~TextureHelper() {
     vkDestroyImage(pDevHelper_->device_, this->textureImage_, nullptr);
     vkDestroyImageView(pDevHelper_->device_, this->textureImageView_, nullptr);
     vkDestroySampler(pDevHelper_->device_, this->textureSampler_, nullptr);
-    delete pInputModel_;
     this->pDevHelper_ = nullptr;
 }

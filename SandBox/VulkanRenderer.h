@@ -137,8 +137,7 @@ private:
 
 public:
 	int numModels_;
-	int frames;
-	int numTextures_;
+	int numFramesInFlight;
 	bool rotate_;
 	bool frBuffResized_;
 	float depthBias_;
@@ -151,7 +150,8 @@ public:
 	std::vector<float> biases;
 	DirectionalLight* pDirectionalLight_;
 	FPSCam camera_;
-
+	std::vector<GLTFObj> staticRenderTargets = {};
+	std::vector<AnimatedGLTFObj> animatedRenderTargets = {};
 	VkExtent2D SWChainExtent_;
 
 	VkBuffer vertexBuffer_;
@@ -205,9 +205,6 @@ public:
 	std::vector<VkBuffer> bbBuffers;
 	std::vector<VkDeviceMemory> bbBufferMemorys;
 
-	std::vector<GameObject*>* gameObjects;
-	std::vector<AnimatedGameObject*>* animatedObjects;
-
 	struct ComputePushConstant {
 		uint32_t jointMatrixStart;
 		uint32_t numVertices;
@@ -222,8 +219,6 @@ public:
 	VkPhysicalDevice GPU_ = VK_NULL_HANDLE;
 	VkDevice device_;
 	size_t currentFrame_ = 0;
-	uint32_t numMats_;
-	uint32_t numImages_;
 	VkInstance instance_;
 	VkDebugUtilsMessengerEXT debugMessenger_;
 	VulkanPipelineBuilder* opaquePipeline_;
@@ -288,7 +283,6 @@ public:
 
 	float capHeight;
 
-	VulkanRenderer();
 	VkInstance createVulkanInstance(SDL_Window* window, const char* appName);
 	bool checkValLayerSupport();
 	void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger);
@@ -322,11 +316,11 @@ public:
 	void freeEverything(int framesInFlight);
 	void separateDrawCalls();
 	void updateModelMatrices();
-	void addToDrawCalls();
+	void addToDrawCalls(std::vector<int> staticRTIndices, std::vector<int> animatedRTIndices);
 	void createDrawCallBuffer();
-	void createModelMatrixBuffer(int maxFramesInFlight);
-	void sortDraw(GLTFObj* obj, GLTFObj::SceneNode* node);
-	void sortDraw(AnimatedGLTFObj* animObj, AnimSceneNode* node);
+	void createModelMatrixBuffer();
+	void sortDraw(GLTFObj& obj, GLTFObj::SceneNode* node);
+	void sortDraw(AnimatedGLTFObj& animObj, AnimSceneNode* node);
 	void setupCompute(int framesInFlight);
 	void createBoundingBoxes();
 	void createVertexBuffer();

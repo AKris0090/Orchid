@@ -18,7 +18,6 @@ public:
 	uint32_t globalFirstIndex;
 	uint32_t totalIndices_;
 	uint32_t totalVertices_;
-	glm::mat4 localModelTransform;
 	bool isSkyBox_ = false;
 
 	std::unordered_map<Material*, std::vector<MeshHelper*>> opaqueDraws;
@@ -33,7 +32,8 @@ public:
 
 	void createDescriptors();
 
-	GLTFObj(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
+	GLTFObj() {};
+	void setup(std::string gltfPath, DeviceHelper* deviceHelper, uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 	~GLTFObj();
 
 private:
@@ -48,4 +48,5 @@ private:
 	void loadGLTF(uint32_t globalVertexOffset, uint32_t globalIndexOffset);
 
 	void recursiveDeleteNode(SceneNode* node);
-};
+	void loopUpdate(glm::mat4 gameObjectTransformMatrix);
+};;

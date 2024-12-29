@@ -1,35 +1,36 @@
 #include "PlayerObject.h"
 
-PlayerObject::PlayerObject(physx::PxMaterial* material, physx::PxScene* pScene) {
+void PlayerObject::setup(physx::PxMaterial* material, physx::PxScene* pScene, FPSCam* cam) {
 	this->pScene_ = pScene;
 	this->pMaterial_ = material;
 	this->currentState = PLAYERSTATE::IDLE;
 	this->turnSpeed = 10.0f;
 	this->setupPhysicsController();
+	this->camera = cam;
 }
 
 void PlayerObject::transitionState(PLAYERSTATE newState) {
 	previousState = currentState;
-	playerGameObject->previousAnimation = playerGameObject->activeAnimation;
+	previousAnimation = activeAnimation;
 	switch(newState) {
 	case PLAYERSTATE::IDLE:
 		currentState = PLAYERSTATE::IDLE;
-		playerGameObject->activeAnimation = &(playerGameObject->renderTarget->idleAnim);
+		activeAnimation = &(idleAnim);
 		break;
 	case PLAYERSTATE::WALKING:
 		currentState = PLAYERSTATE::WALKING;
 		currentSpeed = playerWalkSpeed;
-		playerGameObject->activeAnimation = &(playerGameObject->renderTarget->walkAnim);
+		activeAnimation = &(walkAnim);
 		break;
 	case PLAYERSTATE::RUNNING:
 		currentState = PLAYERSTATE::RUNNING;
 		currentSpeed = playerRunSpeed;
-		playerGameObject->activeAnimation = &(playerGameObject->renderTarget->runAnim);
+		activeAnimation = &(runAnim);
 		break;
 	default:
 		break;
 	}
-	playerGameObject->needsSmooth = true;
+	needsSmooth = true;
 }
 
 void PlayerObject::setupPhysicsController() {
@@ -48,7 +49,7 @@ void PlayerObject::setupPhysicsController() {
 	characterController->getActor()->getShapes(&shape, 1);
 }
 
-void PlayerObject::loopUpdate(FPSCam* camera) {
+void PlayerObject::scriptUpdate() {
 	if (camera->isAttatched) {
 		glm::vec3 localDisplacement = glm::vec3(0.0f);
 
@@ -81,13 +82,13 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 			}
 			localDisplacement = glm::normalize(localDisplacement) * currentSpeed;
 			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
-			if (theta - playerGameObject->transform.rotation.y > PI) {
+			if (theta - transform.rotation.y > PI) {
 				theta -= 2.0f * PI;
 			}
 			else {
 				theta += 2.0f * PI;
 			}
-			playerGameObject->transform.rotation.y = Time::lerp(playerGameObject->transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
+			transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
 		}
 		else {
 			if (currentState != PLAYERSTATE::IDLE) {
@@ -101,8 +102,7 @@ void PlayerObject::loopUpdate(FPSCam* camera) {
 		physx::PxControllerFilters data;
 		data.mFilterData = &filterData;
 
-		characterController->move(physx::PxVec3(localDisplacement.x, -playerGameObject->transform.position.y, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
-		playerGameObject->transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
-		playerGameObject->loopUpdate();
+		characterController->move(physx::PxVec3(localDisplacement.x, -transform.position.y, localDisplacement.z), 0.001f, Time::getDeltaTime(), data);
+		transform.position = PxVec3toGlmVec3(characterController->getFootPosition());
 	}
 }

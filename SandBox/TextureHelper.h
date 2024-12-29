@@ -13,9 +13,8 @@ private:
     VkImage textureImage_;
     VkDeviceMemory textureImageMemory_;
     DeviceHelper* pDevHelper_;
-    tinygltf::Model* pInputModel_;
 
-    void createTextureImages();
+    void createTextureImages(tinygltf::Model& mod);
     void createTextureImageView(VkFormat f = VK_FORMAT_R8G8B8A8_SRGB);
     void createTextureImageSampler();
 
@@ -28,9 +27,9 @@ public:
 
     static void generateMipmaps(VkCommandBuffer& commandBuffer, VkImage& image, DeviceHelper* pD, int arrayLayers, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
     static void copyBufferToImage(VkCommandBuffer& cmdBuff, VkBuffer& buffer, VkImage& image, VkImageLayout finalLayout, DeviceHelper* pD, int layerCount, uint32_t width, uint32_t height);
-    void load();
+    void load(tinygltf::Model& mod);
 
-    TextureHelper(tinygltf::Model& mod, int32_t textureIndex, DeviceHelper* pD);
+    TextureHelper(int32_t textureIndex, DeviceHelper* pD);
     TextureHelper(std::string texPath, DeviceHelper* pD);
     ~TextureHelper();
 };
