@@ -21,9 +21,7 @@ const std::vector<const char*> deviceExts = {
 
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
-
 	std::optional<uint32_t> presentFamily;
-	
 	std::optional<uint32_t> computeFamily;
 
 	bool isComplete() const { return (graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value()); }
@@ -74,9 +72,7 @@ private:
 
 	uint32_t imageIndex_;
 	bool rendered = false;
-	int animatedIndex;
 	int animatedBatchIndex;
-	int transparentIndex;
 	int transparentBatchIndex;
 	VkSurfaceKHR surface_;
 
@@ -147,6 +143,8 @@ public:
 	float bloomRadius;
 	float specularCont;
 	float nDotVSpec;
+	int animatedIndex;
+	int transparentIndex;
 	std::vector<float> biases;
 	DirectionalLight* pDirectionalLight_;
 	FPSCam camera_;

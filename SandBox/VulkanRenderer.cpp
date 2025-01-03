@@ -1470,6 +1470,7 @@ void VulkanRenderer::addToDrawCalls(std::vector<int> staticRTIndices, std::vecto
 
     animatedIndex = static_cast<int>(drawCommands.size());
     animatedBatchIndex = static_cast<int>(drawBatches.size());
+
     for (const int& index : animatedRTIndices) {
         for (auto& mat : animatedRenderTargets[index].opaqueDraws) {
             IndirectBatch indirect{};

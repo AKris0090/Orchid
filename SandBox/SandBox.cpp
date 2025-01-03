@@ -20,6 +20,7 @@
 std::vector<std::string> staticModelPaths = {
     "./dmgHel/DamagedHelmet.gltf",
     "./trainStation/station.gltf",
+    //"./trainStation/untitled.glb",
     "./train/Train-4.glb",
     "./train/leftDoors.glb",
     "./train/rightDoors.glb"
@@ -46,15 +47,18 @@ void Scene::setupScene() {
     GameObject* helmet = new GameObject();
     helmet->isDynamic = true;
     helmet->addRenderTarget(&graphicsManager.vkR_.staticRenderTargets[0]);
-    helmet->renderTargetTransforms[0]->position = glm::vec4(2.25f, 40.0f, 0.0f, 0.0f);
+    helmet->renderTargetTransforms[0]->position = glm::vec3(2.25f, 40.0f, 0.0f);
+    //helmet->renderTargetTransforms[0]->rotation = glm::vec3(0.0f, PI, 0.0f);
     physicsManager.addCubeToGameObject(helmet, physx::PxVec3(helmet->renderTargetTransforms[0]->position.x, helmet->renderTargetTransforms[0]->position.y, helmet->renderTargetTransforms[0]->position.z), 0.85f);
     this->graphicsManager.staticGameObjects.push_back(helmet);
 
     std::cout << "generated helmet physics" << std::endl;
 
     GameObject* station = new GameObject();
+    station->isDynamic = false;
     station->addRenderTarget(&graphicsManager.vkR_.staticRenderTargets[1]);
     station->renderTargetTransforms[0]->scale = glm::vec3(0.01f);
+    //station->renderTargetTransforms[0]->scale = glm::vec3(1.0f);
     physicsManager.addShapeToGameObject(station, physx::PxVec3(0, 0, 0), graphicsManager.vkR_.vertices_, graphicsManager.vkR_.indices_, glm::vec3(1.0f));
     this->graphicsManager.staticGameObjects.push_back(station);
 
@@ -124,8 +128,6 @@ void Scene::setupScene() {
 int main(int argc, char* argv[]) {
     std::cout << std::filesystem::current_path() << std::endl;
 
-    Time::setInitialTime();
-
     Scene mainScene;
     mainScene.graphicsManager = GraphicsManager(WINDOW_WIDTH, WINDOW_HEIGHT);
     DirectionalLight light = DirectionalLight(glm::vec3(20.0f, 40.0f, 8.0f));
@@ -144,6 +146,7 @@ int main(int argc, char* argv[]) {
     mainScene.physicsManager.setup();
 
     mainScene.setupScene();
+    Time::setInitialTime();
 
     bool mousemode_ = true;
     bool running = true;

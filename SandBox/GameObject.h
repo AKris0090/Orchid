@@ -22,6 +22,8 @@ public:
 	};
 	std::vector<Transform*> renderTargetTransforms;
 	std::vector<GLTFObj*> renderTargets;
+	int numOpaqueDrawCalls;
+	int numTransparentDrawCalls;
 	bool isDynamic = false;
 
 	physx::PxRigidActor* physicsActor;
@@ -30,6 +32,16 @@ public:
 	void addRenderTarget(GLTFObj* newObj) { 
 		renderTargets.push_back(newObj); 
 		renderTargetTransforms.push_back(new Transform());
+		for (auto& mat : newObj->opaqueDraws) {
+			for (auto& dC : mat.second) {
+				numOpaqueDrawCalls++;
+			}
+		}
+		for (auto& mat : newObj->transparentDraws) {
+			for (auto& dC : mat.second) {
+				numTransparentDrawCalls++;
+			}
+		}
 	};
 	void loopUpdate() {
 		scriptUpdate();

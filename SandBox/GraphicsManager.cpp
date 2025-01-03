@@ -97,40 +97,52 @@ void GraphicsManager::imGUIUpdate() {
     ImGui::End();
 }
 
-void GraphicsManager::updateModelMatrices() {
+void GraphicsManager::updateModelMatrices(bool ignoreIsDynamic) {
     int modelMatrixID = 0;
     for (auto& gameObject : staticGameObjects) {
-        for (int i = 0; i < gameObject->renderTargets.size(); i++) {
-            for (auto& mat : gameObject->renderTargets[i]->opaqueDraws) {
-                for (auto& dC : mat.second) {
-                    vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
-                    modelMatrixID++;
+        if (gameObject->isDynamic || ignoreIsDynamic) {
+            for (int i = 0; i < gameObject->renderTargets.size(); i++) {
+                for (auto& mat : gameObject->renderTargets[i]->opaqueDraws) {
+                    for (auto& dC : mat.second) {
+                        vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
+                        modelMatrixID++;
+                    }
                 }
             }
         }
+        else {
+            modelMatrixID += gameObject->numOpaqueDrawCalls;
+        }
     }
     for (auto& gameObject : staticGameObjects) {
-        for (int i = 0; i < gameObject->renderTargets.size(); i++) {
-            for (auto& mat : gameObject->renderTargets[i]->transparentDraws) {
-                for (auto& dC : mat.second) {
-                    vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
-                    modelMatrixID++;
+        if (gameObject->isDynamic || ignoreIsDynamic) {
+            for (int i = 0; i < gameObject->renderTargets.size(); i++) {
+                for (auto& mat : gameObject->renderTargets[i]->transparentDraws) {
+                    for (auto& dC : mat.second) {
+                        vkR_.modelMatrices[modelMatrixID] = gameObject->renderTargetTransforms[i]->matrix * dC->worldTransformMatrix;
+                        modelMatrixID++;
+                    }
                 }
             }
+        }
+        else {
+            modelMatrixID += gameObject->numTransparentDrawCalls;
         }
     }
     for (auto& animGameObject : animatedGameObjects) {
-        for (const auto& renderTarget : animGameObject->renderTargets) {
-            for (auto& mat : renderTarget->opaqueDraws) {
-                for (auto& dC : mat.second) {
-                    vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
-                    modelMatrixID++;
+        if (animGameObject->isDynamic || ignoreIsDynamic) {
+            for (const auto& renderTarget : animGameObject->renderTargets) {
+                for (auto& mat : renderTarget->opaqueDraws) {
+                    for (auto& dC : mat.second) {
+                        vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
+                        modelMatrixID++;
+                    }
                 }
-            }
-            for (auto& mat : renderTarget->transparentDraws) {
-                for (auto& dC : mat.second) {
-                    vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
-                    modelMatrixID++;
+                for (auto& mat : renderTarget->transparentDraws) {
+                    for (auto& dC : mat.second) {
+                        vkR_.modelMatrices[modelMatrixID] = animGameObject->transform.matrix * dC->worldTransformMatrix;
+                        modelMatrixID++;
+                    }
                 }
             }
         }
@@ -356,7 +368,7 @@ void GraphicsManager::startVulkan(std::vector<std::string>& staticModelPaths, st
 void GraphicsManager::loopUpdate() {
     imGUIUpdate();
 
-    updateModelMatrices();
+    updateModelMatrices(this->frameCount == 0);
     vkR_.drawNewFrame(pWindow_, vkR_.numFramesInFlight);
 
     ImGui::Render();

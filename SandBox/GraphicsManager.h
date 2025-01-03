@@ -29,7 +29,7 @@ public:
 	std::vector<GameObject*> staticGameObjects;
 	std::vector<AnimatedGameObject*> animatedGameObjects;
 
-	void updateModelMatrices();
+	void updateModelMatrices(bool ignoreDynamic);
 
 	GraphicsManager() {}
 	~GraphicsManager() {

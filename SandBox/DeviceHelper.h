@@ -80,7 +80,7 @@ public:
     }
 
     static glm::quat PxQuattoGlmQuat(physx::PxQuat pxVec) {
-        return glm::quat(pxVec.x, pxVec.y, pxVec.z, pxVec.w);
+        return glm::quat(pxVec.w, pxVec.x, pxVec.y, pxVec.z);
     }
 };
 

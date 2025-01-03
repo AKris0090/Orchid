@@ -164,7 +164,7 @@ void PhysicsManager::loopUpdate(std::vector<GameObject*>& gameObjects, std::vect
 			physx::PxTransform newTransform = g->physicsActor->getGlobalPose();
 			g->renderTargetTransforms[0]->position = DeviceHelper::PxVec3toGlmVec3(newTransform.p);
 			glm::quat newRotation = DeviceHelper::PxQuattoGlmQuat(newTransform.q);
-			g->renderTargetTransforms[0]->rotation = glm::eulerAngles(newRotation);
+ 			g->renderTargetTransforms[0]->rotation = glm::eulerAngles(newRotation);
 		}
 	}
 	for (AnimatedGameObject* g : animatedGameObjects) {
