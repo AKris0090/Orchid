@@ -9,6 +9,7 @@ namespace Input {
 	bool down;
 	bool shift;
 	bool mouseButton;
+	bool altMouseButton;
 
 	void handleSDLInput(SDL_Event& e) {
 		if (e.type == SDL_KEYDOWN) {
@@ -30,6 +31,10 @@ namespace Input {
 		if (e.type == SDL_MOUSEBUTTONDOWN) {
 			if (e.button.button == SDL_BUTTON_LEFT) {
 				mouseButton = true;
+			}
+
+			if (e.button.button == SDL_BUTTON_RIGHT) {
+				altMouseButton = true;
 			}
 		}
 
@@ -53,6 +58,10 @@ namespace Input {
 		if (e.type == SDL_MOUSEBUTTONUP) {
 			if (e.button.button == SDL_BUTTON_LEFT) {
 				mouseButton = false;
+			}
+
+			if (e.button.button == SDL_BUTTON_RIGHT) {
+				altMouseButton = false;
 			}
 		}
 	}
@@ -82,6 +91,10 @@ namespace Input {
 	}
 
 	bool leftMouseDown() {
+		return mouseButton;
+	}
+
+	bool rightMouseDown() {
 		return mouseButton;
 	}
 

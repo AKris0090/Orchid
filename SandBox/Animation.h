@@ -8,10 +8,10 @@ struct AnimSceneNode {
 	uint32_t index;
 	std::vector<AnimSceneNode*> children;
 	std::vector<MeshHelper*> meshPrimitives;
-	glm::vec3 translation{};
+	glm::vec3 position{ 1.0f };
+	glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
 	glm::vec3 scale{ 1.0f };
-	glm::quat rotation{}; 
-	glm::mat4 matrix;
+	glm::mat4 matrix = glm::mat4(1.0f);
 	glm::mat4 getAnimatedMatrix() const;
 
 	int32_t skinIndex = -1;

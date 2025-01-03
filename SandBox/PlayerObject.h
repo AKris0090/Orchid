@@ -12,7 +12,8 @@
 enum PLAYERSTATE {
 	IDLE,
 	WALKING,
-	RUNNING
+	RUNNING,
+	GUNAIM
 };
 
 class PlayerObject : public AnimatedGameObject {
@@ -37,6 +38,7 @@ public:
 	Animation walkAnim;
 	Animation idleAnim;
 	Animation runAnim;
+	Animation gunAnim;
 
 	FPSCam* camera;
 

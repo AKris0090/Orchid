@@ -3,7 +3,7 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
 glm::mat4 AnimSceneNode::getAnimatedMatrix() const {
-    return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
+    return glm::translate(glm::mat4(1.0f), position) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
 }
 
 // Also from Sascha Willems' gltfskinning example
@@ -80,7 +80,7 @@ void AnimatedGLTFObj::loadNode(tinygltf::Model& in, const tinygltf::Node& nodeIn
     scNode->index = nodeIndex;
 
     if (nodeIn.translation.size() == 3) {
-        scNode->translation = glm::make_vec3(nodeIn.translation.data());
+        scNode->position = glm::make_vec3(nodeIn.translation.data());
     }
     if (nodeIn.rotation.size() == 4) {
         glm::quat q = glm::make_quat(nodeIn.rotation.data());

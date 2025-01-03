@@ -1,6 +1,8 @@
 #include "AnimatedGameObject.h"
 #include "Time.h"
 
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+
 glm::mat4 AnimatedGameObject::getNodeMatrix(AnimSceneNode* node)
 {
     glm::mat4 nodeMatrix = node->getAnimatedMatrix();
@@ -103,13 +105,10 @@ void AnimatedGameObject::smoothFromCurrentPosition(std::vector<glm::mat4>& bindM
     for (auto& channel : activeAnimation->channels) {
         switch (hash_str(channel.path)) {
         case STRINGENUM::TRANSLATION:
-            channel.node->translation = Time::weightLerp(renderTargets[0]->src->at(i).position, renderTargets[0]->dst->at(i).position, smoothAmount);
+            channel.node->position = Time::weightLerp(renderTargets[0]->src->at(i).position, renderTargets[0]->dst->at(i).position, smoothAmount);
             break;
         case STRINGENUM::ROTATION:
-            channel.node->rotation.x = Time::weightLerp(renderTargets[0]->src->at(i).rotation.x, renderTargets[0]->dst->at(i).rotation.x, smoothAmount);
-            channel.node->rotation.y = Time::weightLerp(renderTargets[0]->src->at(i).rotation.y, renderTargets[0]->dst->at(i).rotation.y, smoothAmount);
-            channel.node->rotation.z = Time::weightLerp(renderTargets[0]->src->at(i).rotation.z, renderTargets[0]->dst->at(i).rotation.z, smoothAmount);
-            channel.node->rotation.w = Time::weightLerp(renderTargets[0]->src->at(i).rotation.w, renderTargets[0]->dst->at(i).rotation.w, smoothAmount);
+            channel.node->rotation = glm::slerp(renderTargets[0]->src->at(i).rotation, renderTargets[0]->dst->at(i).rotation, smoothAmount);
             break;
         case STRINGENUM::SCALE:
             channel.node->scale = Time::weightLerp(renderTargets[0]->src->at(i).scale, renderTargets[0]->dst->at(i).scale, smoothAmount);
@@ -151,7 +150,7 @@ void AnimatedGameObject::updateAnimation(std::vector<glm::mat4>& bindMatrices, f
     {
         switch (hash_str(channel.path)) {
         case STRINGENUM::TRANSLATION:
-            channel.node->translation = renderTargets[0]->dst->at(i).position;
+            channel.node->position = renderTargets[0]->dst->at(i).position;
             break;
         case STRINGENUM::ROTATION:
             channel.node->rotation = renderTargets[0]->dst->at(i).rotation;

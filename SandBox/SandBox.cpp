@@ -98,6 +98,7 @@ void Scene::setupScene() {
     player->currentState = PLAYERSTATE::IDLE;
     player->runAnim.loadAnimation(std::string("./goro/goroRun2.glb"), player->renderTargets[0]->pParentNodes);
     player->idleAnim.loadAnimation(std::string("./goro/goroIdle.glb"), player->renderTargets[0]->pParentNodes);
+    player->gunAnim.loadAnimation(std::string("./goro/goroAim.glb"), player->renderTargets[0]->pParentNodes);
     player->renderTargets[0]->src = new std::vector<AnimatedGLTFObj::secondaryTransform>(player->walkAnim.numChannels);
     player->renderTargets[0]->dst = new std::vector<AnimatedGLTFObj::secondaryTransform>(player->walkAnim.numChannels);
     player->activeAnimation = &(player->idleAnim);
