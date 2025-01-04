@@ -95,7 +95,7 @@ namespace Input {
 	}
 
 	bool rightMouseDown() {
-		return mouseButton;
+		return altMouseButton;
 	}
 
 	bool shiftKeyDown() {

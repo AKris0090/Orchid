@@ -27,6 +27,11 @@ void PlayerObject::transitionState(PLAYERSTATE newState) {
 		currentSpeed = playerRunSpeed;
 		activeAnimation = &(runAnim);
 		break;
+	case PLAYERSTATE::GUNAIM:
+		currentState = PLAYERSTATE::GUNAIM;
+		currentSpeed = playerWalkSpeed;
+		activeAnimation = &(gunAnim);
+		break;
 	default:
 		break;
 	}
@@ -70,17 +75,41 @@ void PlayerObject::scriptUpdate() {
 		}
 
 		if (glm::length(localDisplacement) != 0.0f) {
-			if (Input::shiftKeyDown()) {
-				if (currentState == PLAYERSTATE::WALKING || currentState == PLAYERSTATE::IDLE) {
-					transitionState(RUNNING);
+			localDisplacement = glm::normalize(localDisplacement) * currentSpeed;
+
+			if (Input::rightMouseDown()) {
+				if (currentState != PLAYERSTATE::GUNAIM) {
+					transitionState(GUNAIM);
 				}
 			}
 			else {
-				if (currentState == PLAYERSTATE::RUNNING || currentState == PLAYERSTATE::IDLE) {
-					transitionState(WALKING);
+				if (Input::shiftKeyDown()) {
+					if (currentState != PLAYERSTATE::RUNNING) {
+						transitionState(RUNNING);
+					}
+				}
+				else {
+					if (currentState != PLAYERSTATE::WALKING) {
+						transitionState(WALKING);
+					}
 				}
 			}
-			localDisplacement = glm::normalize(localDisplacement) * currentSpeed;
+		}
+		else {
+			if (currentState != PLAYERSTATE::IDLE && !Input::rightMouseDown()) {
+				transitionState(IDLE);
+				currentSpeed = 0.0f;
+			}
+			else if (Input::rightMouseDown() && currentState != PLAYERSTATE::GUNAIM) {
+				transitionState(PLAYERSTATE::GUNAIM);
+			}
+		}
+
+		if (currentState == PLAYERSTATE::GUNAIM) {
+			float theta = std::atan2(-camera->forward.x, -camera->forward.z);
+			transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
+		}
+		else {
 			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
 			if (theta - transform.rotation.y > PI) {
 				theta -= 2.0f * PI;
@@ -89,12 +118,6 @@ void PlayerObject::scriptUpdate() {
 				theta += 2.0f * PI;
 			}
 			transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
-		}
-		else {
-			if (currentState != PLAYERSTATE::IDLE) {
-				transitionState(IDLE);
-				currentSpeed = 0.0f;
-			}
 		}
 
 		physx::PxFilterData filterData;
