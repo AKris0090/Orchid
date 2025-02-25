@@ -24,6 +24,8 @@ public:
 	physx::PxRigidActor* physicsActor;
 	physx::PxShape* pShape_;
 
+	bool updateAnim;
+
 	bool needsSmooth;
 	std::chrono::milliseconds smoothDuration;
 	std::chrono::time_point<std::chrono::system_clock> smoothStart;

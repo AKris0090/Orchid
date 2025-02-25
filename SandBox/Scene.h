@@ -17,7 +17,9 @@ public:
 			g->loopUpdate();
 		}
 		for (auto& aG : this->graphicsManager.animatedGameObjects) {
-			aG->updateAnimation(graphicsManager.vkR_.inverseBindMatrices, Time::getDeltaTime());
+			if (aG->updateAnim) {
+				aG->updateAnimation(graphicsManager.vkR_.inverseBindMatrices, Time::getDeltaTime());
+			}
 			aG->loopUpdate();
 		}
 		graphicsManager.vkR_.updateBindMatrices();

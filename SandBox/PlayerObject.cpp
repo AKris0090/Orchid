@@ -74,10 +74,11 @@ void PlayerObject::scriptUpdate() {
 			localDisplacement -= camera->right;
 		}
 
+		updateAnim = true;
 		if (glm::length(localDisplacement) != 0.0f) {
 			localDisplacement = glm::normalize(localDisplacement) * currentSpeed;
 
-			if (Input::rightMouseDown()) {
+			if (Input::rightMouseDown() || Input::upKeyDown()) {
 				if (currentState != PLAYERSTATE::GUNAIM) {
 					transitionState(GUNAIM);
 				}
@@ -96,28 +97,31 @@ void PlayerObject::scriptUpdate() {
 			}
 		}
 		else {
-			if (currentState != PLAYERSTATE::IDLE && !Input::rightMouseDown()) {
+			if (currentState != PLAYERSTATE::IDLE && !(Input::rightMouseDown() || Input::upKeyDown())) {
 				transitionState(IDLE);
 				currentSpeed = 0.0f;
 			}
-			else if (Input::rightMouseDown() && currentState != PLAYERSTATE::GUNAIM) {
+			else if ((Input::rightMouseDown() || Input::upKeyDown()) && currentState != PLAYERSTATE::GUNAIM) {
+				updateAnim = false;
 				transitionState(PLAYERSTATE::GUNAIM);
 			}
 		}
 
-		if (currentState == PLAYERSTATE::GUNAIM) {
-			float theta = std::atan2(-camera->forward.x, -camera->forward.z);
-			transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
-		}
-		else {
-			float theta = std::atan2(localDisplacement.x, localDisplacement.z);
-			if (theta - transform.rotation.y > PI) {
-				theta -= 2.0f * PI;
+		if (glm::length(localDisplacement) != 0.0f) {
+			if (currentState == PLAYERSTATE::GUNAIM) {
+				float theta = std::atan2(-camera->forward.x, -camera->forward.z);
+				transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
 			}
 			else {
-				theta += 2.0f * PI;
+				float theta = std::atan2(localDisplacement.x, localDisplacement.z);
+				if (theta - transform.rotation.y > PI) {
+					theta -= 2.0f * PI;
+				}
+				else {
+					theta += 2.0f * PI;
+				}
+				transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
 			}
-			transform.rotation.y = Time::lerp(transform.rotation.y, theta, Time::getDeltaTime() * turnSpeed);
 		}
 
 		physx::PxFilterData filterData;
