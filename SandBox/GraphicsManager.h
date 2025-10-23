@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
+#include <cstdlib>
 #include "VulkanRenderer.h"
 #include "PlayerObject.h"
 #include "TrainObject.h"
@@ -17,7 +18,7 @@ private:
 	void imGUIUpdate();
 	static void check_vk_result(VkResult err);
 
-	void setupImGUI();
+	void setupImGUI() const;
 	void startVulkan(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths);
 	void startSDL();
 
@@ -39,5 +40,5 @@ public:
 
 	void setup(std::vector<std::string>& staticModelPaths, std::vector<std::string>& animatedModelPaths, std::string& skyboxModelPath, std::vector<std::string>& skyboxTexturePaths);
 	void loopUpdate();
-	void shutDown();
+	void shutDown() const;
 };

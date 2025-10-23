@@ -15,4 +15,6 @@ namespace Input {
 	bool leftMouseDown();
 	bool rightMouseDown();
 	bool shiftKeyDown();
+	bool reloadKeyDown();
+	void resetReload();
 };

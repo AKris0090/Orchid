@@ -2,6 +2,8 @@
 
 #include <chrono>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 constexpr auto DIFFPI = 3.141592653589793;
 
@@ -18,6 +20,11 @@ namespace Time {
 
 	static float weightLerp(float a, float b, float t) {
 		return (a * (1.0f - t)) + (b * (t));
+	}
+
+	static glm::quat lerpQuat(glm::quat& a, glm::quat& b, float t)
+	{
+		return glm::slerp(a, b, t);
 	}
 
 	static glm::vec3 weightLerp(glm::vec3 a, glm::vec3 b, float t) {

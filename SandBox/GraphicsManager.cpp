@@ -8,7 +8,7 @@ void GraphicsManager::check_vk_result(VkResult err) {
         abort();
 }
 
-void GraphicsManager::setupImGUI() {
+void GraphicsManager::setupImGUI() const {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -45,7 +45,7 @@ void GraphicsManager::setup(std::vector<std::string>& staticModelPaths, std::vec
     setupImGUI();
 }
 
-void GraphicsManager::shutDown() {
+void GraphicsManager::shutDown() const {
     vkDeviceWaitIdle(vkR_.device_);
 
     //vkR_.shutdown();
@@ -365,8 +365,34 @@ void GraphicsManager::startVulkan(std::vector<std::string>& staticModelPaths, st
     return;
 }
 
+const char* shaderCompPath = "shaders\\compileHot.bat";
+
 void GraphicsManager::loopUpdate() {
     imGUIUpdate();
+
+    if (Input::reloadKeyDown()) {
+        // wait till all command buffers are processed - pipeline cannot be in use
+        vkDeviceWaitIdle(vkR_.device_);
+        vkQueueWaitIdle(vkR_.graphicsQueue_);
+        Input::resetReload();
+
+        // run the shader compilation bash script
+        int result = system(shaderCompPath);
+        if (result == 0) {
+            std::cout << "Shaders Compiled!" << std::endl;
+
+            // recreate the pipelines
+            delete vkR_.opaquePipeline_;
+            delete vkR_.toneMappingPipeline_;
+            delete vkR_.toonPipeline_;
+            vkR_.createGraphicsPipeline();
+            vkR_.createToneMappingPipeline();
+            vkR_.createToonPipeline();
+        }
+        else {
+            std::cout << "Error in Shader Compilation" << std::endl;
+        }
+    }
 
     updateModelMatrices(this->frameCount == 0);
     vkR_.drawNewFrame(pWindow_, vkR_.numFramesInFlight);

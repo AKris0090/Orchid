@@ -123,9 +123,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;GLM_ENABLE_EXPERIMENTAL;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.3.268.0\Include;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\tinyobjloader-master;C:\Users\arjoo\OneDrive\Documents\GameProjects\dev\stb-master;imgui;C:\VulkanSDK\1.3.268.0\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;D:\Documents\Graphics Projects\Orchid\dev\tinyobjloader-master;D:\Documents\Graphics Projects\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;D:\Documents\Graphics Projects\Orchid\dev\tinygltf-2.8.19;C:\Users\arjoo\OneDrive\Documents\GameProjects\SndBx\SandBox\KTX-Software-4.3.0-beta1\include;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
@@ -136,7 +136,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.3.268.0\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.4.328.1\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

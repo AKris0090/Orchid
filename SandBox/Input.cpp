@@ -8,6 +8,7 @@ namespace Input {
 	bool up;
 	bool down;
 	bool shift;
+	bool reload;
 	bool mouseButton;
 	bool altMouseButton;
 
@@ -52,6 +53,8 @@ namespace Input {
 			if (e.key.keysym.sym == SDLK_q) { down = false; }
 
 			if (e.key.keysym.sym == SDLK_LSHIFT) { shift = false; }
+
+			if (e.key.keysym.sym == SDLK_r) { reload = true; }
 		}
 
 
@@ -100,5 +103,13 @@ namespace Input {
 
 	bool shiftKeyDown() {
 		return shift;
+	}
+
+	bool reloadKeyDown() {
+		return reload;
+	}
+
+	void resetReload() {
+		reload = false;
 	}
 }

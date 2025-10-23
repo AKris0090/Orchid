@@ -71,9 +71,9 @@ public:
 	void setFarPlane(float farP);
 	void setAspectRatio(float aspect);
 	void setFOV(float fov);
-	float getNearPlane() { return this->nearPlane; };
-	float getFarPlane() { return this->farPlane; };
-	float getAspectRatio() { return this->aspectRatio; };
-	float getFOV() { return this->FOV; };
+	float getNearPlane() const { return this->nearPlane; };
+	float getFarPlane() const { return this->farPlane; };
+	float getAspectR() const { return this->aspectRatio; };
+	float getFOV() const { return this->FOV; };
 	void updateFrustrumPlanes();
 };
