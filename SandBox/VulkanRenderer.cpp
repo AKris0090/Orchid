@@ -461,7 +461,7 @@ void VulkanRenderer::postDrawEndCommandBuffer(VkCommandBuffer commandBuffer, SDL
     queueSubmitInfo.commandBufferCount = 1;
     queueSubmitInfo.pCommandBuffers = &this->commandBuffers_[currentFrame_];
 
-    VkSemaphore signaledSemaphores[] = { this->renderedSema_[currentFrame_] };
+    VkSemaphore signaledSemaphores[] = { this->renderedSema_[imageIndex_] };
     queueSubmitInfo.signalSemaphoreCount = 1;
     queueSubmitInfo.pSignalSemaphores = signaledSemaphores;
 
