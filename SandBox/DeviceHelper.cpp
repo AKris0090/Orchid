@@ -1,3 +1,4 @@
+#define VMA_IMPLEMENTATION
 #include "DeviceHelper.h"
 
 void DeviceHelper::createImageView(const VkImage& image, VkImageView& imageView, const VkFormat format, const VkImageAspectFlags aspectFlags, const uint32_t mipLevels) const {
@@ -164,6 +165,23 @@ void DeviceHelper::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
     }
 
     vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+}
+
+void DeviceHelper::createStagingBuffer(VkDeviceSize size, VkBuffer& buffer, VmaAllocation& bufferMemory) const {
+    VkBufferCreateInfo bufferCInfo{};
+    bufferCInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferCInfo.size = size;
+    bufferCInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferCInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    if (vmaCreateBuffer(allocator_, &bufferCInfo, &allocInfo, &buffer, &bufferMemory, nullptr) != VK_SUCCESS) {
+        std::_Xruntime_error("Failed to create the staging buffer!");
+	}
 }
 
 void DeviceHelper::transitionImageLayout(VkCommandBuffer& cmdBuff, const VkImageSubresourceRange& subresourceRange, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkImage& image) {

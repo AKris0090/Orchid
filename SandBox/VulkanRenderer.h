@@ -172,7 +172,7 @@ public:
 
 	std::vector<VkBuffer> modelMatrixStagingBuffers;
 	std::vector<void*> mappedModelMatrixStagingBuffers;
-	std::vector<VkDeviceMemory> modelMatrixStagingBufferMemorys;
+	std::vector<VmaAllocation> modelMatrixStagingBufferMemorys;
 
 	std::vector<Vertex> screenQuadVertices;
 	std::vector<uint32_t> screenQuadIndices;

@@ -115,13 +115,13 @@ void TextureHelper::createTextureImages(tinygltf::Model& inputModel) {
 
     if (dummy) {
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        pDevHelper_->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+        VmaAllocation stagingBufferMemory;
+        pDevHelper_->createStagingBuffer(imageSize, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(pDevHelper_->device_, stagingBufferMemory, 0, imageSize, 0, &data);
+        vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(pDevHelper_->device_, stagingBufferMemory);
+        vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
         stbi_image_free(pixels);
 
@@ -138,23 +138,19 @@ void TextureHelper::createTextureImages(tinygltf::Model& inputModel) {
         generateMipmaps(cmdBuff, textureImage_, pDevHelper_, 1, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
         pDevHelper_->endSingleTimeCommands(cmdBuff);
 
-        vkDestroyBuffer(pDevHelper_->device_, stagingBuffer, nullptr);
-        vkFreeMemory(pDevHelper_->device_, stagingBufferMemory, nullptr);
+        vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 
         std::cout << "loaded: DUMMY " << index_ << std::endl;
     }
     else {
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        pDevHelper_->createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(pDevHelper_->device_, stagingBuffer, &memRequirements);
+        VmaAllocation stagingBufferMemory;
+        pDevHelper_->createStagingBuffer(buffSize, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(pDevHelper_->device_, stagingBufferMemory, 0, memRequirements.size, 0, &data);
+        vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
         memcpy(data, buff, buffSize);
-        vkUnmapMemory(pDevHelper_->device_, stagingBufferMemory);
+        vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
         VkImageSubresourceRange subresource{};
         subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -170,8 +166,7 @@ void TextureHelper::createTextureImages(tinygltf::Model& inputModel) {
         generateMipmaps(cmdBuff, textureImage_, pDevHelper_, 1, imageFormat_, curImage.width, curImage.height, this->mipLevels_);
         pDevHelper_->endSingleTimeCommands(cmdBuff);
 
-        vkDestroyBuffer(pDevHelper_->device_, stagingBuffer, nullptr);
-        vkFreeMemory(pDevHelper_->device_, stagingBufferMemory, nullptr);
+        vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 
         if (deleteBuff) {
             delete[] buff;

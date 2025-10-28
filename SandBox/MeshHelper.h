@@ -120,19 +120,18 @@ public:
 		VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
 		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		pDevHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		VmaAllocation stagingBufferMemory;
+		pDevHelper->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(pDevHelper->device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vmaMapMemory(pDevHelper->allocator_, stagingBufferMemory, &data);
 		memcpy(data, vertices.data(), (size_t)bufferSize);
-		vkUnmapMemory(pDevHelper->device_, stagingBufferMemory);
+		vmaUnmapMemory(pDevHelper->allocator_, stagingBufferMemory);
 
 		pDevHelper->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
 		pDevHelper->copyBuffer(stagingBuffer, vertexBuffer_, bufferSize, 0, 0);
 
-		vkDestroyBuffer(pDevHelper->device_, stagingBuffer, nullptr);
-		vkFreeMemory(pDevHelper->device_, stagingBufferMemory, nullptr);
+		vmaDestroyBuffer(pDevHelper->allocator_, stagingBuffer, stagingBufferMemory);
 	}
 };
 

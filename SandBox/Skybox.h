@@ -14,7 +14,7 @@ private:
 	stbi_uc* pixels[6];
 
 	VkBuffer stagingBuffer_;
-	VkDeviceMemory stagingBufferMemory_;
+	VmaAllocation stagingBufferMemory_;
 	VkImage skyBoxImage_;
 	VkDeviceMemory skyBoxImageMemory_;
 

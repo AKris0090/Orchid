@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vk_mem_alloc.h>
 #include <iostream>
 #include <vulkan/vulkan.hpp>
 #include <fstream>
@@ -42,6 +43,7 @@ public:
     VkDescriptorPool descPool_;
     VkDescriptorSetLayout texDescSetLayout_;
     VkSampleCountFlagBits msaaSamples_;
+	VmaAllocator allocator_;
 
     DeviceHelper() {
         this->device_ = VK_NULL_HANDLE;
@@ -58,6 +60,7 @@ public:
     void protectedEndCommands(VkCommandBuffer commandBuffer) const;
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
+    void createStagingBuffer(VkDeviceSize size, VkBuffer& buffer, VmaAllocation& bufferMemory) const;
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset) const;
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;

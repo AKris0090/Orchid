@@ -23,14 +23,13 @@ void Skybox::createSkyBoxImage() {
         throw std::runtime_error("failed to load skybox image!");
     }
 
-    pDevHelper_->createBuffer(totalImageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer_, stagingBufferMemory_);
-
+    pDevHelper_->createStagingBuffer(totalImageSize, stagingBuffer_, stagingBufferMemory_);
     void* data;
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory_, &data);
     for (int i = 0; i < 6; i++) {
-        vkMapMemory(pDevHelper_->device_, stagingBufferMemory_, (i * imageSize), imageSize, 0, &data);
-        memcpy(data, pixels[i], static_cast<size_t>(imageSize));
-        vkUnmapMemory(pDevHelper_->device_, stagingBufferMemory_);
+        std::memcpy(static_cast<char*>(data) + i * imageSize, pixels[i], imageSize);
     }
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory_);
 
     pDevHelper_->createImage(texWidth, texHeight, mipLevels_, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_SAMPLE_COUNT_1_BIT, imageFormat_, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyBoxImage_, skyBoxImageMemory_);
 
@@ -48,8 +47,7 @@ void Skybox::createSkyBoxImage() {
     TextureHelper::generateMipmaps(copyCommandBuffer, skyBoxImage_, pDevHelper_, 6, imageFormat_, texWidth, texHeight, this->mipLevels_);
     pDevHelper_->endSingleTimeCommands(copyCommandBuffer);
 
-    vkDestroyBuffer(pDevHelper_->device_, stagingBuffer_, nullptr);
-    vkFreeMemory(pDevHelper_->device_, stagingBufferMemory_, nullptr);
+	vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer_, stagingBufferMemory_);
 }
 
 void Skybox::createSkyBoxImageView() {

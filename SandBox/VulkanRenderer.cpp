@@ -945,6 +945,14 @@ void VulkanRenderer::createLogicalDevice() {
     vkGetDeviceQueue(device_, QFIndices_.graphicsFamily.value(), 0, &graphicsQueue_);
     vkGetDeviceQueue(device_, QFIndices_.presentFamily.value(), 0, &presentQueue_);
     vkGetDeviceQueue(device_, QFIndices_.computeFamily.value(), 0, &computeQueue_);
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorCreateInfo.physicalDevice = GPU_;
+    allocatorCreateInfo.device = device_;
+    allocatorCreateInfo.instance = instance_;
+
+    vmaCreateAllocator(&allocatorCreateInfo, &pDevHelper_->allocator_);
 }
 
 void VulkanRenderer::loadDebugUtilsFunctions(VkDevice device) {
@@ -1254,36 +1262,40 @@ void VulkanRenderer::createVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(Vertex) * vertices_.size();
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    VmaAllocation stagingBufferMemory;
+    pDevHelper_->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
     memcpy(data, vertices_.data(), (size_t)bufferSize);
-    vkUnmapMemory(device_, stagingBufferMemory);
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer_, vertexBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, this->vertexBuffer_, bufferSize, 0, 0);
 
     createQuadVertexBuffer();
+
+	vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 }
 
 void VulkanRenderer::createIndexBuffer() {
     VkDeviceSize bufferSize = sizeof(indices_[0]) * indices_.size();
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    VmaAllocation stagingBufferMemory;
+    pDevHelper_->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
     memcpy(data, indices_.data(), (size_t)bufferSize);
-    vkUnmapMemory(device_, stagingBufferMemory);
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer_, indexBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, indexBuffer_, bufferSize, 0, 0);
 
     createQuadIndexBuffer();
+
+	vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 }
 
 void VulkanRenderer::createQuadVertexBuffer() {
@@ -1298,16 +1310,18 @@ void VulkanRenderer::createQuadVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(Vertex) * screenQuadVertices.size();
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    VmaAllocation stagingBufferMemory;
+    pDevHelper_->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
     memcpy(data, screenQuadVertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device_, stagingBufferMemory);
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadVertexBuffer, screenQuadVertexBufferMemory);
     pDevHelper_->copyBuffer(stagingBuffer, this->screenQuadVertexBuffer, bufferSize, 0, 0);
+
+    vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 }
 
 void VulkanRenderer::createQuadIndexBuffer() {
@@ -1318,16 +1332,18 @@ void VulkanRenderer::createQuadIndexBuffer() {
     VkDeviceSize bufferSize = sizeof(screenQuadIndices[0]) * screenQuadIndices.size();
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    VmaAllocation stagingBufferMemory;
+    pDevHelper_->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
     memcpy(data, screenQuadIndices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device_, stagingBufferMemory);
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, screenQuadIndexBuffer, screenQuadIndexBufferMemory);
     pDevHelper_->copyBuffer(stagingBuffer, screenQuadIndexBuffer, bufferSize, 0, 0);
+
+    vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1514,16 +1530,18 @@ void VulkanRenderer::createDrawCallBuffer() {
     VkDeviceSize bufferSize = sizeof(VkDrawIndexedIndirectCommand) * drawCommands.size();
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    VmaAllocation stagingBufferMemory;
+    pDevHelper_->createStagingBuffer(bufferSize, stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device_, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
     memcpy(data, drawCommands.data(), (size_t)bufferSize);
-    vkUnmapMemory(device_, stagingBufferMemory);
+    vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
     pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, drawCallBuffer_, drawCallBufferMemory_);
     pDevHelper_->copyBuffer(stagingBuffer, this->drawCallBuffer_, bufferSize, 0, 0);
+
+    vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
 }
 
 void VulkanRenderer::createModelMatrixBuffer() {
@@ -1537,10 +1555,9 @@ void VulkanRenderer::createModelMatrixBuffer() {
     VkDeviceSize bufferSize = sizeof(glm::mat4) * modelMatrices.size();
 
     for (int i = 0; i < numFramesInFlight; i++) {
-        pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, modelMatrixStagingBuffers[i], modelMatrixStagingBufferMemorys[i]);
+        pDevHelper_->createStagingBuffer(bufferSize, modelMatrixStagingBuffers[i], modelMatrixStagingBufferMemorys[i]);
 
-        vkMapMemory(device_, modelMatrixStagingBufferMemorys[i], 0, bufferSize, 0, &mappedModelMatrixStagingBuffers[i]);
-        //memcpy(mappedModelMatrixStagingBuffers[i], modelMatrices.data(), (size_t)bufferSize);
+        vmaMapMemory(pDevHelper_->allocator_, modelMatrixStagingBufferMemorys[i], &mappedModelMatrixStagingBuffers[i]);
 
         pDevHelper_->createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, modelMatrixBuffers[i], modelMatrixBufferMemorys[i]);
 
@@ -2414,16 +2431,18 @@ void VulkanRenderer::createComputeCullResources(int framesInFlight) {
         }
 
         VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        pDevHelper_->createBuffer(bbSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+        VmaAllocation stagingBufferMemory;
+        pDevHelper_->createStagingBuffer(bbSize, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(device_, stagingBufferMemory, 0, bbSize, 0, &data);
+        vmaMapMemory(pDevHelper_->allocator_, stagingBufferMemory, &data);
         memcpy(data, boundingBoxes.data(), bbSize);
-        vkUnmapMemory(device_, stagingBufferMemory);
+        vmaUnmapMemory(pDevHelper_->allocator_, stagingBufferMemory);
 
         pDevHelper_->createBuffer(bbSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bbBuffers[i], bbBufferMemorys[i]);
         pDevHelper_->copyBuffer(stagingBuffer, bbBuffers[i], bbSize, 0, 0);
+
+        vmaDestroyBuffer(pDevHelper_->allocator_, stagingBuffer, stagingBufferMemory);
     }
 
     std::vector<VulkanDescriptorLayoutBuilder::BindingStruct> bindings(4);

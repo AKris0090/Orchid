@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;GLM_ENABLE_EXPERIMENTAL;_DEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\tinygltf-2.8.19;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\VulkanMemoryAllocator-3.3.0\include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\tinygltf-2.8.19;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
@@ -125,7 +125,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;GLM_ENABLE_EXPERIMENTAL;NDEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\tinygltf-2.8.19;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\tinygltf-2.8.19;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\VulkanMemoryAllocator-3.3.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
