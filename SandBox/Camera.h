@@ -4,8 +4,8 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 #include "VulkanUtils.h"
-#include <physx/PxPhysicsAPI.h>
-#include <physx/PxPhysics.h>
+#include <PxPhysicsAPI.h>
+#include <PxPhysics.h>
 #include "Input.h"
 #include <math.h>
 

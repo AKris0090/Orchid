@@ -16,7 +16,7 @@
 
 #include <PxPhysics.h>
 #include <PxPhysicsAPI.h>
-#include <PxCooking.h>
+#include <cooking/PxCooking.h>
 #include <characterkinematic/PxControllerManager.h>
 
 #pragma warning(pop)

@@ -29,13 +29,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -70,6 +70,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>C:\Users\ajnkr\Documents\DEV\VulkanMemoryAllocator-3.3.0\include;C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\include;C:\Users\ajnkr\Documents\DEV\tinygltf-2.8.19;C:\Users\ajnkr\Documents\DEV\stb-master;C:\VulkanSDK\1.4.335.0\Include\SDL2;C:\VulkanSDK\1.4.335.0\Include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\bin\win.x86_64.vc143.mt\release;C:\VulkanSDK\1.4.335.0\Lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\Users\ajnkr\Documents\DEV\VulkanMemoryAllocator-3.3.0\include;C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\include;C:\Users\ajnkr\Documents\DEV\tinygltf-2.8.19;C:\Users\ajnkr\Documents\DEV\stb-master;C:\VulkanSDK\1.4.335.0\Include\SDL2;C:\VulkanSDK\1.4.335.0\Include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\bin\win.x86_64.vc143.mt\release;C:\VulkanSDK\1.4.335.0\Lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -104,7 +112,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS;GLM_ENABLE_EXPERIMENTAL;_DEBUG</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.328.1\Include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\stb-master;imgui;C:\VulkanSDK\1.4.328.1\Include\SDL2;C:\dev\vcpkg\installed\x64-windows\include\physx;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\VulkanMemoryAllocator-3.3.0\include;C:\Users\arjoo\OneDrive\Documents\Orchid\dev\tinygltf-2.8.19;C:\dev\vcpkg\installed\x64-windows\include\physx\cooking;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\VulkanSDK\1.4.335.0\Include;C:\VulkanSDK\1.4.335.0\Include\SDL2;imgui;C:\Users\ajnkr\Documents\DEV\stb-master;C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\include;C:\Users\ajnkr\Documents\DEV\VulkanMemoryAllocator-3.3.0\include;C:\Users\ajnkr\Documents\DEV\tinygltf-2.8.19;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableSpecificWarnings>
       </DisableSpecificWarnings>
@@ -113,7 +121,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.4.328.1\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\bin\win.x86_64.vc143.mt\release</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -136,8 +144,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.4.328.1\Lib;C:\dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\bin\win.x86_64.vc143.mt\release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;SDL2main.lib;C:\Users\ajnkr\Documents\DEV\PhysX-107.3-omni-and-physx-5.6.1\PhysX-107.3-omni-and-physx-5.6.1\physx\bin\win.x86_64.vc143.mt\release\*.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
